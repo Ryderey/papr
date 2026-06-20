@@ -8,6 +8,7 @@ import { useUi, READER_BOUNDS } from "../store";
 import { useArticleActions } from "../hooks/articleActions";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { LANGUAGES, setLanguage, type Language } from "../i18n";
+import { errorText } from "../lib/errors";
 import { feedHost } from "../lib/feedMeta";
 import { modKey, modCombo } from "../lib/platform";
 import { reportError } from "../toast";
@@ -203,10 +204,12 @@ function Row({
 function Toggle({
   checked,
   onChange,
+  disabled,
   "aria-label": ariaLabel,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
   "aria-label"?: string;
 }) {
   return (
@@ -214,6 +217,7 @@ function Toggle({
       type="checkbox"
       className="s-toggle"
       checked={checked}
+      disabled={disabled}
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.checked)}
     />
@@ -224,17 +228,20 @@ function Select<T extends string>({
   value,
   options,
   onChange,
+  disabled,
   "aria-label": ariaLabel,
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
+  disabled?: boolean;
   "aria-label"?: string;
 }) {
   return (
     <select
       className="s-select"
       value={value}
+      disabled={disabled}
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value as T)}
     >
@@ -1631,52 +1638,526 @@ function DangerZone({ onToast }: { onToast: (m: string) => void }) {
  *  services. The reader can override this per translation, but only temporarily. */
 type TranslateEngine = "llm" | "google" | "deepl" | "bing";
 
-/** Real AI provider configuration — backing the AI summary feature, plus the
- *  default translation engine + language and the engines' credentials. */
+type AiProtocol = "anthropic_messages" | "openai_chat_completions";
+type AiAuth = "bearer" | "x_api_key" | "none";
+type AiPurpose = "summary" | "ask" | "digest" | "translate";
+
+interface AiProfile {
+  id: string;
+  name: string;
+  protocol: AiProtocol;
+  base_url: string;
+  api_key: string;
+  model: string;
+  enabled: boolean;
+  default_for?: AiPurpose[];
+  headers?: Record<string, string>;
+  auth?: AiAuth;
+}
+
+interface AiProfilesJson {
+  version: 1;
+  active_profile_id?: string;
+  profiles: AiProfile[];
+}
+
+interface AiPreset {
+  id: string;
+  name: string;
+  protocol: AiProtocol;
+  base_url: string;
+  model: string;
+  auth: AiAuth;
+}
+
+const AI_PURPOSE_KEYS: Record<AiPurpose, string> = {
+  summary: "ai_default_summary_profile_id",
+  ask: "ai_default_ask_profile_id",
+  digest: "ai_default_digest_profile_id",
+  translate: "ai_default_translate_profile_id",
+};
+
+const AI_PRESETS: AiPreset[] = [
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    protocol: "anthropic_messages",
+    base_url: "https://api.anthropic.com/v1",
+    model: "claude-sonnet-4-6",
+    auth: "x_api_key",
+  },
+  {
+    id: "openai",
+    name: "OpenAI",
+    protocol: "openai_chat_completions",
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    auth: "bearer",
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    protocol: "openai_chat_completions",
+    base_url: "https://openrouter.ai/api/v1",
+    model: "openai/gpt-4.1-mini",
+    auth: "bearer",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    protocol: "openai_chat_completions",
+    base_url: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    auth: "bearer",
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    protocol: "openai_chat_completions",
+    base_url: "https://api.groq.com/openai/v1",
+    model: "llama-3.3-70b-versatile",
+    auth: "bearer",
+  },
+  {
+    id: "ollama",
+    name: "Ollama",
+    protocol: "openai_chat_completions",
+    base_url: "http://localhost:11434/v1",
+    model: "llama3.2",
+    auth: "none",
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    protocol: "openai_chat_completions",
+    base_url: "https://api.openai.com/v1",
+    model: "gpt-4.1-mini",
+    auth: "bearer",
+  },
+];
+
+function aiProtocolDefaults(protocol: AiProtocol): Pick<AiProfile, "base_url" | "model"> {
+  return protocol === "anthropic_messages"
+    ? { base_url: "https://api.anthropic.com/v1", model: "claude-sonnet-4-6" }
+    : { base_url: "https://api.openai.com/v1", model: "gpt-4.1-mini" };
+}
+
+function cleanAiProfile(value: unknown): AiProfile | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<AiProfile>;
+  if (typeof raw.id !== "string" || raw.id.trim() === "") return null;
+  if (typeof raw.name !== "string" || raw.name.trim() === "") return null;
+  if (raw.protocol !== "anthropic_messages" && raw.protocol !== "openai_chat_completions") {
+    return null;
+  }
+  if (typeof raw.base_url !== "string" || raw.base_url.trim() === "") return null;
+  if (typeof raw.model !== "string" || raw.model.trim() === "") return null;
+  if (
+    raw.auth !== undefined &&
+    raw.auth !== "bearer" &&
+    raw.auth !== "x_api_key" &&
+    raw.auth !== "none"
+  ) {
+    return null;
+  }
+  const protocol: AiProtocol = raw.protocol;
+  const auth: AiAuth =
+    raw.auth === "bearer" || raw.auth === "x_api_key" || raw.auth === "none"
+      ? raw.auth
+      : protocol === "anthropic_messages"
+        ? "x_api_key"
+        : "bearer";
+  const headers =
+    raw.headers && typeof raw.headers === "object" && !Array.isArray(raw.headers)
+      ? Object.fromEntries(
+          Object.entries(raw.headers).filter(
+            ([k, v]) => typeof k === "string" && k.trim() && typeof v === "string",
+          ),
+        )
+      : undefined;
+
+  return {
+    id: raw.id.trim(),
+    name: raw.name.trim(),
+    protocol,
+    base_url: raw.base_url.trim(),
+    api_key: typeof raw.api_key === "string" ? raw.api_key : "",
+    model: raw.model.trim(),
+    enabled: raw.enabled !== false,
+    default_for: Array.isArray(raw.default_for)
+      ? raw.default_for.filter((p): p is AiPurpose =>
+          p === "summary" || p === "ask" || p === "digest" || p === "translate",
+        )
+      : undefined,
+    headers: headers && Object.keys(headers).length > 0 ? headers : undefined,
+    auth,
+  };
+}
+
+function parseAiProfilesJson(raw: string | null): AiProfilesJson | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AiProfilesJson>;
+    if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.profiles)) return null;
+    const profiles = parsed.profiles
+      .map((profile) => cleanAiProfile(profile))
+      .filter((profile): profile is AiProfile => Boolean(profile));
+    if (profiles.length === 0) return null;
+    return {
+      version: 1,
+      active_profile_id:
+        typeof parsed.active_profile_id === "string" ? parsed.active_profile_id : undefined,
+      profiles,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function legacyAiProfile(
+  provider: string | null,
+  apiKey: string | null,
+  model: string | null,
+  baseUrl: string | null,
+): AiProfile {
+  const isOpenAi = provider === "openai";
+  const preset = AI_PRESETS.find((p) => p.id === (isOpenAi ? "openai" : "anthropic"))!;
+  return {
+    id: isOpenAi ? "legacy-openai" : "legacy-anthropic",
+    name: preset.name,
+    protocol: preset.protocol,
+    base_url: baseUrl || preset.base_url,
+    api_key: apiKey || "",
+    model: model || preset.model,
+    enabled: true,
+    auth: preset.auth,
+  };
+}
+
+function pickActiveProfileId(
+  profiles: AiProfile[],
+  settingActiveId: string | null,
+  jsonActiveId?: string,
+): string {
+  if (settingActiveId && profiles.some((p) => p.id === settingActiveId)) return settingActiveId;
+  if (jsonActiveId && profiles.some((p) => p.id === jsonActiveId)) return jsonActiveId;
+  return profiles.find((p) => p.enabled)?.id ?? profiles[0]?.id ?? "";
+}
+
+function nextProfileId(profiles: AiProfile[], preset: AiPreset): string {
+  const base = preset.id === "custom" ? "custom" : preset.id;
+  let suffix = profiles.length + 1;
+  let id = `${base}-${suffix}`;
+  while (profiles.some((p) => p.id === id)) {
+    suffix += 1;
+    id = `${base}-${suffix}`;
+  }
+  return id;
+}
+
+function profileFromPreset(preset: AiPreset, profiles: AiProfile[]): AiProfile {
+  return {
+    id: nextProfileId(profiles, preset),
+    name: preset.name,
+    protocol: preset.protocol,
+    base_url: preset.base_url,
+    api_key: "",
+    model: preset.model,
+    enabled: true,
+    auth: preset.auth,
+  };
+}
+
+function serializeAiProfiles(profiles: AiProfile[], activeProfileId: string): string {
+  const body: AiProfilesJson = {
+    version: 1,
+    active_profile_id: activeProfileId || undefined,
+    profiles,
+  };
+  return JSON.stringify(body);
+}
+
+function formatHeaders(headers?: Record<string, string>): string {
+  if (!headers) return "";
+  return Object.entries(headers)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+}
+
+function parseHeaders(raw: string): Record<string, string> | undefined {
+  const headers: Record<string, string> = {};
+  raw.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    const index = trimmed.indexOf(":");
+    if (index <= 0) return;
+    const key = trimmed.slice(0, index).trim();
+    const value = trimmed.slice(index + 1).trim();
+    if (!key || !value) return;
+    headers[key] = value;
+  });
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
+function legacyProviderFor(profile: AiProfile): "anthropic" | "openai" {
+  return profile.protocol === "anthropic_messages" ? "anthropic" : "openai";
+}
+
+function defaultAuthForProtocol(protocol: AiProtocol): AiAuth {
+  return protocol === "anthropic_messages" ? "x_api_key" : "bearer";
+}
+
+function profileConnectionInput(profile: AiProfile): api.AiConnectionTestProfile {
+  return {
+    name: profile.name,
+    protocol: profile.protocol,
+    base_url: profile.base_url,
+    api_key: profile.api_key,
+    model: profile.model,
+    auth: profile.auth ?? defaultAuthForProtocol(profile.protocol),
+    headers: profile.headers ?? {},
+  };
+}
+
+/** Real AI provider configuration — backing AI summaries and task-specific LLM
+ *  defaults, plus the default translation engine + language. */
 function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
-  const [provider, setProvider] = useState<"anthropic" | "openai">("anthropic");
-  const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
+  const [profiles, setProfiles] = useState<AiProfile[]>(() => [
+    legacyAiProfile("anthropic", "", "", ""),
+  ]);
+  const [activeProfileId, setActiveProfileId] = useState("legacy-anthropic");
+  const [purposeProfiles, setPurposeProfiles] = useState<Record<AiPurpose, string>>({
+    summary: "",
+    ask: "",
+    digest: "",
+    translate: "",
+  });
+  const [headerDraft, setHeaderDraft] = useState("");
   // Default engine + target language for translation. Empty lang = follow the UI
   // language until the user picks one.
   const [engine, setEngine] = useState<TranslateEngine>("llm");
   const [translateLang, setTranslateLang] = useState("");
-  const savedKey = useRef("");
-  const savedModel = useRef("");
-  const savedBaseUrl = useRef("");
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [aiBusy, setAiBusy] = useState<"saving" | "testing" | null>(null);
+  const [aiTestMessage, setAiTestMessage] = useState("");
+  const [aiTestTone, setAiTestTone] = useState<"success" | "error" | null>(null);
+  const [showAiAdvanced, setShowAiAdvanced] = useState(false);
+  const loaded = useRef(false);
 
   useEffect(() => {
     Promise.all([
+      api.getSetting("ai_profiles_json"),
+      api.getSetting("ai_active_profile_id"),
       api.getSetting("ai_provider"),
       api.getSetting("ai_api_key"),
       api.getSetting("ai_model"),
       api.getSetting("ai_base_url"),
+      api.getSetting(AI_PURPOSE_KEYS.summary),
+      api.getSetting(AI_PURPOSE_KEYS.ask),
+      api.getSetting(AI_PURPOSE_KEYS.digest),
+      api.getSetting(AI_PURPOSE_KEYS.translate),
       api.getSetting("translate_engine"),
       api.getSetting("translate_target_lang"),
     ])
-      .then(([p, k, m, b, eng, tl]) => {
-        if (p === "openai" || p === "anthropic") setProvider(p);
-        if (k) {
-          setApiKey(k);
-          savedKey.current = k;
-        }
-        if (m) {
-          setModel(m);
-          savedModel.current = m;
-        }
-        if (b) {
-          setBaseUrl(b);
-          savedBaseUrl.current = b;
-        }
+      .then(([profilesJson, activeSetting, p, k, m, b, summary, ask, digest, translate, eng, tl]) => {
+        const parsed = parseAiProfilesJson(profilesJson);
+        const loadedProfiles = parsed?.profiles ?? [legacyAiProfile(p, k, m, b)];
+        const activeId = pickActiveProfileId(loadedProfiles, activeSetting, parsed?.active_profile_id);
+        setProfiles(loadedProfiles);
+        setActiveProfileId(activeId);
+        setPurposeProfiles({
+          summary: summary || "",
+          ask: ask || "",
+          digest: digest || "",
+          translate: translate || "",
+        });
         if (eng === "google" || eng === "deepl" || eng === "bing" || eng === "llm")
           setEngine(eng);
         if (tl) setTranslateLang(tl);
+        loaded.current = true;
+        setIsLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        setProfiles([legacyAiProfile(null, null, null, null)]);
+        setActiveProfileId("legacy-anthropic");
+        loaded.current = true;
+        setIsLoaded(true);
+        onToast(t("settings.advanced.aiProfileSaveFailed"));
+      });
   }, []);
+
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
+  const enabledProfileOptions = profiles
+    .filter((p) => p.enabled)
+    .map((p) => ({ value: p.id, label: p.name }));
+  const purposeOptions = [
+    { value: "", label: t("settings.advanced.aiPurposeUseActive") },
+    ...enabledProfileOptions,
+  ];
+  const profileControlsDisabled = !isLoaded;
+
+  useEffect(() => {
+    setHeaderDraft(formatHeaders(activeProfile?.headers));
+  }, [activeProfileId, activeProfile?.headers]);
+
+  const normalizeProfilesForSave = (nextProfiles: AiProfile[]) =>
+    nextProfiles.map((profile) => {
+      const defaults = aiProtocolDefaults(profile.protocol);
+      const id = profile.id.trim();
+      return {
+        ...profile,
+        id,
+        name: profile.name.trim() || t("settings.advanced.aiUntitledProfile") || id,
+        base_url: profile.base_url.trim() || defaults.base_url,
+        api_key: profile.api_key.trim(),
+        model: profile.model.trim() || defaults.model,
+      };
+    });
+
+  const persistProfileSettings = (nextProfiles: AiProfile[], nextActiveProfileId: string) => {
+    if (!loaded.current) {
+      return Promise.reject(new Error(t("settings.advanced.aiProfileSaveFailed")));
+    }
+    const normalizedProfiles = normalizeProfilesForSave(nextProfiles);
+    const normalizedActiveProfileId = nextActiveProfileId.trim();
+    const active =
+      normalizedProfiles.find((p) => p.id === normalizedActiveProfileId) ?? normalizedProfiles[0];
+    return Promise.all([
+      api.setSetting(
+        "ai_profiles_json",
+        serializeAiProfiles(normalizedProfiles, normalizedActiveProfileId),
+      ),
+      api.setSetting("ai_active_profile_id", normalizedActiveProfileId),
+      ...(active
+        ? [
+            api.setSetting("ai_provider", legacyProviderFor(active)),
+            api.setSetting("ai_api_key", active.api_key),
+            api.setSetting("ai_model", active.model),
+            api.setSetting("ai_base_url", active.base_url),
+          ]
+        : []),
+    ]).then(() => ({
+      normalizedProfiles,
+      normalizedActiveProfileId,
+      active,
+    }));
+  };
+
+  const saveProfileSettings = (
+    nextProfiles: AiProfile[],
+    nextActiveProfileId: string,
+    toastLabel = t("settings.advanced.aiProfilesLabel"),
+  ) => {
+    persistProfileSettings(nextProfiles, nextActiveProfileId)
+      .then(() => onToast(t("settings.advanced.aiSaved", { label: toastLabel })))
+      .catch(() => onToast(t("settings.advanced.aiProfileSaveFailed")));
+  };
+
+  const setAndSaveProfiles = (
+    nextProfiles: AiProfile[],
+    nextActiveProfileId = activeProfileId,
+    toastLabel?: string,
+  ) => {
+    const normalizedProfiles = normalizeProfilesForSave(nextProfiles);
+    const normalizedActiveProfileId = nextActiveProfileId.trim();
+    setProfiles(normalizedProfiles);
+    setActiveProfileId(normalizedActiveProfileId);
+    saveProfileSettings(normalizedProfiles, normalizedActiveProfileId, toastLabel);
+  };
+
+  const draftActiveProfile = (patch: Partial<AiProfile>) => {
+    setAiTestMessage("");
+    setAiTestTone(null);
+    setProfiles((cur) =>
+      cur.map((profile) =>
+        profile.id === activeProfileId ? { ...profile, ...patch } : profile,
+      ),
+    );
+  };
+
+  const commitActiveProfile = (patch: Partial<AiProfile>, toastLabel?: string) => {
+    const nextProfiles = profiles.map((profile) =>
+      profile.id === activeProfileId ? { ...profile, ...patch } : profile,
+    );
+    setAndSaveProfiles(nextProfiles, activeProfileId, toastLabel);
+  };
+
+  const saveCurrentProfile = async () => {
+    setAiBusy("saving");
+    setAiTestMessage("");
+    setAiTestTone(null);
+    try {
+      const saved = await persistProfileSettings(profiles, activeProfileId);
+      setProfiles(saved.normalizedProfiles);
+      setActiveProfileId(saved.normalizedActiveProfileId);
+      onToast(t("settings.advanced.aiSaved", { label: t("settings.advanced.aiProfilesLabel") }));
+    } catch {
+      onToast(t("settings.advanced.aiProfileSaveFailed"));
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
+  const testCurrentProfile = async () => {
+    setAiBusy("testing");
+    setAiTestMessage("");
+    setAiTestTone(null);
+    try {
+      const saved = await persistProfileSettings(profiles, activeProfileId);
+      setProfiles(saved.normalizedProfiles);
+      setActiveProfileId(saved.normalizedActiveProfileId);
+      if (!saved.active) throw new Error(t("settings.advanced.aiProfileSaveFailed"));
+      const result = await api.testAiConnection(profileConnectionInput(saved.active));
+      const reply = result.message || "OK";
+      setAiTestMessage(t("settings.advanced.aiTestSucceeded", { reply }));
+      setAiTestTone("success");
+      onToast(t("settings.advanced.aiTestSucceededToast"));
+    } catch (e) {
+      const detail = errorText(e);
+      setAiTestMessage(t("settings.advanced.aiTestFailed", { detail }));
+      setAiTestTone("error");
+      reportError(e);
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
+  const applyPreset = (preset: AiPreset) => {
+    if (!activeProfile) return;
+    commitActiveProfile(
+      {
+        name: preset.name,
+        protocol: preset.protocol,
+        base_url: preset.base_url,
+        model: preset.model,
+        auth: preset.auth,
+      },
+      preset.name,
+    );
+  };
+
+  const createProfile = () => {
+    const preset = AI_PRESETS.find((p) => p.id === "custom")!;
+    const profile = profileFromPreset(preset, profiles);
+    setAndSaveProfiles([...profiles, profile], profile.id, t("settings.advanced.aiProfilesLabel"));
+  };
+
+  const deleteProfile = () => {
+    if (!activeProfile || profiles.length <= 1) return;
+    const nextProfiles = profiles.filter((p) => p.id !== activeProfile.id);
+    const nextActiveId = nextProfiles.find((p) => p.enabled)?.id ?? nextProfiles[0]?.id ?? "";
+    const nextPurposeProfiles = { ...purposeProfiles };
+    (Object.keys(nextPurposeProfiles) as AiPurpose[]).forEach((purpose) => {
+      if (nextPurposeProfiles[purpose] === activeProfile.id) {
+        nextPurposeProfiles[purpose] = "";
+        api.setSetting(AI_PURPOSE_KEYS[purpose], "").catch(() => {});
+      }
+    });
+    setPurposeProfiles(nextPurposeProfiles);
+    setAndSaveProfiles(nextProfiles, nextActiveId, t("settings.advanced.aiProfilesLabel"));
+  };
 
   const save = (key: string, value: string, label: string) => {
     api
@@ -1685,52 +2166,95 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
       .catch((e) => reportError(e));
   };
 
-  const placeholder =
-    provider === "openai"
-      ? t("settings.advanced.aiModelPlaceholderOpenai")
-      : t("settings.advanced.aiModelPlaceholderAnthropic");
-
-  const baseUrlPlaceholder =
-    provider === "openai"
-      ? "https://api.openai.com/v1"
-      : "https://api.anthropic.com/v1";
+  const selectPurposeProfile = (purpose: AiPurpose, profileId: string) => {
+    setPurposeProfiles((cur) => ({ ...cur, [purpose]: profileId }));
+    api
+      .setSetting(AI_PURPOSE_KEYS[purpose], profileId)
+      .then(() =>
+        onToast(
+          t("settings.advanced.aiSaved", {
+            label: t(`settings.advanced.aiPurpose.${purpose}`),
+          }),
+        ),
+      )
+      .catch(() => onToast(t("settings.advanced.aiProfileSaveFailed")));
+  };
 
   return (
     <div className="settings-group">
       <h3 className="settings-group-title">{t("settings.advanced.aiSummary")}</h3>
       <Row
-        label={t("settings.advanced.aiProvider")}
-        desc={t("settings.advanced.aiProviderDesc")}
+        label={t("settings.advanced.aiActiveProfile")}
+        desc={t("settings.advanced.aiActiveProfileDesc")}
+      >
+        <div className="ai-profile-actions">
+          <Select
+            aria-label={t("settings.advanced.aiActiveProfile")}
+            value={activeProfileId}
+            options={profiles.map((p) => ({ value: p.id, label: p.name }))}
+            disabled={profileControlsDisabled}
+            onChange={(v) => setAndSaveProfiles(profiles, v, t("settings.advanced.aiActiveProfile"))}
+          />
+          <button className="s-btn" onClick={createProfile} disabled={profileControlsDisabled}>
+            <Icon name="plus" size={12} /> {t("settings.advanced.aiCreateProfile")}
+          </button>
+          <button
+            className="s-btn danger"
+            onClick={deleteProfile}
+            disabled={profileControlsDisabled || profiles.length <= 1}
+          >
+            <Icon name="trash" size={12} /> {t("settings.advanced.aiDeleteProfile")}
+          </button>
+        </div>
+      </Row>
+      <div className="ai-preset-strip" aria-label={t("settings.advanced.aiPresets")}>
+        {AI_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            className="s-btn"
+            type="button"
+            disabled={profileControlsDisabled}
+            onClick={() => applyPreset(preset)}
+          >
+            {preset.name}
+          </button>
+        ))}
+      </div>
+      <Row
+        label={t("settings.advanced.aiProfileName")}
+        desc={t("settings.advanced.aiProfileNameDesc")}
+      >
+        <input
+          className="s-text-input"
+          type="text"
+          value={activeProfile?.name ?? ""}
+          disabled={profileControlsDisabled}
+          onChange={(e) => draftActiveProfile({ name: e.target.value })}
+        />
+      </Row>
+      <Row
+        label={t("settings.advanced.aiProtocol")}
+        desc={t("settings.advanced.aiProtocolDesc")}
       >
         <Select
-          value={provider}
+          value={activeProfile?.protocol ?? "anthropic_messages"}
+          disabled={profileControlsDisabled}
           options={[
-            { value: "anthropic", label: "Anthropic" },
-            { value: "openai", label: "OpenAI" },
+            {
+              value: "anthropic_messages",
+              label: t("settings.advanced.aiProtocolAnthropic"),
+            },
+            {
+              value: "openai_chat_completions",
+              label: t("settings.advanced.aiProtocolOpenai"),
+            },
           ]}
-          onChange={(v) => {
-            setProvider(v);
-            // The model name and base URL are provider-specific — carrying
-            // them over would send e.g. an OpenAI model to Anthropic. Clear
-            // both so the backend falls back to the new provider's defaults.
-            setModel("");
-            savedModel.current = "";
-            setBaseUrl("");
-            savedBaseUrl.current = "";
-            Promise.all([
-              api.setSetting("ai_provider", v),
-              api.setSetting("ai_model", ""),
-              api.setSetting("ai_base_url", ""),
-            ])
-              .then(() =>
-                onToast(
-                  t("settings.advanced.aiSaved", {
-                    label: t("settings.advanced.aiProviderLabel"),
-                  }),
-                ),
-              )
-              .catch((e) => reportError(e));
-          }}
+          onChange={(protocol) =>
+            draftActiveProfile({
+              protocol,
+              auth: defaultAuthForProtocol(protocol),
+            })
+          }
         />
       </Row>
       <Row
@@ -1740,19 +2264,10 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
         <input
           className="s-text-input"
           type="password"
-          value={apiKey}
+          value={activeProfile?.api_key ?? ""}
           placeholder="sk-…"
-          onChange={(e) => setApiKey(e.target.value)}
-          onBlur={() => {
-            // Trim before persisting — a pasted key routinely carries a
-            // trailing newline / space that would break the auth header.
-            const trimmed = apiKey.trim();
-            if (trimmed !== apiKey) setApiKey(trimmed);
-            if (trimmed !== savedKey.current) {
-              savedKey.current = trimmed;
-              save("ai_api_key", trimmed, t("settings.advanced.aiApiKeyLabel"));
-            }
-          }}
+          disabled={profileControlsDisabled}
+          onChange={(e) => draftActiveProfile({ api_key: e.target.value })}
         />
       </Row>
       <Row
@@ -1762,19 +2277,14 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
         <input
           className="s-text-input"
           type="text"
-          value={model}
-          placeholder={placeholder}
-          onChange={(e) => setModel(e.target.value)}
-          onBlur={() => {
-            // Trim before persisting — a pasted model name with a stray
-            // space / newline yields a "model not found" from the provider.
-            const trimmed = model.trim();
-            if (trimmed !== model) setModel(trimmed);
-            if (trimmed !== savedModel.current) {
-              savedModel.current = trimmed;
-              save("ai_model", trimmed, t("settings.advanced.aiModelLabel"));
-            }
-          }}
+          value={activeProfile?.model ?? ""}
+          disabled={profileControlsDisabled}
+          placeholder={
+            activeProfile?.protocol === "openai_chat_completions"
+              ? t("settings.advanced.aiModelPlaceholderOpenai")
+              : t("settings.advanced.aiModelPlaceholderAnthropic")
+          }
+          onChange={(e) => draftActiveProfile({ model: e.target.value })}
         />
       </Row>
       <Row
@@ -1784,19 +2294,120 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
         <input
           className="s-text-input"
           type="text"
-          value={baseUrl}
-          placeholder={baseUrlPlaceholder}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          onBlur={() => {
-            const trimmed = baseUrl.trim();
-            if (trimmed !== baseUrl) setBaseUrl(trimmed);
-            if (trimmed !== savedBaseUrl.current) {
-              savedBaseUrl.current = trimmed;
-              save("ai_base_url", trimmed, t("settings.advanced.aiBaseUrlLabel"));
-            }
-          }}
+          value={activeProfile?.base_url ?? ""}
+          disabled={profileControlsDisabled}
+          placeholder={
+            activeProfile?.protocol === "openai_chat_completions"
+              ? "https://api.openai.com/v1"
+              : "https://api.anthropic.com/v1"
+          }
+          onChange={(e) => draftActiveProfile({ base_url: e.target.value })}
         />
       </Row>
+      <div className="ai-settings-actions">
+        <button
+          className="s-btn primary"
+          type="button"
+          onClick={saveCurrentProfile}
+          disabled={profileControlsDisabled || aiBusy != null}
+        >
+          <Icon name="check" size={12} />
+          {aiBusy === "saving"
+            ? t("settings.advanced.aiSaving")
+            : t("settings.advanced.aiSaveProfile")}
+        </button>
+        <button
+          className="s-btn"
+          type="button"
+          onClick={testCurrentProfile}
+          disabled={profileControlsDisabled || aiBusy != null}
+        >
+          <Icon name="play" size={12} />
+          {aiBusy === "testing"
+            ? t("settings.advanced.aiTesting")
+            : t("settings.advanced.aiTestConnection")}
+        </button>
+      </div>
+      {aiTestMessage && (
+        <div className={`ai-test-status ${aiTestTone ?? ""}`} role="status">
+          {aiTestMessage}
+        </div>
+      )}
+      <button
+        className="ai-advanced-toggle"
+        type="button"
+        aria-expanded={showAiAdvanced}
+        onClick={() => setShowAiAdvanced((v) => !v)}
+      >
+        <Icon name={showAiAdvanced ? "chevron-down" : "chevron-right"} size={13} />
+        {t("settings.advanced.aiAdvancedOptions")}
+      </button>
+      {showAiAdvanced && (
+        <div className="ai-advanced-panel">
+          <Row
+            label={t("settings.advanced.aiEnabled")}
+            desc={t("settings.advanced.aiEnabledDesc")}
+          >
+            <Toggle
+              checked={activeProfile?.enabled ?? true}
+              disabled={profileControlsDisabled}
+              onChange={(enabled) => draftActiveProfile({ enabled })}
+            />
+          </Row>
+          <Row
+            label={t("settings.advanced.aiAuth")}
+            desc={t("settings.advanced.aiAuthDesc")}
+          >
+            <Select
+              value={activeProfile?.auth ?? defaultAuthForProtocol(activeProfile?.protocol ?? "anthropic_messages")}
+              disabled={profileControlsDisabled}
+              options={[
+                { value: "bearer", label: t("settings.advanced.aiAuthBearer") },
+                { value: "x_api_key", label: t("settings.advanced.aiAuthXApiKey") },
+                { value: "none", label: t("settings.advanced.aiAuthNone") },
+              ]}
+              onChange={(auth) => draftActiveProfile({ auth })}
+            />
+          </Row>
+          <Row
+            label={t("settings.advanced.aiHeaders")}
+            desc={t("settings.advanced.aiHeadersDesc")}
+          >
+            <textarea
+              className="s-text-input ai-headers-input"
+              value={headerDraft}
+              placeholder={"HTTP-Referer: https://example.com\nX-Title: Papr"}
+              disabled={profileControlsDisabled}
+              onChange={(e) => setHeaderDraft(e.target.value)}
+              onBlur={() => {
+                const headers = parseHeaders(headerDraft);
+                setHeaderDraft(formatHeaders(headers));
+                draftActiveProfile({ headers });
+              }}
+            />
+          </Row>
+          <div className="ai-purpose-grid">
+            {(["summary", "ask", "digest", "translate"] as AiPurpose[]).map((purpose) => (
+              <Row
+                key={purpose}
+                label={t(`settings.advanced.aiPurpose.${purpose}`)}
+                desc={t(`settings.advanced.aiPurposeDesc.${purpose}`)}
+              >
+                <Select
+                  value={
+                    enabledProfileOptions.some((option) => option.value === purposeProfiles[purpose])
+                      ? purposeProfiles[purpose]
+                      : ""
+                  }
+                  options={purposeOptions}
+                  disabled={profileControlsDisabled}
+                  onChange={(v) => selectPurposeProfile(purpose, v)}
+                />
+              </Row>
+            ))}
+          </div>
+        </div>
+      )}
       <Row
         label={t("settings.advanced.translateEngine")}
         desc={t("settings.advanced.translateEngineDesc")}

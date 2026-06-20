@@ -158,6 +158,23 @@ export const getSetting = (key: string) =>
 export const setSetting = (key: string, value: string) =>
   invoke<void>("set_setting", { key, value });
 
+export type AiProtocol = "anthropic_messages" | "openai_chat_completions";
+export type AiAuth = "bearer" | "x_api_key" | "none";
+export interface AiConnectionTestProfile {
+  name: string;
+  protocol: AiProtocol;
+  base_url: string;
+  api_key: string;
+  model: string;
+  auth: AiAuth;
+  headers: Record<string, string>;
+}
+export interface AiConnectionTestResult {
+  message: string;
+}
+export const testAiConnection = (profile: AiConnectionTestProfile) =>
+  invoke<AiConnectionTestResult>("test_ai_connection", { profile });
+
 // ── storage ──
 export interface StorageStats {
   dbBytes: number;

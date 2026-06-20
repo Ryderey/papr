@@ -1,7 +1,7 @@
 //! Tauri command surface — the typed IPC boundary the React frontend calls.
 //! All SQL is delegated to `db`; commands only orchestrate.
 
-use crate::ai::{self, AiConfig, AiEvent};
+use crate::ai::{self, AiConfig, AiEvent, LlmPurpose};
 use crate::db::{self};
 use crate::error::{AppError, AppResult};
 use crate::extraction;
@@ -582,14 +582,84 @@ pub async fn set_setting(
 
 // ─────────────────────────── AI ───────────────────────────
 
-/// Load the AI provider configuration from the settings table.
-fn load_ai_config(conn: &rusqlite::Connection) -> AppResult<AiConfig> {
-    AiConfig::new(
+fn purpose_profile_setting_key(purpose: LlmPurpose) -> &'static str {
+    match purpose {
+        LlmPurpose::Summary => "ai_default_summary_profile_id",
+        LlmPurpose::Ask => "ai_default_ask_profile_id",
+        LlmPurpose::Digest => "ai_default_digest_profile_id",
+        LlmPurpose::Translate => "ai_default_translate_profile_id",
+    }
+}
+
+/// Load the AI provider configuration from the settings table for one command
+/// purpose, using the new profile resolver with legacy settings as fallback.
+fn load_ai_config_for(conn: &rusqlite::Connection, purpose: LlmPurpose) -> AppResult<AiConfig> {
+    AiConfig::from_settings(
+        db::get_setting(conn, "ai_profiles_json")?,
+        db::get_setting(conn, "ai_active_profile_id")?,
+        db::get_setting(conn, purpose_profile_setting_key(purpose))?,
         db::get_setting(conn, "ai_provider")?,
         db::get_setting(conn, "ai_api_key")?,
         db::get_setting(conn, "ai_model")?,
         db::get_setting(conn, "ai_base_url")?,
+        purpose,
     )
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiConnectionTestResult {
+    message: String,
+}
+
+fn redact_ai_test_error(message: &str, api_key: &str) -> String {
+    let key = api_key.trim();
+    if key.is_empty() {
+        message.to_string()
+    } else {
+        message.replace(key, "[redacted]")
+    }
+}
+
+fn format_ai_test_error(message: &str, api_key: &str) -> String {
+    let redacted = redact_ai_test_error(message, api_key);
+    let lower = redacted.to_ascii_lowercase();
+    if lower.contains("certificate")
+        || lower.contains("unknown issuer")
+        || lower.contains("untrusted")
+        || lower.contains("tls")
+    {
+        format!("TLS certificate validation failed: {redacted}")
+    } else {
+        redacted
+    }
+}
+
+#[tauri::command]
+pub async fn test_ai_connection(
+    state: State<'_, AppState>,
+    profile: ai::LlmProfileInput,
+) -> AppResult<AiConnectionTestResult> {
+    let api_key = profile.api_key.clone();
+    let cfg = AiConfig::from_profile_input(profile)?;
+    let http = state.http();
+    match ai::complete_chat(
+        &http,
+        &cfg,
+        "You are testing an AI provider connection. Reply with exactly: OK",
+        "Reply with exactly: OK",
+        8,
+    )
+    .await
+    {
+        Ok(text) => Ok(AiConnectionTestResult {
+            message: truncate(text.trim(), 120),
+        }),
+        Err(e) => Err(AppError::other(format!(
+            "AI connection test failed: {}",
+            format_ai_test_error(&e.to_string(), &api_key)
+        ))),
+    }
 }
 
 /// Resolve a translation engine chosen by the caller (the reader's translate
@@ -605,7 +675,7 @@ fn build_translate_selection(
         "google" => translate::Selection::Google,
         "bing" => translate::Selection::Bing,
         "deepl" => translate::Selection::Deepl,
-        _ => translate::Selection::Llm(load_ai_config(conn)?),
+        _ => translate::Selection::Llm(load_ai_config_for(conn, LlmPurpose::Translate)?),
     })
 }
 
@@ -647,7 +717,12 @@ pub async fn ai_summarize(
     let (title, body, cfg, lang) = {
         let conn = state.read().await;
         let (title, body) = db::article_text(&conn, article_id)?;
-        (title, body, load_ai_config(&conn)?, response_language(&conn))
+        (
+            title,
+            body,
+            load_ai_config_for(&conn, LlmPurpose::Summary)?,
+            response_language(&conn),
+        )
     };
     // A title-only item (link-aggregator posts, some podcast/video feeds carry
     // no body text) gives the model nothing to summarize. Without this guard it
@@ -696,7 +771,7 @@ pub async fn ai_ask(
 ) -> AppResult<()> {
     let (cfg, context, lang) = {
         let conn = state.read().await;
-        let cfg = load_ai_config(&conn)?;
+        let cfg = load_ai_config_for(&conn, LlmPurpose::Ask)?;
         // RAG retrieval is recall-oriented: match articles that share *any* of
         // the question's keywords. `list_articles` AND-joins every search word,
         // which for a natural-language question matches nothing.
@@ -740,7 +815,7 @@ pub async fn ai_digest(
     let (cfg, articles, lang) = {
         let conn = state.read().await;
         (
-            load_ai_config(&conn)?,
+            load_ai_config_for(&conn, LlmPurpose::Digest)?,
             db::digest_source(&conn, 30)?,
             response_language(&conn),
         )
@@ -1389,6 +1464,174 @@ pub async fn delete_highlight(state: State<'_, AppState>, id: i64) -> AppResult<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn settings_conn() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn put_setting(conn: &rusqlite::Connection, key: &str, value: &str) {
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES (?1, ?2)",
+            rusqlite::params![key, value],
+        )
+        .unwrap();
+    }
+
+    fn two_profile_json(active_key: &str, translate_key: &str) -> String {
+        format!(
+            r#"{{
+                "version": 1,
+                "profiles": [
+                    {{
+                        "id": "active",
+                        "name": "Active",
+                        "protocol": "openai_chat_completions",
+                        "base_url": "https://active.test/v1",
+                        "api_key": "{active_key}",
+                        "model": "active-model",
+                        "enabled": true,
+                        "auth": "bearer"
+                    }},
+                    {{
+                        "id": "translate",
+                        "name": "Translate",
+                        "protocol": "openai_chat_completions",
+                        "base_url": "https://translate.test/v1",
+                        "api_key": "{translate_key}",
+                        "model": "translate-model",
+                        "enabled": true,
+                        "auth": "bearer"
+                    }}
+                ]
+            }}"#
+        )
+    }
+
+    fn assert_err_code<T>(result: AppResult<T>, code: &str) {
+        match result {
+            Ok(_) => panic!("expected {code} error"),
+            Err(e) => assert!(e.to_string().contains(code), "unexpected error: {e}"),
+        }
+    }
+
+    #[test]
+    fn ai_connection_test_error_redacts_api_key() {
+        let msg = redact_ai_test_error(
+            "upstream rejected Authorization: Bearer sk-secret-token",
+            "sk-secret-token",
+        );
+
+        assert!(!msg.contains("sk-secret-token"));
+        assert!(msg.contains("[redacted]"));
+    }
+
+    #[test]
+    fn load_ai_config_for_missing_purpose_profile_falls_back_to_active_profile() {
+        let conn = settings_conn();
+        put_setting(
+            &conn,
+            "ai_profiles_json",
+            r#"{
+                "version": 1,
+                "profiles": [
+                    {
+                        "id": "first",
+                        "name": "First",
+                        "protocol": "openai_chat_completions",
+                        "base_url": "https://first.test/v1",
+                        "api_key": "sk-first",
+                        "model": "first-model",
+                        "enabled": true,
+                        "auth": "bearer"
+                    },
+                    {
+                        "id": "active",
+                        "name": "Active",
+                        "protocol": "openai_chat_completions",
+                        "base_url": "https://active.test/v1",
+                        "api_key": "   ",
+                        "model": "active-model",
+                        "enabled": true,
+                        "auth": "bearer"
+                    }
+                ]
+            }"#,
+        );
+        put_setting(&conn, "ai_active_profile_id", "active");
+        put_setting(&conn, "ai_default_summary_profile_id", "missing-summary");
+
+        assert_err_code(
+            load_ai_config_for(&conn, ai::LlmPurpose::Summary),
+            "noAiKey",
+        );
+    }
+
+    #[test]
+    fn load_ai_config_for_prefers_purpose_profile_before_active_profile() {
+        let conn = settings_conn();
+        put_setting(
+            &conn,
+            "ai_profiles_json",
+            &two_profile_json("sk-active", "   "),
+        );
+        put_setting(&conn, "ai_active_profile_id", "active");
+        put_setting(&conn, "ai_default_translate_profile_id", "translate");
+
+        assert_err_code(
+            load_ai_config_for(&conn, ai::LlmPurpose::Translate),
+            "noAiKey",
+        );
+    }
+
+    #[test]
+    fn load_ai_config_for_without_profiles_json_falls_back_to_legacy_settings() {
+        let conn = settings_conn();
+        put_setting(&conn, "ai_provider", "openai");
+        put_setting(&conn, "ai_api_key", "sk-legacy");
+
+        assert!(load_ai_config_for(&conn, ai::LlmPurpose::Ask).is_ok());
+    }
+
+    #[test]
+    fn build_translate_selection_keyless_engines_do_not_require_ai_settings() {
+        let conn = settings_conn();
+
+        assert!(matches!(
+            build_translate_selection(&conn, "google").unwrap(),
+            translate::Selection::Google
+        ));
+        assert!(matches!(
+            build_translate_selection(&conn, "bing").unwrap(),
+            translate::Selection::Bing
+        ));
+        assert!(matches!(
+            build_translate_selection(&conn, "deepl").unwrap(),
+            translate::Selection::Deepl
+        ));
+    }
+
+    #[test]
+    fn build_translate_selection_llm_uses_translate_profile() {
+        let conn = settings_conn();
+        put_setting(
+            &conn,
+            "ai_profiles_json",
+            &two_profile_json("sk-active", "   "),
+        );
+        put_setting(&conn, "ai_active_profile_id", "active");
+        put_setting(&conn, "ai_default_translate_profile_id", "translate");
+
+        assert_err_code(build_translate_selection(&conn, "llm"), "noAiKey");
+    }
 
     // --- referer_candidates: the Referer fallback chain for image fetches. ---
 
