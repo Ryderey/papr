@@ -19,6 +19,7 @@ import type {
   RuleField,
   RulePreview,
   SmartCounts,
+  SummaryTemplate,
   Tag,
   TranslateEvent,
 } from "./types";
@@ -115,11 +116,12 @@ export const exportOpml = () => invoke<string>("export_opml");
 // ── AI (streaming over a Channel) ──
 export function aiSummarize(
   articleId: number,
+  template: SummaryTemplate,
   onToken: (e: AiEvent) => void,
 ): Promise<void> {
   const channel = new Channel<AiEvent>();
   channel.onmessage = onToken;
-  return invoke<void>("ai_summarize", { articleId, onToken: channel });
+  return invoke<void>("ai_summarize", { articleId, template, onToken: channel });
 }
 
 export function aiAsk(

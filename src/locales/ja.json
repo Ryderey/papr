@@ -193,6 +193,13 @@
     "aiReadingFullText": "全文を読み込み中…",
     "aiError": "要約を生成できませんでした",
     "aiDisclaimer": "ローカルモデルによる生成 · 参考用 · 内容は不正確な場合があります",
+    "aiTemplateLabel": "要約テンプレート",
+    "aiTemplateClassic": "クラシック TL;DR",
+    "aiTemplateNews5w1h": "5W1H ニュース式",
+    "aiTemplateDecision": "判断支援",
+    "aiTemplateFunnel": "3層ファネル",
+    "aiTemplateArgument": "論証分解",
+    "aiTemplateMinimal": "超簡潔",
     "translateTitle": "翻訳先",
     "translateEngine": "エンジン",
     "translateEngineLlm": "AI モデル"
@@ -528,7 +535,10 @@
       "translateEngineLlm": "LLM（選択した翻訳プロファイル）",
       "translateLang": "翻訳言語",
       "translateLangDesc": "記事を翻訳する既定の言語。既定では UI 言語に従います。閲覧画面で記事ごとに一時的に切り替え可能",
-      "translateLangLabel": "翻訳言語"
+      "translateLangLabel": "翻訳言語",
+      "aiSummaryTemplate": "要約テンプレート",
+      "aiSummaryTemplateDesc": "AI 記事要約の既定テンプレートスタイル。閲覧画面で記事ごとに一時的に切り替え可能",
+      "aiSummaryTemplateLabel": "要約テンプレート"
     },
     "about": {
       "tagline": "静かな紙のような RSS リーダー",

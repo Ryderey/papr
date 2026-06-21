@@ -184,3 +184,11 @@ export type RefreshProgress =
       data: { feedId: number; newArticles: number; error: string | null };
     }
   | { event: "finished"; data: { newArticles: number } };
+
+export type SummaryTemplate =
+  | "classic"
+  | "news5w1h"
+  | "decision"
+  | "funnel"
+  | "argument"
+  | "minimal";

@@ -35,3 +35,58 @@ brew install --cask l0ng-ai/papr/papr
 ### All platforms
 
 Download the installer for your platform from the [latest release](https://github.com/l0ng-ai/papr/releases/latest).
+
+## Development
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v20+)
+- [pnpm](https://pnpm.io/) (v9+)
+- [Rust](https://www.rust-lang.org/tools/install) (latest stable via rustup)
+- **Windows only**: WebView2 runtime (usually pre-installed) and MSVC build tools (installed via rustup).
+
+### Install dependencies
+
+```sh
+pnpm install
+```
+
+If pnpm reports `Ignored build scripts: esbuild`, allow the build script:
+
+```sh
+pnpm approve-builds
+```
+
+### Run in development mode
+
+```sh
+pnpm tauri dev
+```
+
+This starts the Vite dev server and the Tauri desktop window with hot reload.
+
+### Build the desktop app
+
+```sh
+pnpm tauri build
+```
+
+After the build completes, the installable bundles are located at:
+
+```text
+src-tauri/target/release/bundle/
+```
+
+On Windows you will typically find:
+
+- `src-tauri/target/release/bundle/msi/Papr_*.msi`
+- `src-tauri/target/release/bundle/nsis/Papr_*-setup.exe`
+
+### Other useful scripts
+
+```sh
+pnpm dev        # Start the frontend dev server only (no Tauri window)
+pnpm build      # Build the frontend for production
+pnpm preview    # Preview the production frontend
+pnpm test       # Run unit tests
+```

@@ -18,6 +18,25 @@ pub enum SourceType {
     Newsletter,
 }
 
+/// The template used for AI article summaries. Mirrors the frontend
+/// `SummaryTemplate` type; a different system prompt is built for each variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SummaryTemplate {
+    /// The original TL;DR + bullet format.
+    Classic,
+    /// 5W1H news-style structured extraction.
+    News5w1h,
+    /// Decision-oriented: should I read this?
+    Decision,
+    /// Three-layer funnel: 30s / 2min / deep.
+    Funnel,
+    /// Argument deconstruction for opinion pieces.
+    Argument,
+    /// Ultra-minimal single-sentence summary.
+    Minimal,
+}
+
 impl SourceType {
     pub fn as_str(&self) -> &'static str {
         match self {

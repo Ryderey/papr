@@ -15,7 +15,7 @@ import { fullDate } from "../lib/feedMeta";
 import { isMac } from "../lib/platform";
 import { reportError, toast } from "../toast";
 import { tagColor } from "../lib/tagColors";
-import type { ArticleDetail } from "../types";
+import type { ArticleDetail, SummaryTemplate } from "../types";
 import Icon from "./Icon";
 import TagPicker from "./TagPicker";
 import HighlightLayer from "./HighlightLayer";
@@ -1119,43 +1119,47 @@ function AIDrawer({
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  // Initialised from the article's stored summary (if any). The parent keys
-  // this component by article id, so a switch remounts it and re-runs this
-  // initialiser — no separate "reset on article change" effect is needed.
   const [text, setText] = useState<string | null>(article.aiSummary);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
-  // Identifies the latest summarize run. Closing the drawer mid-stream cancels
-  // an effect run but the component stays mounted (it is only moved off-screen),
-  // so the underlying request keeps streaming and its promise settles later.
-  // Only the run whose generation still matches may touch `busy` on settle —
-  // otherwise a stale run's `finally` would either wedge the drawer on the
-  // loading state or clobber a newer run's `busy` flag.
+  const [template, setTemplate] = useState<SummaryTemplate>("classic");
+  const [templateLoaded, setTemplateLoaded] = useState(false);
   const runRef = useRef(0);
 
-  // Generate a summary the first time the drawer opens for an article, and
-  // again whenever the user hits Retry. `failed` is in the guard so a failed
-  // run isn't silently re-attempted just because the drawer was reopened.
+  // Load the user's preferred summary template from settings.
   useEffect(() => {
-    if (!open || busy || text || failed) return;
+    api
+      .getSetting("ai_summary_template")
+      .then((v) => {
+        const stored = (v as SummaryTemplate | null) ?? "classic";
+        const valid: SummaryTemplate[] = [
+          "classic",
+          "news5w1h",
+          "decision",
+          "funnel",
+          "argument",
+          "minimal",
+        ];
+        if (valid.includes(stored)) setTemplate(stored);
+        setTemplateLoaded(true);
+      })
+      .catch(() => setTemplateLoaded(true));
+  }, []);
+
+  // Generate a summary the first time the drawer opens, on retry, or when the
+  // template changes. The guard prevents re-running while a stream is in
+  // flight or while the user is viewing a finished result.
+  useEffect(() => {
+    if (!open || busy || text || failed || !templateLoaded) return;
     const run = ++runRef.current;
     let cancelled = false;
-    // Whether the stream settled (resolved or rejected) on its own. If the
-    // cleanup runs while this is still false, the drawer was closed mid-stream
-    // — the accumulated `text` is then a truncated fragment.
     let settled = false;
-    // An error raised inside the stream surfaces twice: once as an `error`
-    // channel event (carrying the precise provider message) and again as the
-    // command's rejected promise. Toast only the first so the user does not
-    // see the same failure reported twice; the `.catch` still toasts for
-    // failures that abort before streaming starts (no key, bad config) and so
-    // never emit an `error` event.
     let sawErrorEvent = false;
     setBusy(true);
     setText("");
     api
-      .aiSummarize(article.id, (ev) => {
+      .aiSummarize(article.id, template, (ev) => {
         if (cancelled) return;
         if (ev.type === "delta") setText((s) => (s ?? "") + ev.data);
         else if (ev.type === "error") {
@@ -1175,21 +1179,14 @@ function AIDrawer({
       })
       .finally(() => {
         settled = true;
-        // Clear `busy` for the current run even if it was cancelled — the
-        // component is still mounted, and leaving `busy` true would wedge the
-        // drawer on the loading state. Skip if a newer run has superseded us.
         if (runRef.current === run) setBusy(false);
       });
     return () => {
       cancelled = true;
-      // Closed mid-stream: the backend discards an interrupted generation
-      // (it is never persisted), so drop the partial fragment held here too.
-      // Reopening then re-generates from scratch instead of showing — and
-      // permanently freezing on — a truncated half-summary.
       if (!settled) setText(article.aiSummary);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, article.id, retry]);
+  }, [open, article.id, retry, template, templateLoaded]);
 
   const loading = busy && !text;
   const onRetry = () => {
@@ -1197,19 +1194,29 @@ function AIDrawer({
     setFailed(false);
     setRetry((n) => n + 1);
   };
-  // Parse + sanitize the summary only when the text changes, not on every
-  // AIDrawer re-render (e.g. each open/close toggle).
+  const handleTemplateChange = (next: SummaryTemplate) => {
+    if (next === template || busy) return;
+    setTemplate(next);
+    setText(null);
+    setFailed(false);
+    setRetry((n) => n + 1);
+  };
   const html = useMemo(() => (text ? renderMarkdown(text) : ""), [text]);
+
+  const templateOptions: { value: SummaryTemplate; label: string }[] = [
+    { value: "classic", label: t("reader.aiTemplateClassic") },
+    { value: "news5w1h", label: t("reader.aiTemplateNews5w1h") },
+    { value: "decision", label: t("reader.aiTemplateDecision") },
+    { value: "funnel", label: t("reader.aiTemplateFunnel") },
+    { value: "argument", label: t("reader.aiTemplateArgument") },
+    { value: "minimal", label: t("reader.aiTemplateMinimal") },
+  ];
 
   return (
     <div
       className={`ai-drawer ${open ? "open" : ""}`}
-      // A labelled complementary landmark so screen-reader users can jump
-      // straight to the summary.
       role="complementary"
       aria-label={t("reader.aiSummaryTitle")}
-      // When closed the drawer is only moved off-screen — `inert` keeps its
-      // close button and content out of the tab order and the a11y tree.
       inert={!open}
     >
       <div className="ai-head">
@@ -1217,6 +1224,20 @@ function AIDrawer({
           <Icon name="sparkle-fill" size={15} />
         </span>
         <h3>{t("reader.aiSummaryTitle")}</h3>
+        <select
+          className="s-select ai-template-select"
+          value={template}
+          disabled={busy}
+          aria-label={t("reader.aiTemplateLabel")}
+          onChange={(e) => handleTemplateChange(e.target.value as SummaryTemplate)}
+          style={{ marginLeft: "auto", marginRight: 8, fontSize: 12, maxWidth: 140 }}
+        >
+          {templateOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         <button
           className="tb-btn close"
           onClick={onClose}

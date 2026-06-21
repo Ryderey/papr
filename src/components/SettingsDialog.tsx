@@ -14,7 +14,7 @@ import { modKey, modCombo } from "../lib/platform";
 import { reportError } from "../toast";
 import { checkForUpdates } from "../lib/updater";
 import { downloadFile } from "../lib/download";
-import type { Feed, Rule, RuleAction, RuleField, RulePreview } from "../types";
+import type { Feed, Rule, RuleAction, RuleField, RulePreview, SummaryTemplate } from "../types";
 import Icon, { type IconName } from "./Icon";
 import ConfirmDialog from "./ConfirmDialog";
 import FeedAvatar from "./FeedAvatar";
@@ -1939,6 +1939,7 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
   // language until the user picks one.
   const [engine, setEngine] = useState<TranslateEngine>("llm");
   const [translateLang, setTranslateLang] = useState("");
+  const [summaryTemplate, setSummaryTemplate] = useState<SummaryTemplate>("classic");
   const [isLoaded, setIsLoaded] = useState(false);
   const [aiBusy, setAiBusy] = useState<"saving" | "testing" | null>(null);
   const [aiTestMessage, setAiTestMessage] = useState("");
@@ -1960,8 +1961,9 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
       api.getSetting(AI_PURPOSE_KEYS.translate),
       api.getSetting("translate_engine"),
       api.getSetting("translate_target_lang"),
+      api.getSetting("ai_summary_template"),
     ])
-      .then(([profilesJson, activeSetting, p, k, m, b, summary, ask, digest, translate, eng, tl]) => {
+      .then(([profilesJson, activeSetting, p, k, m, b, summary, ask, digest, translate, eng, tl, tpl]) => {
         const parsed = parseAiProfilesJson(profilesJson);
         const loadedProfiles = parsed?.profiles ?? [legacyAiProfile(p, k, m, b)];
         const activeId = pickActiveProfileId(loadedProfiles, activeSetting, parsed?.active_profile_id);
@@ -1976,6 +1978,8 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
         if (eng === "google" || eng === "deepl" || eng === "bing" || eng === "llm")
           setEngine(eng);
         if (tl) setTranslateLang(tl);
+        const valid: SummaryTemplate[] = ["classic", "news5w1h", "decision", "funnel", "argument", "minimal"];
+        if (tpl && valid.includes(tpl as SummaryTemplate)) setSummaryTemplate(tpl as SummaryTemplate);
         loaded.current = true;
         setIsLoaded(true);
       })
@@ -2444,6 +2448,27 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
             // The reader caches this default to decide whether a stored
             // translation is still current — refresh it so a change applies now.
             qc.invalidateQueries({ queryKey: ["setting", "translate_target_lang"] });
+          }}
+        />
+      </Row>
+      <Row
+        label={t("settings.advanced.aiSummaryTemplate")}
+        desc={t("settings.advanced.aiSummaryTemplateDesc")}
+      >
+        <Select
+          value={summaryTemplate}
+          options={[
+            { value: "classic", label: t("reader.aiTemplateClassic") },
+            { value: "news5w1h", label: t("reader.aiTemplateNews5w1h") },
+            { value: "decision", label: t("reader.aiTemplateDecision") },
+            { value: "funnel", label: t("reader.aiTemplateFunnel") },
+            { value: "argument", label: t("reader.aiTemplateArgument") },
+            { value: "minimal", label: t("reader.aiTemplateMinimal") },
+          ]}
+          aria-label={t("settings.advanced.aiSummaryTemplate")}
+          onChange={(v) => {
+            setSummaryTemplate(v);
+            save("ai_summary_template", v, t("settings.advanced.aiSummaryTemplateLabel"));
           }}
         />
       </Row>

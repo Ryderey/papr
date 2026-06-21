@@ -193,6 +193,13 @@
     "aiReadingFullText": "正在阅读全文…",
     "aiError": "无法生成摘要",
     "aiDisclaimer": "由本地模型生成 · 仅供参考 · 内容可能不准确",
+    "aiTemplateLabel": "摘要模板",
+    "aiTemplateClassic": "经典 TL;DR",
+    "aiTemplateNews5w1h": "5W1H 新闻式",
+    "aiTemplateDecision": "决策导向",
+    "aiTemplateFunnel": "三层漏斗",
+    "aiTemplateArgument": "论证拆解",
+    "aiTemplateMinimal": "极简一句",
     "translateTitle": "翻译为",
     "translateEngine": "引擎",
     "translateEngineLlm": "AI 模型"
@@ -528,7 +535,10 @@
       "translateEngineLlm": "LLM（选定的翻译配置档）",
       "translateLang": "翻译语言",
       "translateLangDesc": "文章翻译成的默认语言。默认跟随界面语言；可在阅读界面按文章临时切换",
-      "translateLangLabel": "翻译语言"
+      "translateLangLabel": "翻译语言",
+      "aiSummaryTemplate": "摘要模板",
+      "aiSummaryTemplateDesc": "AI 文章摘要的默认模板风格，可在阅读界面按文章临时切换",
+      "aiSummaryTemplateLabel": "摘要模板"
     },
     "about": {
       "tagline": "把信息流，变回一份安静的读物",

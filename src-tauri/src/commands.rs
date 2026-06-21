@@ -712,6 +712,7 @@ fn translate_target_lang(conn: &rusqlite::Connection) -> String {
 pub async fn ai_summarize(
     state: State<'_, AppState>,
     article_id: i64,
+    template: SummaryTemplate,
     on_token: Channel<AiEvent>,
 ) -> AppResult<()> {
     let (title, body, cfg, lang) = {
@@ -724,41 +725,112 @@ pub async fn ai_summarize(
             response_language(&conn),
         )
     };
-    // A title-only item (link-aggregator posts, some podcast/video feeds carry
-    // no body text) gives the model nothing to summarize. Without this guard it
-    // would invent a "summary" from the bare title alone — and that fabricated
-    // text would then be persisted to `ai_summary`. Bail out the same way
-    // `ai_ask` / `ai_digest` do when their input is empty.
     if body.trim().is_empty() {
         return Err(AppError::code("noArticleBody"));
     }
-    // The drawer renders the response as markdown (.ai-prose styles paragraphs,
-    // bullets, and bold), so we ask for structured output instead of a single
-    // dense paragraph — the reader can scan a TL;DR + bullets far faster.
-    let system = format!(
-        "You are a sharp news editor. Summarize the article so a reader can \
-         decide whether to read it in full.\n\n\
-         Format the response in markdown using exactly this shape:\n\
-         **TL;DR** — One sentence capturing the single most important point.\n\n\
-         - Key fact, finding, or claim (under ~20 words)\n\
-         - Another key point\n\
-         - 3 to 5 bullets total, one idea each, no nested bullets\n\n\
-         Output only this structure. No preamble, no closing remarks, no \
-         section headers, no extra prose.{lang}"
-    );
+    let system = build_summary_prompt(template, &lang);
     let user = format!("Title: {title}\n\n{}", truncate(&body, 8000));
 
     let http = state.http();
     let outcome = ai::stream_chat(&http, &cfg, &system, &user, &on_token, ai::MAX_TOKENS).await?;
-    // Persist only a summary that streamed to completion. If the user closed
-    // the AI panel mid-stream the channel was dropped and `outcome.text` holds
-    // just a truncated fragment — caching that would make the next open show a
-    // broken half-summary with no way to regenerate it.
     if outcome.completed && !outcome.text.trim().is_empty() {
         let conn = state.db.lock().await;
         db::set_ai_summary(&conn, article_id, outcome.text.trim())?;
     }
     Ok(())
+}
+
+/// Build the system prompt for a given summary template.
+fn build_summary_prompt(template: SummaryTemplate, lang: &str) -> String {
+    match template {
+        SummaryTemplate::Classic => format!(
+            "You are a sharp news editor. Summarize the article so a reader can \
+             decide whether to read it in full.\n\n\
+             Format the response in markdown using exactly this shape:\n\
+             **TL;DR** — One sentence capturing the single most important point.\n\n\
+             - Key fact, finding, or claim (under ~20 words)\n\
+             - Another key point\n\
+             - 3 to 5 bullets total, one idea each, no nested bullets\n\n\
+             Output only this structure. No preamble, no closing remarks, no \
+             section headers, no extra prose.{lang}",
+            lang = lang
+        ),
+        SummaryTemplate::News5w1h => format!(
+            "You are a senior news editor. Please produce a structured summary \
+             that extracts the core facts from the article.\n\n\
+             Format the response in markdown using exactly this shape:\n\
+             **一句话概述** — One sentence summarizing the core subject.\n\n\
+             **5W1H 速览**\n\
+             - **Who（谁）**：The people, companies, or organizations involved\n\
+             - **What（什么）**：The event, product, or finding\n\
+             - **When（何时）**：Time, date, or version cycle\n\
+             - **Where（何地）**：Location, platform, or scope\n\
+             - **Why（为什么）**：Motivation, background, or cause\n\
+             - **How（如何）**：Method, approach, or impact path\n\n\
+             **关键细节**：1–3 pieces of essential information or data from the article.\n\n\
+             **价值判断**：For the target reader, is this article worth reading in full? \
+             One sentence.\n\n\
+             Output only this structure. No preamble, no extra prose.{lang}",
+            lang = lang
+        ),
+        SummaryTemplate::Decision => format!(
+            "You are an efficient information-filtering assistant. Your job is \
+             not to retell the article, but to help the reader decide in 5 \
+             seconds whether it is worth reading.\n\n\
+             Format the response in markdown using exactly this shape:\n\
+             **核心命题** — One sentence: what problem or viewpoint does the \
+             article address?\n\n\
+             **适合谁读** — Which type of reader will find this most valuable?\n\n\
+             **为什么现在读** — What is the timeliness or unique value?\n\n\
+             **值不值得读** — High quality, worth a careful read / Clickbait, \
+             the summary is enough / Useful only for a specific audience\n\n\
+             **如果只看一句话**：The single most memorable sentence or conclusion.\n\n\
+             Output only this structure. No extra prose.{lang}",
+            lang = lang
+        ),
+        SummaryTemplate::Funnel => format!(
+            "You are an information architect. Compress the article into a \
+             three-level progressive summary, from coarse to fine.\n\n\
+             Format the response in markdown using exactly this shape:\n\
+             **第一层：30 秒速览** (≤ 30 words)\n\
+             One extremely short sentence stating the core conclusion.\n\n\
+             **第二层：2 分钟精华** (3–4 bullets)\n\
+             The most important evidence or findings, each ≤ 25 words.\n\n\
+             **第三层：深度线索** (1–2 items)\n\
+             If the reader wants to go deeper, which sections of the article \
+             should they focus on?\n\n\
+             **适合场景**：When is this article best read? (e.g. commute skim, \
+             technical research, weekend deep-dive)\n\n\
+             Output only this structure. No extra prose.{lang}",
+            lang = lang
+        ),
+        SummaryTemplate::Argument => format!(
+            "You are a logic analyst. Deconstruct the article's core argument \
+             structure so the reader can quickly grasp the author's reasoning.\n\n\
+             Format the response in markdown using exactly this shape:\n\
+             **作者的核心观点** — The one thing the author most wants you to believe.\n\n\
+             **主要论据** — 2–4 key pieces of evidence or reasoning steps the \
+             author uses.\n\n\
+             **潜在前提** — What unstated assumptions does the argument rely on?\n\n\
+             **不同视角** — What would a skeptic or opponent question about this article?\n\n\
+             **我的判断** — Is the argument solid? Worth trusting, or take it \
+             with a grain of salt?\n\n\
+             Output only this structure. No extra prose.{lang}",
+            lang = lang
+        ),
+        SummaryTemplate::Minimal => format!(
+            "You are an ultra-concise summary editor. Reduce the article to a \
+             single sentence, at most 50 words.\n\n\
+             Requirements:\n\
+             - Must include the core conclusion or key fact\n\
+             - Do NOT start with 'This article discusses...' or similar empty phrases\n\
+             - Deliver the substance directly\n\n\
+             If the article is extremely short or lacks substance, output exactly:\n\
+            「内容较浅，建议跳过。」\n\n\
+             Output only that one sentence. No other text.{lang}",
+            lang = lang
+        ),
+    }
 }
 
 /// Answer a question using the user's subscribed articles as RAG context.
