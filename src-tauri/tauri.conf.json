@@ -44,6 +44,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "useLocalToolsDir": true,
     "targets": "all",
     "category": "News",
     "icon": [
