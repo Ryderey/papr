@@ -675,7 +675,7 @@ export default function Reader({ onToast }: Props) {
   const ytId = a.sourceType === "youtube" ? youtubeId(a.url) : null;
 
   return (
-    <div className="reader" role="main">
+    <div className={`reader ${aiOpen ? "ai-open" : ""}`} role="main">
       <div
         className={`reader-toolbar ${scrolled ? "scrolled" : ""}`}
         {...(isMac && { "data-tauri-drag-region": true })}
