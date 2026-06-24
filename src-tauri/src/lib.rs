@@ -250,6 +250,7 @@ pub fn run() {
             commands::get_setting,
             commands::set_setting,
             commands::ai_summarize,
+            commands::ai_summarize_follow_up,
             commands::ai_ask,
             commands::ai_digest,
             commands::ai_translate,

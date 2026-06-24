@@ -193,6 +193,8 @@
     "aiReadingFullText": "全文を読み込み中…",
     "aiError": "要約を生成できませんでした",
     "aiDisclaimer": "ローカルモデルによる生成 · 参考用 · 内容は不正確な場合があります",
+    "aiFollowUpPlaceholder": "追加で質問…",
+    "aiFollowUpSubmit": "質問を送信",
     "aiTemplateLabel": "要約テンプレート",
     "aiTemplateClassic": "クラシック TL;DR",
     "aiTemplateNews5w1h": "5W1H ニュース式",

@@ -8,6 +8,10 @@ import { useUi } from "../store";
 import { usePlayer } from "../player";
 import { useTranslationJobs } from "../translation";
 import { useArticleActions } from "../hooks/articleActions";
+import {
+  useSummaryFollowUp,
+  type FollowUpQA,
+} from "../hooks/useSummaryFollowUp";
 import { renderMarkdown } from "../lib/markdown";
 import { downloadBlob, imageFilename } from "../lib/download";
 import { imageDataUrl } from "../lib/imageBytes";
@@ -1125,6 +1129,8 @@ function AIDrawer({
   const [retry, setRetry] = useState(0);
   const [template, setTemplate] = useState<SummaryTemplate>("classic");
   const [templateLoaded, setTemplateLoaded] = useState(false);
+  const [followUpDraft, setFollowUpDraft] = useState("");
+  const { items: followUps, asking: followUpAsking, ask } = useSummaryFollowUp(text ?? "");
   const runRef = useRef(0);
 
   // Load the user's preferred summary template from settings.
@@ -1273,6 +1279,49 @@ function AIDrawer({
               onClick={makeLinkClickHandler(article.url)}
               dangerouslySetInnerHTML={{ __html: html }}
             />
+            {followUps.length > 0 && (
+              <div className="ai-follow-ups">
+                {followUps.map((qa: FollowUpQA) => (
+                  <div key={qa.id} className="ai-follow-up">
+                    <div className="ai-follow-up-q">{qa.question}</div>
+                    <div className="ai-follow-up-a">
+                      {qa.status === "loading" && qa.answer === "" ? (
+                        <span className="ai-follow-up-thinking">…</span>
+                      ) : (
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: renderMarkdown(qa.answer),
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <form
+              className="ai-follow-up-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                ask(followUpDraft).then(() => setFollowUpDraft(""));
+              }}
+            >
+              <input
+                type="text"
+                value={followUpDraft}
+                onChange={(e) => setFollowUpDraft(e.target.value)}
+                placeholder={t("reader.aiFollowUpPlaceholder")}
+                disabled={followUpAsking}
+              />
+              <button
+                type="submit"
+                disabled={followUpAsking || !followUpDraft.trim()}
+                aria-label={t("reader.aiFollowUpSubmit")}
+                title={t("reader.aiFollowUpSubmit")}
+              >
+                <Icon name="arrow-up" size={14} />
+              </button>
+            </form>
             <div
               style={{
                 fontSize: 11,

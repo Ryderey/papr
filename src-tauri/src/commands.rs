@@ -878,6 +878,45 @@ pub async fn ai_ask(
     Ok(())
 }
 
+/// Answer follow-up questions about an already-generated article summary.
+/// The context is limited to the summary text plus the current Q&A history;
+/// the original article body is not re-fetched.
+#[tauri::command]
+pub async fn ai_summarize_follow_up(
+    state: State<'_, AppState>,
+    summary_text: String,
+    history: Vec<(String, String)>,
+    question: String,
+    on_token: Channel<AiEvent>,
+) -> AppResult<()> {
+    let (cfg, lang) = {
+        let conn = state.read().await;
+        (
+            load_ai_config_for(&conn, LlmPurpose::Summary)?,
+            response_language(&conn),
+        )
+    };
+
+    let system = format!(
+        "You are a helpful reading assistant. The user is looking at an \
+         AI-generated article summary and wants to ask follow-up questions. \
+         Answer using only the information present in the summary. If the \
+         question goes beyond the summary, say so plainly. Keep answers \
+         concise.{lang}",
+        lang = lang
+    );
+
+    let mut user = format!("Summary:\n\n{}\n\n---\n\n", summary_text);
+    for (q, a) in history {
+        user.push_str(&format!("Q: {}\nA: {}\n\n", q, a));
+    }
+    user.push_str(&format!("Q: {}\nA:", question));
+
+    let http = state.http();
+    ai::stream_chat(&http, &cfg, &system, &user, &on_token, ai::MAX_TOKENS).await?;
+    Ok(())
+}
+
 /// Stream an AI briefing that synthesizes the most recent articles by theme.
 #[tauri::command]
 pub async fn ai_digest(

@@ -26,6 +26,7 @@ Hard constraints for the implementation phase:
 Existing features that must continue working:
 
 - AI article summary
+- AI summary follow-up Q&A (`ai_summarize_follow_up`)
 - Ask-the-article / RAG question answering
 - AI Digest
 - LLM translation

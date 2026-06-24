@@ -133,6 +133,22 @@ export function aiAsk(
   return invoke<void>("ai_ask", { question, onToken: channel });
 }
 
+export function aiSummarizeFollowUp(
+  summaryText: string,
+  history: [string, string][],
+  question: string,
+  onToken: (e: AiEvent) => void,
+): Promise<void> {
+  const channel = new Channel<AiEvent>();
+  channel.onmessage = onToken;
+  return invoke<void>("ai_summarize_follow_up", {
+    summaryText,
+    history,
+    question,
+    onToken: channel,
+  });
+}
+
 export function aiDigest(onToken: (e: AiEvent) => void): Promise<void> {
   const channel = new Channel<AiEvent>();
   channel.onmessage = onToken;
