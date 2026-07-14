@@ -15,6 +15,7 @@ import {
 import { renderMarkdown } from "../lib/markdown";
 import { downloadBlob, imageFilename } from "../lib/download";
 import { imageDataUrl } from "../lib/imageBytes";
+import { isSameImageUrl } from "../lib/imageUrl";
 import { fullDate } from "../lib/feedMeta";
 import { isMac } from "../lib/platform";
 import { reportError, toast } from "../toast";
@@ -436,6 +437,14 @@ export default function Reader({ onToast }: Props) {
       (translating ? `<p><em>${t("reader.translating")}</em></p>` : baseBody)
     : baseBody;
   const displayBody = proxiedBody?.source === body ? proxiedBody.html : body;
+  const bodyReusesHeroImage = useMemo(() => {
+    if (!a?.imageUrl || !body) return false;
+    const doc = new DOMParser().parseFromString(body, "text/html");
+    return Array.from(doc.body.querySelectorAll("img[src]")).some((img) => {
+      const src = img.getAttribute("src");
+      return src != null && isSameImageUrl(a.imageUrl!, src);
+    });
+  }, [a?.imageUrl, body]);
 
   // For hosts that require a Referer (notably 少数派's image CDN), proxy image
   // URLs before injecting the HTML. This avoids relying on WKWebView's image
@@ -880,7 +889,7 @@ export default function Reader({ onToast }: Props) {
             !heroBroken &&
             // Skip the hero when the body already embeds the same image, so
             // feeds that repeat their lead image don't show it twice.
-            !body.includes(a.imageUrl) && (
+            !bodyReusesHeroImage && (
               <img
                 className="article-hero"
                 src={heroDataUrl ?? a.imageUrl}
