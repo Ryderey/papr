@@ -1,0 +1,14 @@
+[package]
+name = "papr-flutter-bridge"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Flutter Rust Bridge v2 adapter for papr-core."
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+papr-core = { path = "../papr-core" }
+flutter_rust_bridge = "=2.12.0"
+log = { workspace = true }

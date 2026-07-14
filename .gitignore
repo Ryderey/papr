@@ -51,3 +51,27 @@ a.out
 *.njsproj
 *.sln
 *.sw?
+
+# Rust
+target/
+
+# Flutter Android build artifacts
+mobile/android/app/src/main/jniLibs/**/*.so
+mobile/android/build/
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.pub-cache/
+mobile/.pub/
+mobile/ios/Flutter/.last_build_id
+
+# Trellis / tool scratch
+devtools_err.txt
+devtools_log.jsonl
+devtools_out.txt
+devtools_ws.cjs
+nul
+window_dump.xml
+papr-release.keystore
+

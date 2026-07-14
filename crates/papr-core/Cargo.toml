@@ -1,0 +1,35 @@
+[package]
+name = "papr-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Papr core business logic: RSS ingestion, storage, sync, AI, and rules. Platform-agnostic."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+
+# data layer
+rusqlite = { workspace = true }
+rusqlite_migration = { workspace = true }
+
+# ingestion
+feed-rs = { workspace = true }
+reqwest = { workspace = true }
+scraper = { workspace = true }
+url = { workspace = true }
+opml = { workspace = true }
+encoding_rs = { workspace = true }
+
+# content
+ammonia = { workspace = true }
+dom_smoothie = { workspace = true }
+lol_html = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

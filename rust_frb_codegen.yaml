@@ -1,0 +1,7 @@
+# FRB codegen configuration for papr-flutter-bridge.
+# Run from repo root: flutter_rust_bridge_codegen generate --config-file rust_frb_codegen.yaml
+
+rust_input: crate::api
+rust_root: crates/papr-flutter-bridge
+dart_output: mobile/lib/bridge/generated
+base_dir: .
