@@ -12,7 +12,6 @@ import { errorText } from "../lib/errors";
 import { feedHost } from "../lib/feedMeta";
 import { modKey, modCombo } from "../lib/platform";
 import { reportError } from "../toast";
-import { checkForUpdates } from "../lib/updater";
 import { downloadFile } from "../lib/download";
 import type { Feed, Rule, RuleAction, RuleField, RulePreview, SummaryTemplate } from "../types";
 import Icon, { type IconName } from "./Icon";
@@ -2539,15 +2538,6 @@ function RuleEditor({
 function AboutSection() {
   const { t } = useTranslation();
   const version = useAppVersion();
-  const [checking, setChecking] = useState(false);
-  const onCheck = async () => {
-    setChecking(true);
-    try {
-      await checkForUpdates({ silent: false });
-    } finally {
-      setChecking(false);
-    }
-  };
   return (
     <div className="s-about">
       <div className="mark">
@@ -2558,9 +2548,6 @@ function AboutSection() {
       <div className="version">
         Version{version && ` ${version}`}
       </div>
-      <button className="s-btn about-update" onClick={onCheck} disabled={checking}>
-        {checking ? t("update.checking") : t("update.checkButton")}
-      </button>
       <p className="credits">
         {t("settings.about.creditsFonts")}
         <br />

@@ -1754,9 +1754,8 @@ button { font-family: inherit; }
   font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
-  margin-bottom: 14px;
+  margin-bottom: 30px;
 }
-.s-about .about-update { margin-bottom: 30px; }
 .s-about .credits {
   font-size: 12px;
   color: var(--muted);
