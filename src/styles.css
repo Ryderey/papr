@@ -1797,6 +1797,7 @@ button { font-family: inherit; }
 }
 
 /* rendered article images */
+.article-hero,
 .article-body img {
   max-width: 100%;
   height: auto;
@@ -1804,6 +1805,7 @@ button { font-family: inherit; }
   margin: 1.2em 0;
   display: block;
 }
+.article-hero { width: 100%; }
 /* Feed-embedded <video> (see sanitize): keep it within the column like images. */
 .article-body video {
   max-width: 100%;

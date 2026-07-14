@@ -882,6 +882,7 @@ export default function Reader({ onToast }: Props) {
             // feeds that repeat their lead image don't show it twice.
             !body.includes(a.imageUrl) && (
               <img
+                className="article-hero"
                 src={heroDataUrl ?? a.imageUrl}
                 alt=""
                 // The original URL when src is a recovered data: URL, so the
