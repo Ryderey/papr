@@ -76,3 +76,38 @@ export function clampToViewport({
     top: clampAxis(y, height, viewportHeight, margin),
   };
 }
+
+interface SubmenuPositionInput {
+  anchorLeft: number;
+  anchorRight: number;
+  anchorTop: number;
+  width: number;
+  height: number;
+  gap?: number;
+  margin?: number;
+  viewportWidth?: number;
+  viewportHeight?: number;
+}
+
+/** Place a submenu beside its trigger, flipping left when the right side is full. */
+export function placeSubmenu({
+  anchorLeft,
+  anchorRight,
+  anchorTop,
+  width,
+  height,
+  gap = 4,
+  margin = 8,
+  viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0,
+  viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0,
+}: SubmenuPositionInput): ClampResult {
+  const right = anchorRight + gap;
+  const preferredLeft =
+    right + width <= viewportWidth - margin
+      ? right
+      : anchorLeft - width - gap;
+  return {
+    left: clampAxis(preferredLeft, width, viewportWidth, margin),
+    top: clampAxis(anchorTop, height, viewportHeight, margin),
+  };
+}

@@ -14,16 +14,19 @@ import { useEffect, type KeyboardEvent, type RefObject } from "react";
  * @param ready when false the menu items have not rendered yet (e.g. an async
  *              load is pending) — focus is moved in only once it flips true.
  *              Defaults to true for menus whose items are present immediately.
+ * @param restoreFocus false for a child submenu whose parent owns restoration.
  */
 export function useMenuKeyboard(
   ref: RefObject<HTMLElement | null>,
   ready: boolean = true,
+  restoreFocus: boolean = true,
 ) {
   // Restore focus to the trigger element when the menu unmounts.
   useEffect(() => {
+    if (!restoreFocus) return;
     const trigger = document.activeElement as HTMLElement | null;
     return () => trigger?.focus?.();
-  }, []);
+  }, [restoreFocus]);
 
   // Focus the first enabled menu item once the items are on screen.
   useEffect(() => {

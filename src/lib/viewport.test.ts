@@ -3,7 +3,7 @@
 // exercisable in node without a DOM.
 
 import { describe, it, expect } from "vitest";
-import { clampAxis, clampToViewport } from "./viewport";
+import { clampAxis, clampToViewport, placeSubmenu } from "./viewport";
 
 describe("clampAxis", () => {
   it("leaves a coordinate that already fits untouched", () => {
@@ -130,5 +130,49 @@ describe("clampToViewport", () => {
         viewportHeight: 800,
       }),
     ).toEqual({ left: 100, top: 642 });
+  });
+});
+
+describe("placeSubmenu", () => {
+  it("opens to the right when there is room", () => {
+    expect(
+      placeSubmenu({
+        anchorLeft: 200,
+        anchorRight: 300,
+        anchorTop: 120,
+        width: 220,
+        height: 200,
+        viewportWidth: 1000,
+        viewportHeight: 800,
+      }),
+    ).toEqual({ left: 304, top: 120 });
+  });
+
+  it("opens to the left when the right edge would overflow", () => {
+    expect(
+      placeSubmenu({
+        anchorLeft: 750,
+        anchorRight: 850,
+        anchorTop: 120,
+        width: 220,
+        height: 200,
+        viewportWidth: 1000,
+        viewportHeight: 800,
+      }),
+    ).toEqual({ left: 526, top: 120 });
+  });
+
+  it("clamps vertically inside the viewport", () => {
+    expect(
+      placeSubmenu({
+        anchorLeft: 200,
+        anchorRight: 300,
+        anchorTop: 750,
+        width: 220,
+        height: 200,
+        viewportWidth: 1000,
+        viewportHeight: 800,
+      }),
+    ).toEqual({ left: 304, top: 592 });
   });
 });

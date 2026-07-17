@@ -219,24 +219,45 @@ export default function Sidebar({
 
   // ── feed / folder context menus ──
   const feedMenu = (f: Feed): MenuEntry[] => {
-    const moves: MenuEntry[] = allFolders
-      .filter((fo) => fo.id !== f.folderId)
-      .map((fo) => ({
-        icon: "folder" as const,
-        label: t("sidebar.moveToFolder", { folder: fo.name }),
-        onClick: () =>
-          guard(
-            api.moveFeed(f.id, fo.id),
-            t("sidebar.toastMovedTo", { folder: fo.name }),
-          ),
-      }));
-    if (f.folderId != null)
+    const moves: MenuEntry[] = [];
+    if (f.folderId != null) {
       moves.push({
         icon: "folder",
-        label: t("sidebar.moveOutOfFolder"),
+        label: t("sidebar.uncategorized"),
         onClick: () =>
           guard(api.moveFeed(f.id, null), t("sidebar.toastMovedOut")),
       });
+    }
+    moves.push(
+      ...allFolders
+        .filter((fo) => fo.id !== f.folderId)
+        .map((fo) => ({
+          icon: "folder" as const,
+          label: fo.name,
+          onClick: () =>
+            guard(
+              api.moveFeed(f.id, fo.id),
+              t("sidebar.toastMovedTo", { folder: fo.name }),
+            ),
+        })),
+    );
+    const copy: MenuEntry[] =
+      f.sourceType === "newsletter"
+        ? []
+        : [
+            {
+              icon: "copy",
+              label: t("sidebar.copyFeedUrl"),
+              onClick: () => {
+                navigator.clipboard
+                  .writeText(f.feedUrl)
+                  .then(
+                    () => onToast(t("sidebar.toastFeedUrlCopied")),
+                    (e) => reportError(e),
+                  );
+              },
+            },
+          ];
     return [
       {
         icon: "check-all",
@@ -259,7 +280,17 @@ export default function Sidebar({
               guard(api.renameFeed(f.id, v), t("sidebar.toastRenamed")),
           }),
       },
-      ...(moves.length ? [{ separator: true } as MenuEntry, ...moves] : []),
+      ...copy,
+      ...(moves.length
+        ? [
+            { separator: true } as MenuEntry,
+            {
+              icon: "folder",
+              label: t("sidebar.moveFolder"),
+              submenu: moves,
+            } as MenuEntry,
+          ]
+        : []),
       { separator: true },
       {
         icon: "trash",
