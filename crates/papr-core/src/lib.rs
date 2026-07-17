@@ -6,6 +6,7 @@ pub mod db;
 pub mod dto;
 pub use dto::*;
 pub mod error;
+pub mod ingestion;
 pub mod services;
 
 use std::sync::Arc;
@@ -22,7 +23,7 @@ use services::{
 /// dependencies. Adapters construct it with platform-specific paths and then
 /// call its services.
 pub struct PaprCore {
-    db: Arc<Db>,
+    _db: Arc<Db>,
     config: PaprCoreConfig,
     feed_service: FeedService,
     article_service: ArticleService,
@@ -58,7 +59,7 @@ impl PaprCore {
             ingestion_service: IngestionService::new(Arc::clone(&db)),
             opml_service: OpmlService::new(Arc::clone(&db)),
             settings_service: SettingsService::new(Arc::clone(&db)),
-            db,
+            _db: db,
             config,
         })
     }

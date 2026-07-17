@@ -48,6 +48,29 @@ pub struct Feed {
     pub unread_count: i64,
 }
 
+/// A media enclosure attached to an article.
+#[derive(Debug, Clone)]
+pub struct Enclosure {
+    pub url: String,
+    pub mime_type: Option<String>,
+    pub length: Option<i64>,
+}
+
+/// A parsed article ready for insertion.
+#[derive(Debug, Clone)]
+pub struct NewArticle {
+    pub guid: String,
+    pub url: Option<String>,
+    pub title: String,
+    pub author: Option<String>,
+    pub summary: Option<String>,
+    pub content_html: Option<String>,
+    pub body_text: String,
+    pub image_url: Option<String>,
+    pub published_at: Option<String>,
+    pub enclosures: Vec<Enclosure>,
+}
+
 /// A lightweight article row for lists.
 #[derive(Debug, Clone)]
 pub struct ArticleSummary {
@@ -88,14 +111,6 @@ pub struct ArticleDetail {
     pub translated_lang: Option<String>,
     pub enclosures: Vec<Enclosure>,
     pub tags: Vec<Tag>,
-}
-
-/// A media enclosure attached to an article.
-#[derive(Debug, Clone)]
-pub struct Enclosure {
-    pub url: String,
-    pub mime_type: Option<String>,
-    pub length: Option<i64>,
 }
 
 /// A lightweight tag representation.

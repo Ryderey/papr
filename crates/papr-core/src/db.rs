@@ -10,7 +10,8 @@ use rusqlite::{Connection, OptionalExtension};
 use rusqlite_migration::{M, Migrations};
 
 use crate::dto::{
-    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Feed, SourceType,
+    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure, Feed, NewArticle,
+    SourceType,
 };
 use crate::error::CoreError;
 
@@ -22,6 +23,15 @@ use crate::error::CoreError;
 /// object and may be accessed from multiple threads.
 pub struct Db {
     conn: Mutex<Connection>,
+}
+
+/// Information needed to refresh one feed.
+#[derive(Debug, Clone)]
+pub struct FeedRefreshInfo {
+    pub id: i64,
+    pub feed_url: String,
+    pub etag: Option<String>,
+    pub last_modified: Option<String>,
 }
 
 impl Db {
@@ -290,7 +300,7 @@ impl Db {
              WHERE articles.id = ?1"
         ).map_err(|e| CoreError::Db(e.to_string()))?;
 
-        let row = stmt.query_row([article_id], |row| {
+        let mut row = stmt.query_row([article_id], |row| {
             let source_type: String = row.get(3)?;
             Ok(ArticleDetail {
                 id: row.get(0)?,
@@ -310,7 +320,7 @@ impl Db {
                 ai_summary: row.get(14)?,
                 translated_html: row.get(15)?,
                 translated_lang: row.get(16)?,
-                enclosures: Vec::new(), // phase 1: not loaded
+                enclosures: Vec::new(), // loaded below
                 tags: Vec::new(),       // phase 1: not loaded
             })
         }).map_err(|e| match e {
@@ -319,6 +329,8 @@ impl Db {
             }
             _ => CoreError::Db(e.to_string()),
         })?;
+
+        row.enclosures = Self::load_enclosures(&conn, article_id)?;
 
         Ok(row)
     }
@@ -333,6 +345,153 @@ impl Db {
         )
         .optional()
         .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    /// Returns all feeds that should be refreshed.
+    pub fn feeds_to_refresh(&self,
+    ) -> Result<Vec<FeedRefreshInfo>, CoreError> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, feed_url, etag, last_modified FROM feeds ORDER BY title",
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(FeedRefreshInfo {
+                    id: row.get::<usize, i64>(0)?,
+                    feed_url: row.get::<usize, String>(1)?,
+                    etag: row.get::<usize, Option<String>>(2)?,
+                    last_modified: row.get::<usize, Option<String>>(3)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+
+        let mut feeds = Vec::new();
+        for row in rows {
+            feeds.push(row.map_err(|e| CoreError::Db(e.to_string()))?);
+        }
+        Ok(feeds)
+    }
+
+    /// Upsert an article, using (feed_id, guid) as the dedup key.
+    /// Returns true if a new row was inserted.
+    pub fn upsert_article(
+        &self,
+        feed_id: i64,
+        article: &NewArticle,
+    ) -> Result<bool, CoreError> {
+        let conn = self.lock()?;
+        conn.execute(
+            "INSERT INTO articles \
+             (feed_id, guid, url, title, author, summary, content_html, body_text, image_url, published_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+             ON CONFLICT(feed_id, guid) DO NOTHING",
+            (
+                feed_id,
+                &article.guid,
+                &article.url,
+                &article.title,
+                &article.author,
+                &article.summary,
+                &article.content_html,
+                &article.body_text,
+                &article.image_url,
+                &article.published_at,
+            ),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+
+        let article_id = conn.last_insert_rowid();
+        if article_id == 0 {
+            return Ok(false);
+        }
+
+        for enc in &article.enclosures {
+            conn.execute(
+                "INSERT INTO enclosures (article_id, url, mime_type, length) VALUES (?1, ?2, ?3, ?4)",
+                (article_id, &enc.url, &enc.mime_type, &enc.length),
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        }
+        Ok(true)
+    }
+
+    /// Update editable feed metadata after a successful refresh.
+    pub fn update_feed_meta(
+        &self,
+        feed_id: i64,
+        title: Option<&str>,
+        site_url: Option<&str>,
+        description: Option<&str>,
+        favicon_url: Option<&str>,
+    ) -> Result<(), CoreError> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE feeds SET \
+             title = COALESCE(?1, title), \
+             site_url = COALESCE(?2, site_url), \
+             description = COALESCE(?3, description), \
+             favicon_url = COALESCE(?4, favicon_url) \
+             WHERE id = ?5",
+            (title, site_url, description, favicon_url, feed_id),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Update fetch-related state after a refresh attempt.
+    pub fn set_feed_fetch_state(
+        &self,
+        feed_id: i64,
+        etag: Option<&str>,
+        last_modified: Option<&str>,
+        fetch_error: Option<&str>,
+    ) -> Result<(), CoreError> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE feeds SET \
+             etag = COALESCE(?1, etag), \
+             last_modified = COALESCE(?2, last_modified), \
+             fetch_error = ?3 \
+             WHERE id = ?4",
+            (etag, last_modified, fetch_error, feed_id),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Touch a feed's last_fetched_at timestamp.
+    pub fn touch_feed(&self, feed_id: i64) -> Result<(), CoreError> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE feeds SET last_fetched_at = datetime('now') WHERE id = ?1",
+            [feed_id],
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Load enclosures for a given article.
+    fn load_enclosures(
+        conn: &Connection,
+        article_id: i64,
+    ) -> Result<Vec<Enclosure>, CoreError> {
+        let mut stmt = conn
+            .prepare("SELECT url, mime_type, length FROM enclosures WHERE article_id = ?1")
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([article_id], |row| {
+                Ok(Enclosure {
+                    url: row.get(0)?,
+                    mime_type: row.get(1)?,
+                    length: row.get(2)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
     }
 }
 

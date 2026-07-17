@@ -30,4 +30,16 @@ class FeedRepository {
       throw PaprCoreService.mapError(e);
     }
   }
+
+  Future<bridge.RefreshReport> refreshFeeds({bridge.RefreshOptions? options}) async {
+    final core = await _ref.read(paprCoreBridgeProvider.future);
+    try {
+      return await bridge.refreshFeeds(
+        core: core,
+        options: options ?? const bridge.RefreshOptions(feedIds: null, force: false),
+      );
+    } catch (e) {
+      throw PaprCoreService.mapError(e);
+    }
+  }
 }

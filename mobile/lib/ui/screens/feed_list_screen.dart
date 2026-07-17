@@ -20,32 +20,41 @@ class FeedListScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Feeds'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _refresh(context, ref),
+          ),
+        ],
       ),
       body: feeds.when(
         data: (items) => items.isEmpty
             ? const Center(child: Text('No feeds yet. Tap + to add one.'))
-            : ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final feed = items[index];
-                  return ListTile(
-                    title: Text(feed.title),
-                    subtitle: Text(feed.feedUrl),
-                    trailing: feed.unreadCount > 0
-                        ? Badge(
-                            label: Text('${feed.unreadCount}'),
-                            child: const Icon(Icons.rss_feed),
-                          )
-                        : const Icon(Icons.rss_feed),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ArticleListScreen(feed: feed),
-                        ),
-                      );
-                    },
-                  );
-                },
+            : RefreshIndicator(
+                onRefresh: () => _refresh(context, ref),
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final feed = items[index];
+                    return ListTile(
+                      title: Text(feed.title),
+                      subtitle: Text(feed.feedUrl),
+                      trailing: feed.unreadCount > 0
+                          ? Badge(
+                              label: Text('${feed.unreadCount}'),
+                              child: const Icon(Icons.rss_feed),
+                            )
+                          : const Icon(Icons.rss_feed),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ArticleListScreen(feed: feed),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
@@ -55,6 +64,28 @@ class FeedListScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(feedRepositoryProvider);
+    try {
+      final report = await repo.refreshFeeds();
+      if (context.mounted) {
+        final errorCount = report.errors.length;
+        final msg = errorCount == 0
+            ? 'Refresh complete. ${report.newArticles} new article(s).'
+            : 'Refresh complete. ${report.newArticles} new, $errorCount feed(s) failed.';
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Refresh failed: $e')));
+      }
+    } finally {
+      ref.invalidate(feedListProvider);
+      ref.invalidate(articleListProvider);
+    }
   }
 
   Future<void> _showAddFeedDialog(BuildContext context, WidgetRef ref) async {
