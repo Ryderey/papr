@@ -15,8 +15,6 @@
 ## Security Rules
 
 - Do not execute high-risk commands such as delete, clear, overwrite, or reset unless explicitly requested by the user.
-- Do not automatically run `git commit`.
-- Do not automatically push.
 - Do not modify environment variables, secrets, tokens, or account configurations unless explicitly required by the task.
 - Do not write secrets, tokens, or private configurations into code or logs.
 
