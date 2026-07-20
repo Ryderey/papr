@@ -32,7 +32,7 @@ const AI_REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
 /// Output token cap for summaries / Q&A / digests, applied to every provider so
 /// a response stays bounded in length and cost. These all fit comfortably within
 /// it. Translation overrides it with [`TRANSLATE_MAX_TOKENS`].
-pub const MAX_TOKENS: u32 = 1024;
+pub const MAX_TOKENS: u32 = 2048;
 
 /// Output token cap for one translation batch. A batch's translated HTML tracks
 /// its input length (tags are echoed too), so it needs far more room than a
@@ -446,7 +446,17 @@ async fn stream_llm(
 ) -> AppResult<ChatOutcome> {
     let req = build_stream_request(client, cfg, system, messages, max_tokens)?;
     let resp = client.execute(req).await?;
-    consume_sse(resp, channel, cfg.profile.protocol).await
+    validate_chat_outcome(consume_sse(resp, channel, cfg.profile.protocol).await?)
+}
+
+fn validate_chat_outcome(outcome: ChatOutcome) -> AppResult<ChatOutcome> {
+    if outcome.completed && outcome.text.trim().is_empty() {
+        Err(AppError::other(
+            "AI provider returned no displayable content",
+        ))
+    } else {
+        Ok(outcome)
+    }
 }
 
 fn build_stream_request(
@@ -675,8 +685,8 @@ fn extract_delta(v: &Value, protocol: LlmProtocol) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_stream_request, extract_delta, extract_error, AiConfig, LlmMessage, LlmProfileInput,
-        LlmProtocol, LlmPurpose,
+        build_stream_request, extract_delta, extract_error, validate_chat_outcome, AiConfig,
+        ChatOutcome, LlmMessage, LlmProfileInput, LlmProtocol, LlmPurpose,
     };
     use reqwest::header::AUTHORIZATION;
     use reqwest::Client;
@@ -699,6 +709,29 @@ mod tests {
             extract_delta(&chunk, LlmProtocol::OpenAiChatCompletions).as_deref(),
             Some("hello")
         );
+    }
+
+    #[test]
+    fn completed_empty_chat_is_rejected_without_misreporting_interruption() {
+        assert!(validate_chat_outcome(ChatOutcome {
+            text: "  ".to_string(),
+            completed: true,
+        })
+        .is_err());
+
+        let completed = validate_chat_outcome(ChatOutcome {
+            text: "summary".to_string(),
+            completed: true,
+        })
+        .unwrap();
+        assert_eq!(completed.text, "summary");
+
+        let interrupted = validate_chat_outcome(ChatOutcome {
+            text: String::new(),
+            completed: false,
+        })
+        .unwrap();
+        assert!(!interrupted.completed);
     }
 
     #[test]

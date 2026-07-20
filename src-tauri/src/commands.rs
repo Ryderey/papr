@@ -648,7 +648,7 @@ pub async fn test_ai_connection(
         &cfg,
         "You are testing an AI provider connection. Reply with exactly: OK",
         "Reply with exactly: OK",
-        8,
+        ai::MAX_TOKENS,
     )
     .await
     {
