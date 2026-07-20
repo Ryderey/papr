@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import i18n from "./i18n";
 import * as api from "./api";
+import { AI_DRAWER_BOUNDS } from "./lib/aiDrawerLayout";
 import type { ArticleQuery } from "./types";
 
 export type Theme = "light" | "dark";
@@ -107,6 +108,7 @@ interface UiState {
   readerSize: number;
   readerLeading: number;
   readerWidth: number;
+  aiDrawerWidth: number;
 
   // behavioural preferences
   prefs: Prefs;
@@ -127,6 +129,7 @@ interface UiState {
   setViewMode: (v: ViewMode) => void;
   setReaderFont: (v: ReaderFont) => void;
   setReader: (p: Partial<Pick<UiState, "readerSize" | "readerLeading" | "readerWidth">>) => void;
+  setAiDrawerWidth: (width: number) => void;
 
   setPref: (patch: Partial<Prefs>) => void;
 
@@ -217,6 +220,12 @@ export const useUi = create<UiState>((set) => ({
     READER_BOUNDS.leading.max,
   ),
   readerWidth: ls.num("readerWidth", 680, READER_BOUNDS.width.min, READER_BOUNDS.width.max),
+  aiDrawerWidth: ls.num(
+    "aiDrawerWidth",
+    AI_DRAWER_BOUNDS.default,
+    AI_DRAWER_BOUNDS.min,
+    AI_DRAWER_BOUNDS.max,
+  ),
 
   prefs: loadPrefs(),
 
@@ -260,6 +269,11 @@ export const useUi = create<UiState>((set) => ({
       ls.set("readerWidth", next.readerWidth);
     }
     set(next);
+  },
+  setAiDrawerWidth: (aiDrawerWidth) => {
+    const width = clamp(aiDrawerWidth, AI_DRAWER_BOUNDS.min, AI_DRAWER_BOUNDS.max);
+    ls.set("aiDrawerWidth", width);
+    set({ aiDrawerWidth: width });
   },
 
   setPref: (patch) => {

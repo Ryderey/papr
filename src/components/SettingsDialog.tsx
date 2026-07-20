@@ -1569,7 +1569,7 @@ function DangerZone({ onToast }: { onToast: (m: string) => void }) {
           k.startsWith("pref.") ||
           [
             "theme", "accent", "density", "viewMode", "readerFont", "useSerif",
-            "readerSize", "readerLeading", "readerWidth", "collapsedFolders",
+            "readerSize", "readerLeading", "readerWidth", "aiDrawerWidth", "collapsedFolders",
           ].includes(k)
         ) {
           localStorage.removeItem(k);

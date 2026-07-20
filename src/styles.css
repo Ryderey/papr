@@ -200,7 +200,7 @@ button { font-family: inherit; }
   background: var(--paper);
   color: var(--ink);
   display: grid;
-  grid-template-columns: var(--col-sidebar) var(--col-list) 1fr;
+  grid-template-columns: var(--col-sidebar) var(--col-list) minmax(0, 1fr);
   overflow: hidden;
   position: relative;
   transition: background .35s ease, color .25s ease;
@@ -607,6 +607,7 @@ button { font-family: inherit; }
   background: var(--reader);
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   position: relative;
 }
@@ -892,6 +893,39 @@ button { font-family: inherit; }
   flex-direction: column;
 }
 .ai-drawer.open { transform: translateX(0); }
+.ai-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  z-index: 2;
+  width: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+.ai-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+}
+.ai-resize-handle:hover::after,
+.ai-resize-handle:focus-visible::after {
+  width: 2px;
+  background: var(--accent);
+}
+body.ai-resizing,
+body.ai-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.ai-resizing .reader-scroll { transition: none; }
 .ai-head {
   padding: 18px 20px 12px;
   display: flex;
@@ -1182,6 +1216,19 @@ button { font-family: inherit; }
 .hover-preview .hp-meta { margin-top: 10px; font-size: 11px; color: var(--muted); }
 
 /* ====== Focus mode (immersive reader) ====== */
+.window.ai-without-list .list {
+  display: none;
+}
+.window.ai-without-list {
+  grid-template-columns: var(--col-sidebar) minmax(0, 1fr);
+}
+.window.ai-reader-only .sidebar,
+.window.ai-reader-only .list {
+  display: none;
+}
+.window.ai-reader-only {
+  grid-template-columns: minmax(0, 1fr);
+}
 .window.focus .sidebar,
 .window.focus .list {
   display: none;
@@ -1192,7 +1239,8 @@ button { font-family: inherit; }
 .window.focus .article { max-width: 720px; }
 /* In focus mode the reader is the leftmost pane, so its toolbar must clear
    the macOS traffic-light buttons — which also reveal on hover in fullscreen. */
-.window.focus .reader-toolbar {
+.window.focus .reader-toolbar,
+.window.ai-reader-only .reader-toolbar {
   padding-left: 80px;
 }
 

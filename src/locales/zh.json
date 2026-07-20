@@ -190,6 +190,7 @@
     "extractingFullText": "正在提取全文…",
     "noContent": "暂无正文内容。",
     "aiSummaryTitle": "AI 摘要",
+    "aiResize": "调整 AI 摘要宽度",
     "aiReadingFullText": "正在阅读全文…",
     "aiError": "无法生成摘要",
     "aiDisclaimer": "由本地模型生成 · 仅供参考 · 内容可能不准确",

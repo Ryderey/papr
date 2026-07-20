@@ -9,6 +9,7 @@ import * as api from "./api";
 import { useUi, READER_FONTS } from "./store";
 import type { DarkShade } from "./store";
 import { useArticleActions } from "./hooks/articleActions";
+import { resolveAiLayout } from "./lib/aiDrawerLayout";
 import { readCurrentItems } from "./lib/currentList";
 import { useToasts, toast as toastApi, reportError } from "./toast";
 import type { ArticleQuery, ArticleSummary, Feed } from "./types";
@@ -61,6 +62,8 @@ export default function App() {
   const readerWidth = useUi((s) => s.readerWidth);
   const reduceMotion = useUi((s) => s.prefs.reduceMotion);
   const focusMode = useUi((s) => s.focusMode);
+  const aiOpen = useUi((s) => s.aiOpen);
+  const aiDrawerWidth = useUi((s) => s.aiDrawerWidth);
 
   const activeToast = useToasts((s) => s.current);
   const dismissToast = useToasts((s) => s.dismiss);
@@ -75,6 +78,18 @@ export default function App() {
   // The standalone Explore (curated-directory marketplace) dialog.
   const [explore, setExplore] = useState(false);
   const [newFolder, setNewFolder] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const aiLayout = resolveAiLayout({
+    viewportWidth,
+    preferredDrawerWidth: aiDrawerWidth,
+    open: aiOpen,
+  });
+
+  useEffect(() => {
+    const sync = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
 
   // ── apply appearance to the document root ──
   useEffect(() => {
@@ -435,7 +450,14 @@ export default function App() {
   return (
     <>
       <div className="app-shell">
-        <div className={`window ${focusMode ? "focus" : ""}`}>
+        <div
+          className={`window${focusMode ? " focus" : ""}${
+            aiOpen && aiLayout.mode !== "all" ? ` ai-${aiLayout.mode}` : ""
+          }`}
+          style={{
+            "--ai-drawer-width": `${aiLayout.drawerWidth}px`,
+          } as React.CSSProperties}
+        >
           <Sidebar
             onAddFeed={() => setAddFeed(true)}
             onExplore={() => setExplore(true)}
@@ -446,7 +468,11 @@ export default function App() {
             onToast={showToast}
           />
           <ArticleList onToast={showToast} />
-          <Reader onToast={showToast} />
+          <Reader
+            onToast={showToast}
+            aiDrawerWidth={aiLayout.drawerWidth}
+            aiDrawerMaxWidth={aiLayout.maxDrawerWidth}
+          />
         </div>
         <PlayerBar />
       </div>

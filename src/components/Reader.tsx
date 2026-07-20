@@ -17,6 +17,7 @@ import { downloadBlob, imageFilename } from "../lib/download";
 import { imageDataUrl } from "../lib/imageBytes";
 import { isSameImageUrl } from "../lib/imageUrl";
 import { fullDate } from "../lib/feedMeta";
+import { AI_DRAWER_BOUNDS } from "../lib/aiDrawerLayout";
 import { isMac } from "../lib/platform";
 import { reportError, toast } from "../toast";
 import { tagColor } from "../lib/tagColors";
@@ -28,6 +29,8 @@ import ContextMenu, { type MenuEntry } from "./ContextMenu";
 
 interface Props {
   onToast: (msg: string) => void;
+  aiDrawerWidth: number;
+  aiDrawerMaxWidth: number;
 }
 
 function youtubeId(url: string | null): string | null {
@@ -153,7 +156,7 @@ function makeLinkClickHandler(sourceUrl: string | null) {
   };
 }
 
-export default function Reader({ onToast }: Props) {
+export default function Reader({ onToast, aiDrawerWidth, aiDrawerMaxWidth }: Props) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const actions = useArticleActions(toast.error);
@@ -1040,6 +1043,8 @@ export default function Reader({ onToast }: Props) {
         key={a.id}
         open={aiOpen}
         article={a}
+        width={aiDrawerWidth}
+        maxWidth={aiDrawerMaxWidth}
         onClose={() => setAiOpen(false)}
       />
 
@@ -1125,14 +1130,19 @@ export default function Reader({ onToast }: Props) {
 function AIDrawer({
   open,
   article,
+  width,
+  maxWidth,
   onClose,
 }: {
   open: boolean;
   article: ArticleDetail;
+  width: number;
+  maxWidth: number;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const setAiDrawerWidth = useUi((s) => s.setAiDrawerWidth);
   const [text, setText] = useState<string | null>(article.aiSummary);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -1142,6 +1152,45 @@ function AIDrawer({
   const [followUpDraft, setFollowUpDraft] = useState("");
   const { items: followUps, asking: followUpAsking, ask } = useSummaryFollowUp(text ?? "");
   const runRef = useRef(0);
+  const dragRef = useRef<{ pointerId: number; x: number; width: number } | null>(null);
+
+  const resizeTo = (next: number) =>
+    setAiDrawerWidth(
+      Math.round(Math.min(maxWidth, Math.max(AI_DRAWER_BOUNDS.min, next))),
+    );
+
+  const onResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragRef.current = { pointerId: e.pointerId, x: e.clientX, width };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    document.body.classList.add("ai-resizing");
+  };
+
+  const onResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    resizeTo(drag.width + drag.x - e.clientX);
+  };
+
+  const finishResize = () => {
+    dragRef.current = null;
+    document.body.classList.remove("ai-resizing");
+  };
+
+  const onResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 40 : 16;
+    let next = width;
+    if (e.key === "ArrowLeft") next += step;
+    else if (e.key === "ArrowRight") next -= step;
+    else if (e.key === "Home") next = AI_DRAWER_BOUNDS.min;
+    else if (e.key === "End") next = maxWidth;
+    else return;
+    e.preventDefault();
+    resizeTo(next);
+  };
+
+  useEffect(() => () => document.body.classList.remove("ai-resizing"), []);
 
   // Load the user's preferred summary template from settings.
   useEffect(() => {
@@ -1235,6 +1284,23 @@ function AIDrawer({
       aria-label={t("reader.aiSummaryTitle")}
       inert={!open}
     >
+      <div
+        className="ai-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t("reader.aiResize")}
+        aria-valuemin={AI_DRAWER_BOUNDS.min}
+        aria-valuemax={Math.round(maxWidth)}
+        aria-valuenow={Math.round(width)}
+        title={t("reader.aiResize")}
+        tabIndex={0}
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={finishResize}
+        onPointerCancel={finishResize}
+        onLostPointerCapture={finishResize}
+        onKeyDown={onResizeKeyDown}
+      />
       <div className="ai-head">
         <span className="accent-ico">
           <Icon name="sparkle-fill" size={15} />
