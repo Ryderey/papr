@@ -1855,7 +1855,8 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
   const [translateLang, setTranslateLang] = useState("");
   const [summaryTemplate, setSummaryTemplate] = useState<SummaryTemplate>("classic");
   const [isLoaded, setIsLoaded] = useState(false);
-  const [aiBusy, setAiBusy] = useState<"saving" | "testing" | null>(null);
+  const [aiBusy, setAiBusy] = useState<"saving" | "testing" | "discovering" | null>(null);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [aiTestMessage, setAiTestMessage] = useState("");
   const [aiTestTone, setAiTestTone] = useState<"success" | "error" | null>(null);
   const [showAiAdvanced, setShowAiAdvanced] = useState(false);
@@ -1881,7 +1882,9 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
           loadedProfiles.find((candidate) => candidate.id === activeId) ??
           loadedProfiles[0] ??
           legacyAiProfile(p, k, m, b);
-        setProfile(customAiProfile(loadedProfile));
+        const customProfile = customAiProfile(loadedProfile);
+        setProfile(customProfile);
+        setModelOptions(customProfile.model ? [customProfile.model] : []);
         if (eng === "google" || eng === "deepl" || eng === "bing" || eng === "llm")
           setEngine(eng);
         if (tl) setTranslateLang(tl);
@@ -1891,7 +1894,9 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
         setIsLoaded(true);
       })
       .catch(() => {
-        setProfile(legacyAiProfile(null, null, null, null));
+        const fallbackProfile = legacyAiProfile(null, null, null, null);
+        setProfile(fallbackProfile);
+        setModelOptions([fallbackProfile.model]);
         loaded.current = true;
         setIsLoaded(true);
         onToast(t("settings.advanced.aiProfileSaveFailed"));
@@ -1899,7 +1904,15 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
   }, []);
 
   const activeProfile = profile;
-  const profileControlsDisabled = !isLoaded;
+  const profileControlsDisabled = !isLoaded || aiBusy != null;
+  const selectedModelIsValid =
+    Boolean(activeProfile.model) && modelOptions.includes(activeProfile.model);
+  const auth = activeProfile.auth ?? defaultAuthForProtocol(activeProfile.protocol);
+  const canDiscoverModels =
+    isLoaded &&
+    aiBusy == null &&
+    Boolean(activeProfile.base_url.trim()) &&
+    (auth === "none" || Boolean(activeProfile.api_key.trim()));
 
   useEffect(() => {
     setHeaderDraft(formatHeaders(activeProfile?.headers));
@@ -1941,7 +1954,13 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
     setProfile((current) => ({ ...current, ...patch }));
   };
 
+  const draftConnectionProfile = (patch: Partial<AiProfile>) => {
+    setModelOptions([]);
+    draftActiveProfile({ ...patch, model: "" });
+  };
+
   const saveCurrentProfile = async () => {
+    if (!selectedModelIsValid) return;
     setAiBusy("saving");
     setAiTestMessage("");
     setAiTestTone(null);
@@ -1956,7 +1975,34 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
     }
   };
 
+  const discoverModels = async () => {
+    setAiBusy("discovering");
+    setAiTestMessage("");
+    setAiTestTone(null);
+    try {
+      const headers = parseHeaders(headerDraft);
+      const discoveryProfile = normalizeProfileForSave({ ...profile, headers });
+      const models = await api.listAiModels(profileConnectionInput(discoveryProfile));
+      const selected = models.includes(profile.model) ? profile.model : models[0];
+      setModelOptions(models);
+      setProfile((current) => ({ ...current, headers, model: selected }));
+      setAiTestMessage(t("settings.advanced.aiModelsDiscovered", { count: models.length }));
+      setAiTestTone("success");
+    } catch (e) {
+      setModelOptions([]);
+      setProfile((current) => ({ ...current, model: "" }));
+      setAiTestMessage(
+        t("settings.advanced.aiModelDiscoveryFailed", { detail: errorText(e) }),
+      );
+      setAiTestTone("error");
+      reportError(e);
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
   const testCurrentProfile = async () => {
+    if (!selectedModelIsValid) return;
     setAiBusy("testing");
     setAiTestMessage("");
     setAiTestTone(null);
@@ -2005,7 +2051,7 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
             },
           ]}
           onChange={(protocol) =>
-            draftActiveProfile({
+            draftConnectionProfile({
               protocol,
               auth: defaultAuthForProtocol(protocol),
             })
@@ -2022,24 +2068,7 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
           value={activeProfile?.api_key ?? ""}
           placeholder="sk-…"
           disabled={profileControlsDisabled}
-          onChange={(e) => draftActiveProfile({ api_key: e.target.value })}
-        />
-      </Row>
-      <Row
-        label={t("settings.advanced.aiModel")}
-        desc={t("settings.advanced.aiModelDesc")}
-      >
-        <input
-          className="s-text-input"
-          type="text"
-          value={activeProfile?.model ?? ""}
-          disabled={profileControlsDisabled}
-          placeholder={
-            activeProfile?.protocol === "openai_chat_completions"
-              ? t("settings.advanced.aiModelPlaceholderOpenai")
-              : t("settings.advanced.aiModelPlaceholderAnthropic")
-          }
-          onChange={(e) => draftActiveProfile({ model: e.target.value })}
+          onChange={(e) => draftConnectionProfile({ api_key: e.target.value })}
         />
       </Row>
       <Row
@@ -2056,15 +2085,47 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
               ? "https://api.openai.com/v1"
               : "https://api.anthropic.com/v1"
           }
-          onChange={(e) => draftActiveProfile({ base_url: e.target.value })}
+          onChange={(e) => draftConnectionProfile({ base_url: e.target.value })}
         />
+      </Row>
+      <Row
+        label={t("settings.advanced.aiModel")}
+        desc={t("settings.advanced.aiModelDesc")}
+      >
+        <div className="ai-model-picker">
+          <select
+            className="s-select ai-model-select"
+            value={activeProfile.model}
+            disabled={profileControlsDisabled || modelOptions.length === 0}
+            aria-label={t("settings.advanced.aiModelLabel")}
+            onChange={(e) => draftActiveProfile({ model: e.target.value })}
+          >
+            {modelOptions.length === 0 && (
+              <option value="">{t("settings.advanced.aiModelDiscoveryRequired")}</option>
+            )}
+            {modelOptions.map((model) => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+          <button
+            className="s-btn"
+            type="button"
+            onClick={discoverModels}
+            disabled={!canDiscoverModels}
+          >
+            <Icon name="refresh" size={12} />
+            {aiBusy === "discovering"
+              ? t("settings.advanced.aiDiscoveringModels")
+              : t("settings.advanced.aiDiscoverModels")}
+          </button>
+        </div>
       </Row>
       <div className="ai-settings-actions">
         <button
           className="s-btn primary"
           type="button"
           onClick={saveCurrentProfile}
-          disabled={profileControlsDisabled || aiBusy != null}
+          disabled={profileControlsDisabled || !selectedModelIsValid}
         >
           <Icon name="check" size={12} />
           {aiBusy === "saving"
@@ -2075,7 +2136,7 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
           className="s-btn"
           type="button"
           onClick={testCurrentProfile}
-          disabled={profileControlsDisabled || aiBusy != null}
+          disabled={profileControlsDisabled || !selectedModelIsValid}
         >
           <Icon name="play" size={12} />
           {aiBusy === "testing"
@@ -2111,7 +2172,7 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
                 { value: "x_api_key", label: t("settings.advanced.aiAuthXApiKey") },
                 { value: "none", label: t("settings.advanced.aiAuthNone") },
               ]}
-              onChange={(auth) => draftActiveProfile({ auth })}
+              onChange={(auth) => draftConnectionProfile({ auth })}
             />
           </Row>
           <Row
@@ -2123,11 +2184,17 @@ function AiSettingsGroup({ onToast }: { onToast: (m: string) => void }) {
               value={headerDraft}
               placeholder={"HTTP-Referer: https://example.com\nX-Title: Papr"}
               disabled={profileControlsDisabled}
-              onChange={(e) => setHeaderDraft(e.target.value)}
+              onChange={(e) => {
+                setHeaderDraft(e.target.value);
+                setModelOptions([]);
+                draftActiveProfile({ model: "" });
+              }}
               onBlur={() => {
                 const headers = parseHeaders(headerDraft);
                 setHeaderDraft(formatHeaders(headers));
-                draftActiveProfile({ headers });
+                if (formatHeaders(headers) !== formatHeaders(activeProfile.headers)) {
+                  draftConnectionProfile({ headers });
+                }
               }}
             />
           </Row>

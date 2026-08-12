@@ -7,7 +7,7 @@ use reqwest::header::{HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client, Request, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::Duration;
 use tauri::ipc::Channel;
 
@@ -52,6 +52,9 @@ pub const TRANSLATE_CHUNK_BUDGET: usize = 3000;
 /// memory unbounded. 8 MiB is far larger than any genuine SSE frame while
 /// still stopping a runaway stream, mirroring `fetch::MAX_BODY_BYTES`.
 const MAX_SSE_BUFFER: usize = 8 * 1024 * 1024;
+
+const MAX_MODEL_PAGES: usize = 100;
+const MAX_DISCOVERED_MODELS: usize = 10_000;
 
 /// Token-level events streamed to the frontend over an `ipc::Channel`.
 #[derive(Serialize, Clone)]
@@ -449,6 +452,112 @@ async fn stream_llm(
     validate_chat_outcome(consume_sse(resp, channel, cfg.profile.protocol).await?)
 }
 
+pub async fn list_models(client: &Client, cfg: &AiConfig) -> AppResult<Vec<String>> {
+    list_models_with_limits(client, cfg, MAX_MODEL_PAGES, MAX_DISCOVERED_MODELS).await
+}
+
+async fn list_models_with_limits(
+    client: &Client,
+    cfg: &AiConfig,
+    max_pages: usize,
+    max_models: usize,
+) -> AppResult<Vec<String>> {
+    let mut models = BTreeSet::new();
+    let mut seen_cursors = HashSet::new();
+    let mut cursor: Option<String> = None;
+
+    for _ in 0..max_pages {
+        let req = build_model_list_request(client, cfg, cursor.as_deref())?;
+        let resp = ensure_success(client.execute(req).await?, "AI models API").await?;
+        let value = resp
+            .json::<Value>()
+            .await
+            .map_err(|_| AppError::code("invalidAiModelsResponse"))?;
+        let page = parse_model_page(&value)?;
+        models.extend(page.models);
+        if models.len() > max_models {
+            return Err(AppError::code("aiModelsLimitExceeded"));
+        }
+
+        let Some(next) = page.next_cursor else {
+            if models.is_empty() {
+                return Err(AppError::code("noAiModelsFound"));
+            }
+            return Ok(models.into_iter().collect());
+        };
+        if !seen_cursors.insert(next.clone()) {
+            return Err(AppError::code("invalidAiModelsPagination"));
+        }
+        cursor = Some(next);
+    }
+
+    Err(AppError::code("aiModelsLimitExceeded"))
+}
+
+struct ModelPage {
+    models: Vec<String>,
+    next_cursor: Option<String>,
+}
+
+fn parse_model_page(value: &Value) -> AppResult<ModelPage> {
+    let data = value
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::code("invalidAiModelsResponse"))?;
+    let models = data
+        .iter()
+        .filter_map(|item| item.get("id").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+        .collect();
+    let has_more = match value.get("has_more") {
+        Some(flag) => flag
+            .as_bool()
+            .ok_or_else(|| AppError::code("invalidAiModelsResponse"))?,
+        None => false,
+    };
+    let next_cursor = if has_more {
+        Some(
+            value
+                .get("last_id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|cursor| !cursor.is_empty())
+                .ok_or_else(|| AppError::code("invalidAiModelsPagination"))?
+                .to_string(),
+        )
+    } else {
+        None
+    };
+
+    Ok(ModelPage {
+        models,
+        next_cursor,
+    })
+}
+
+fn build_model_list_request(
+    client: &Client,
+    cfg: &AiConfig,
+    cursor: Option<&str>,
+) -> AppResult<Request> {
+    let mut builder = client
+        .get(format!("{}/models", cfg.profile.base_url))
+        .timeout(request_timeout(cfg));
+    builder = match (cfg.profile.protocol, cursor) {
+        (LlmProtocol::AnthropicMessages, Some(cursor)) => {
+            builder.query(&[("limit", "1000"), ("after_id", cursor)])
+        }
+        (LlmProtocol::AnthropicMessages, None) => builder.query(&[("limit", "1000")]),
+        (LlmProtocol::OpenAiChatCompletions, Some(cursor)) => builder.query(&[("after", cursor)]),
+        (LlmProtocol::OpenAiChatCompletions, None) => builder,
+    };
+    let mut req = builder.build()?;
+    apply_profile_headers(&mut req, cfg, false)?;
+    Ok(req)
+}
+
 fn validate_chat_outcome(outcome: ChatOutcome) -> AppResult<ChatOutcome> {
     if outcome.completed && outcome.text.trim().is_empty() {
         Err(AppError::other(
@@ -466,12 +575,7 @@ fn build_stream_request(
     messages: &[LlmMessage],
     max_tokens: u32,
 ) -> AppResult<Request> {
-    let timeout = cfg
-        .profile
-        .params
-        .timeout_seconds
-        .map(Duration::from_secs)
-        .unwrap_or(AI_REQUEST_TIMEOUT);
+    let timeout = request_timeout(cfg);
     let (url, body) = match cfg.profile.protocol {
         LlmProtocol::AnthropicMessages => (
             format!("{}/messages", cfg.profile.base_url),
@@ -503,6 +607,19 @@ fn build_stream_request(
     };
 
     let mut req = client.post(url).timeout(timeout).json(&body).build()?;
+    apply_profile_headers(&mut req, cfg, true)?;
+    Ok(req)
+}
+
+fn request_timeout(cfg: &AiConfig) -> Duration {
+    cfg.profile
+        .params
+        .timeout_seconds
+        .map(Duration::from_secs)
+        .unwrap_or(AI_REQUEST_TIMEOUT)
+}
+
+fn apply_profile_headers(req: &mut Request, cfg: &AiConfig, json_body: bool) -> AppResult<()> {
     for (name, value) in &cfg.profile.headers {
         let name = HeaderName::from_bytes(name.as_bytes())
             .map_err(|_| AppError::other(format!("invalid AI header name: {name}")))?;
@@ -511,8 +628,10 @@ fn build_stream_request(
         req.headers_mut().insert(name, value);
     }
 
-    req.headers_mut()
-        .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    if json_body {
+        req.headers_mut()
+            .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    }
     match cfg
         .profile
         .auth
@@ -535,7 +654,7 @@ fn build_stream_request(
             .insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
     }
 
-    Ok(req)
+    Ok(())
 }
 
 /// What to do after handling one SSE line.
@@ -685,13 +804,58 @@ fn extract_delta(v: &Value, protocol: LlmProtocol) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_stream_request, extract_delta, extract_error, validate_chat_outcome, AiConfig,
-        ChatOutcome, LlmMessage, LlmProfileInput, LlmProtocol, LlmPurpose,
+        build_model_list_request, build_stream_request, extract_delta, extract_error, list_models,
+        list_models_with_limits, parse_model_page, validate_chat_outcome, AiConfig, ChatOutcome,
+        LlmMessage, LlmProfileInput, LlmProtocol, LlmPurpose,
     };
     use reqwest::header::AUTHORIZATION;
     use reqwest::Client;
     use serde_json::json;
     use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    async fn model_server(
+        responses: Vec<(u16, &'static str)>,
+    ) -> (String, Arc<Mutex<Vec<String>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let captured = requests.clone();
+        tokio::spawn(async move {
+            for (status, body) in responses {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = Vec::new();
+                let mut chunk = [0_u8; 1024];
+                loop {
+                    let read = socket.read(&mut chunk).await.unwrap();
+                    if read == 0 {
+                        break;
+                    }
+                    request.extend_from_slice(&chunk[..read]);
+                    if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                        break;
+                    }
+                }
+                captured
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&request).into_owned());
+                let reason = if status == 200 {
+                    "OK"
+                } else {
+                    "Internal Server Error"
+                };
+                let response = format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                socket.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+        (format!("http://{address}/v1"), requests)
+    }
 
     #[test]
     fn openai_null_error_field_is_not_an_error() {
@@ -709,6 +873,221 @@ mod tests {
             extract_delta(&chunk, LlmProtocol::OpenAiChatCompletions).as_deref(),
             Some("hello")
         );
+    }
+
+    #[test]
+    fn model_page_filters_empty_ids_and_requires_a_valid_cursor() {
+        let page = parse_model_page(&json!({
+            "data": [{ "id": " z-model " }, { "id": "" }, { "name": "ignored" }],
+            "has_more": false
+        }))
+        .unwrap();
+        assert_eq!(page.models, vec!["z-model"]);
+        assert!(page.next_cursor.is_none());
+
+        let err = parse_model_page(&json!({
+            "data": [{ "id": "model" }],
+            "has_more": true
+        }))
+        .err()
+        .unwrap();
+        assert_eq!(err.to_string(), "invalidAiModelsPagination");
+    }
+
+    #[test]
+    fn model_list_requests_use_provider_pagination_and_required_headers() {
+        let client = Client::new();
+        let anthropic = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::AnthropicMessages,
+            base_url: "https://anthropic.test/v1".into(),
+            api_key: "sk-ant".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::from([("x-extra".into(), "trace".into())]),
+        })
+        .unwrap();
+        let req = build_model_list_request(&client, &anthropic, Some("cursor one")).unwrap();
+        assert_eq!(req.method(), reqwest::Method::GET);
+        assert_eq!(
+            req.url().as_str(),
+            "https://anthropic.test/v1/models?limit=1000&after_id=cursor+one"
+        );
+        assert_eq!(req.headers()["x-api-key"], "sk-ant");
+        assert_eq!(req.headers()["anthropic-version"], "2023-06-01");
+        assert_eq!(req.headers()["x-extra"], "trace");
+
+        let openai = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::OpenAiChatCompletions,
+            base_url: "https://openai.test/v1".into(),
+            api_key: "sk-openai".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::from([("authorization".into(), "Bearer wrong".into())]),
+        })
+        .unwrap();
+        let req = build_model_list_request(&client, &openai, Some("model-1")).unwrap();
+        assert_eq!(
+            req.url().as_str(),
+            "https://openai.test/v1/models?after=model-1"
+        );
+        assert_eq!(req.headers()["authorization"], "Bearer sk-openai");
+    }
+
+    #[tokio::test]
+    async fn model_discovery_fetches_all_pages_dedupes_and_sorts() {
+        let (base_url, requests) = model_server(vec![
+            (
+                200,
+                r#"{"data":[{"id":"z-model"},{"id":"a-model"}],"has_more":true,"last_id":"page-1"}"#,
+            ),
+            (
+                200,
+                r#"{"data":[{"id":"a-model"},{"id":"m-model"}],"has_more":false}"#,
+            ),
+        ])
+        .await;
+        let cfg = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::OpenAiChatCompletions,
+            base_url,
+            api_key: "secret-key".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::new(),
+        })
+        .unwrap();
+
+        assert_eq!(
+            list_models(&Client::new(), &cfg).await.unwrap(),
+            vec!["a-model", "m-model", "z-model"]
+        );
+        let requests = requests.lock().unwrap();
+        assert!(requests[0].starts_with("GET /v1/models HTTP/1.1"));
+        assert!(requests[0]
+            .to_ascii_lowercase()
+            .contains("authorization: bearer secret-key"));
+        assert!(requests[1].starts_with("GET /v1/models?after=page-1 HTTP/1.1"));
+    }
+
+    #[tokio::test]
+    async fn model_discovery_rejects_a_failed_later_page() {
+        let (base_url, _) = model_server(vec![
+            (
+                200,
+                r#"{"data":[{"id":"partial"}],"has_more":true,"last_id":"next"}"#,
+            ),
+            (500, r#"{"error":{"message":"later page failed"}}"#),
+        ])
+        .await;
+        let cfg = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::OpenAiChatCompletions,
+            base_url,
+            api_key: "secret-key".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::new(),
+        })
+        .unwrap();
+
+        let err = list_models(&Client::new(), &cfg).await.err().unwrap();
+        assert!(err.to_string().contains("later page failed"));
+    }
+
+    #[tokio::test]
+    async fn model_discovery_rejects_a_repeated_cursor() {
+        let (base_url, requests) = model_server(vec![
+            (
+                200,
+                r#"{"data":[{"id":"one"}],"has_more":true,"last_id":"same"}"#,
+            ),
+            (
+                200,
+                r#"{"data":[{"id":"two"}],"has_more":true,"last_id":"same"}"#,
+            ),
+        ])
+        .await;
+        let cfg = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::AnthropicMessages,
+            base_url,
+            api_key: "secret-key".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::new(),
+        })
+        .unwrap();
+
+        let err = list_models(&Client::new(), &cfg).await.err().unwrap();
+        assert_eq!(err.to_string(), "invalidAiModelsPagination");
+        let requests = requests.lock().unwrap();
+        assert!(requests[0].starts_with("GET /v1/models?limit=1000 HTTP/1.1"));
+        assert!(requests[1].starts_with("GET /v1/models?limit=1000&after_id=same HTTP/1.1"));
+    }
+
+    #[tokio::test]
+    async fn model_discovery_enforces_page_and_model_limits() {
+        let (base_url, _) = model_server(vec![(
+            200,
+            r#"{"data":[{"id":"one"}],"has_more":true,"last_id":"next"}"#,
+        )])
+        .await;
+        let cfg = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::OpenAiChatCompletions,
+            base_url,
+            api_key: "secret-key".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::new(),
+        })
+        .unwrap();
+        let err = list_models_with_limits(&Client::new(), &cfg, 1, 10)
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.to_string(), "aiModelsLimitExceeded");
+
+        let (base_url, _) = model_server(vec![(
+            200,
+            r#"{"data":[{"id":"one"},{"id":"two"}],"has_more":false}"#,
+        )])
+        .await;
+        let cfg = AiConfig::from_profile_input(LlmProfileInput {
+            name: String::new(),
+            protocol: LlmProtocol::OpenAiChatCompletions,
+            base_url,
+            api_key: "secret-key".into(),
+            model: String::new(),
+            auth: None,
+            headers: HashMap::new(),
+        })
+        .unwrap();
+        let err = list_models_with_limits(&Client::new(), &cfg, 1, 1)
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(err.to_string(), "aiModelsLimitExceeded");
+    }
+
+    #[tokio::test]
+    async fn model_discovery_rejects_empty_and_invalid_responses() {
+        for body in [r#"{"data":[]}"#, r#"{"models":[]}"#, "not json"] {
+            let (base_url, _) = model_server(vec![(200, body)]).await;
+            let cfg = AiConfig::from_profile_input(LlmProfileInput {
+                name: String::new(),
+                protocol: LlmProtocol::OpenAiChatCompletions,
+                base_url,
+                api_key: "secret-key".into(),
+                model: String::new(),
+                auth: None,
+                headers: HashMap::new(),
+            })
+            .unwrap();
+            assert!(list_models(&Client::new(), &cfg).await.is_err());
+        }
     }
 
     #[test]
@@ -787,7 +1166,6 @@ mod tests {
     //     frame a non-compliant endpoint may close the stream on. ---
 
     use super::{handle_sse_line, AiEvent, LineOutcome};
-    use std::sync::{Arc, Mutex};
     use tauri::ipc::{Channel, InvokeResponseBody};
 
     /// A `Channel<AiEvent>` whose every sent delta is recorded into the

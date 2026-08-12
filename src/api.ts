@@ -190,6 +190,8 @@ export interface AiConnectionTestProfile {
 export interface AiConnectionTestResult {
   message: string;
 }
+export const listAiModels = (profile: AiConnectionTestProfile) =>
+  invoke<string[]>("list_ai_models", { profile });
 export const testAiConnection = (profile: AiConnectionTestProfile) =>
   invoke<AiConnectionTestResult>("test_ai_connection", { profile });
 

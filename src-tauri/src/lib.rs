@@ -244,6 +244,7 @@ pub fn run() {
             commands::ai_digest,
             commands::ai_translate,
             commands::test_ai_connection,
+            commands::list_ai_models,
             commands::storage_stats,
             commands::cleanup_articles,
             commands::vacuum_db,

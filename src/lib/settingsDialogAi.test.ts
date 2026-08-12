@@ -35,6 +35,35 @@ describe("AI settings save boundary", () => {
     expect(testCurrentProfileSource).not.toContain("persistProfileSettings(");
   });
 
+  it("discovers models from the draft without persisting it", () => {
+    const discoverModelsSource = functionSource(
+      "discoverModels",
+      "testCurrentProfile",
+    );
+
+    expect(discoverModelsSource).toContain("api.listAiModels(");
+    expect(discoverModelsSource).not.toContain("persistProfileSettings(");
+    expect(discoverModelsSource).toContain("parseHeaders(headerDraft)");
+    expect(discoverModelsSource).toContain("models.includes(profile.model)");
+    expect(discoverModelsSource).toContain("models[0]");
+  });
+
+  it("invalidates the selected model when connection settings change", () => {
+    const draftConnectionSource = functionSource(
+      "draftConnectionProfile",
+      "saveCurrentProfile",
+    );
+
+    expect(draftConnectionSource).toContain("setModelOptions([])");
+    expect(draftConnectionSource).toContain('model: ""');
+    expect(settingsDialogSource).toContain("!selectedModelIsValid");
+  });
+
+  it("disables repeat discovery while AI settings are busy", () => {
+    expect(settingsDialogSource).toContain("aiBusy == null");
+    expect(settingsDialogSource).toContain("disabled={!canDiscoverModels}");
+  });
+
   it("persists AI settings only from the explicit save handler", () => {
     expect(settingsDialogSource.match(/persistProfileSettings\(/g)).toHaveLength(1);
   });

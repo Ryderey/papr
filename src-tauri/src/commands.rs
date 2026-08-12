@@ -662,6 +662,24 @@ pub async fn test_ai_connection(
     }
 }
 
+#[tauri::command]
+pub async fn list_ai_models(
+    state: State<'_, AppState>,
+    profile: ai::LlmProfileInput,
+) -> AppResult<Vec<String>> {
+    let api_key = profile.api_key.clone();
+    let cfg = AiConfig::from_profile_input(profile)?;
+    let http = state.http();
+    match ai::list_models(&http, &cfg).await {
+        Ok(models) => Ok(models),
+        Err(e @ AppError::Coded(_)) => Err(e),
+        Err(e) => Err(AppError::other(format!(
+            "AI model discovery failed: {}",
+            format_ai_test_error(&e.to_string(), &api_key)
+        ))),
+    }
+}
+
 /// Resolve a translation engine chosen by the caller (the reader's translate
 /// switcher) into what it needs. `engine` is one of `google` / `bing` / `deepl`
 /// / `llm`; anything else falls back to the LLM. Google, DeepL and Bing are
