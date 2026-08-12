@@ -32,6 +32,11 @@ A fast, native RSS reader for the desktop.
 - **AI 连接测试**：在设置页新增 AI 配置保存与连接测试能力，测试失败时会隐藏 API Key，并对 TLS / 证书类错误给出更明确的提示。
 - **摘要模板**：新增多种文章摘要模板，包括 Classic TL;DR、5W1H News、Decision helper、Three-layer funnel、Argument deconstruction、Ultra-minimal；默认模板可在设置中保存，也可以在阅读器的 AI 摘要面板里临时切换。
 - **摘要追问**：在 AI 摘要抽屉中加入追问输入框，用户可以基于已经生成的摘要继续提问；追问回答保持流式输出，并使用当前摘要和临时问答历史作为上下文。
+
+<p align="center">
+  <img src="docs/AI摘要及追问.webp" alt="Papr 的 AI 摘要与追问界面" width="960" />
+</p>
+
 - **AI 抽屉布局优化**：AI 摘要面板宽度从 360px 调整到 480px，打开面板时正文区域会为抽屉预留空间，减少正文与摘要面板的遮挡。
 - **LLM 翻译配置对齐**：LLM 翻译会复用新的 AI 配置解析逻辑，同时保留 Google、DeepL、Bing 等独立翻译引擎选项。
 - **国际化补充**：为新增的 AI 配置、摘要模板、追问和连接测试文案补齐 English、Japanese、Simplified Chinese 三套语言资源。
