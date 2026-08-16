@@ -31,6 +31,7 @@ dist-ssr
 .playwright-mcp/
 .vite/
 .cache/
+.zcode/
 
 # Test coverage
 coverage/
