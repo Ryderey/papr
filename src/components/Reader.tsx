@@ -763,6 +763,15 @@ export default function Reader({ onToast, aiDrawerWidth, aiDrawerMaxWidth }: Pro
         >
           <Icon name="globe" size={16} />
         </button>
+        <button
+          className={`tb-btn ${aiOpen ? "on" : ""}`}
+          title={t("reader.tbAiSummary")}
+          aria-label={t("reader.tbAiSummary")}
+          aria-pressed={aiOpen}
+          onClick={() => setAiOpen(!aiOpen)}
+        >
+          <Icon name={aiOpen ? "sparkle-fill" : "sparkle"} size={16} />
+        </button>
         <HighlightLayer
           // Keyed by article id so the export menu / popovers reset cleanly
           // when the reader switches articles.
