@@ -13,6 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Shared, platform-agnostic business logic and canonical schema. The desktop
+# adapter delegates its migrations to `papr_core::db::migrate` so the schema has
+# a single source of truth across Tauri and Flutter.
+papr-core = { path = "../crates/papr-core" }
 # `unstable` unlocks the child-webview API (Window::add_child) used by the
 # in-app original-page view (issue #49) — sites that refuse iframes
 # (X-Frame-Options) still render in a native child webview. API may change

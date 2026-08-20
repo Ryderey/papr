@@ -11,18 +11,19 @@ class PaprCoreService {
 
   static AppException mapError(Object err) {
     if (err is gen.PaprBridgeError) {
-      final kind = switch (err) {
-        gen.PaprBridgeError_Database() => AppErrorKind.database,
-        gen.PaprBridgeError_Network() => AppErrorKind.network,
-        gen.PaprBridgeError_Parse() => AppErrorKind.parse,
-        gen.PaprBridgeError_InvalidInput() => AppErrorKind.invalidInput,
-        gen.PaprBridgeError_NotFound() => AppErrorKind.notFound,
-        gen.PaprBridgeError_Ai() => AppErrorKind.ai,
-        gen.PaprBridgeError_Platform() => AppErrorKind.platform,
-        gen.PaprBridgeError_Unknown() => AppErrorKind.unknown,
+      final kind = switch (err.category) {
+        gen.ErrorCategory.db => AppErrorKind.database,
+        gen.ErrorCategory.network => AppErrorKind.network,
+        gen.ErrorCategory.parse => AppErrorKind.parse,
+        gen.ErrorCategory.invalidInput => AppErrorKind.invalidInput,
+        gen.ErrorCategory.notFound => AppErrorKind.notFound,
+        gen.ErrorCategory.ai => AppErrorKind.ai,
+        gen.ErrorCategory.platform => AppErrorKind.platform,
+        gen.ErrorCategory.sync_ => AppErrorKind.sync,
+        gen.ErrorCategory.unknown => AppErrorKind.unknown,
       };
-      return AppException(kind, err.toString());
+      return AppException(kind, err.code, err.detail);
     }
-    return AppException(AppErrorKind.unknown, err.toString());
+    return AppException(AppErrorKind.unknown, 'unknown', err.toString());
   }
 }

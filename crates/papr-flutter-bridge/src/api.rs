@@ -125,6 +125,9 @@ impl From<PaprCoreConfig> for papr_core::PaprCoreConfig {
             cache_dir: c.cache_dir.map(PathBuf::from),
             log_dir: c.log_dir.map(PathBuf::from),
             log_level: c.log_level,
+            http_timeout_secs: None,
+            http_proxy: None,
+            http_user_agent: None,
             platform: c.platform.into(),
         }
     }

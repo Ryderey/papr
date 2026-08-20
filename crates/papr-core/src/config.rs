@@ -20,6 +20,12 @@ pub struct PaprCoreConfig {
     pub log_dir: Option<PathBuf>,
     /// Optional log level, e.g. `"info"` or `"debug"`.
     pub log_level: Option<String>,
+    /// HTTP timeout in seconds (clamped to 5..=300). `None` uses the default.
+    pub http_timeout_secs: Option<u64>,
+    /// Proxy mode: `"system"` (default), `"none"`, or a custom proxy URL.
+    pub http_proxy: Option<String>,
+    /// Override the default User-Agent header.
+    pub http_user_agent: Option<String>,
     /// Target platform; used to gate platform-specific behaviour.
     pub platform: Platform,
 }

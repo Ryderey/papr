@@ -3459,6 +3459,7 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "opml",
+ "papr-core",
  "reqwest 0.12.28",
  "rusqlite",
  "rusqlite_migration",

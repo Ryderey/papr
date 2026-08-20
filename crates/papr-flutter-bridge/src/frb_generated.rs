@@ -705,6 +705,25 @@ impl SseDecode for crate::dto::Enclosure {
     }
 }
 
+impl SseDecode for crate::error::ErrorCategory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::error::ErrorCategory::Db,
+            1 => crate::error::ErrorCategory::Network,
+            2 => crate::error::ErrorCategory::Parse,
+            3 => crate::error::ErrorCategory::InvalidInput,
+            4 => crate::error::ErrorCategory::NotFound,
+            5 => crate::error::ErrorCategory::Ai,
+            6 => crate::error::ErrorCategory::Platform,
+            7 => crate::error::ErrorCategory::Sync,
+            8 => crate::error::ErrorCategory::Unknown,
+            _ => unreachable!("Invalid variant for ErrorCategory: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::dto::Feed {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -895,60 +914,14 @@ impl SseDecode for Option<Vec<i64>> {
 impl SseDecode for crate::error::PaprBridgeError {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Database {
-                    message: var_message,
-                };
-            }
-            1 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Network {
-                    message: var_message,
-                };
-            }
-            2 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Parse {
-                    message: var_message,
-                };
-            }
-            3 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::InvalidInput {
-                    message: var_message,
-                };
-            }
-            4 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::NotFound {
-                    message: var_message,
-                };
-            }
-            5 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Ai {
-                    message: var_message,
-                };
-            }
-            6 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Platform {
-                    message: var_message,
-                };
-            }
-            7 => {
-                let mut var_message = <String>::sse_decode(deserializer);
-                return crate::error::PaprBridgeError::Unknown {
-                    message: var_message,
-                };
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        let mut var_category = <crate::error::ErrorCategory>::sse_decode(deserializer);
+        let mut var_code = <String>::sse_decode(deserializer);
+        let mut var_detail = <Option<String>>::sse_decode(deserializer);
+        return crate::error::PaprBridgeError {
+            category: var_category,
+            code: var_code,
+            detail: var_detail,
+        };
     }
 }
 
@@ -1264,6 +1237,31 @@ impl flutter_rust_bridge::IntoIntoDart<crate::dto::Enclosure> for crate::dto::En
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::error::ErrorCategory {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Db => 0.into_dart(),
+            Self::Network => 1.into_dart(),
+            Self::Parse => 2.into_dart(),
+            Self::InvalidInput => 3.into_dart(),
+            Self::NotFound => 4.into_dart(),
+            Self::Ai => 5.into_dart(),
+            Self::Platform => 6.into_dart(),
+            Self::Sync => 7.into_dart(),
+            Self::Unknown => 8.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::error::ErrorCategory {}
+impl flutter_rust_bridge::IntoIntoDart<crate::error::ErrorCategory>
+    for crate::error::ErrorCategory
+{
+    fn into_into_dart(self) -> crate::error::ErrorCategory {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::dto::Feed {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -1310,35 +1308,12 @@ impl flutter_rust_bridge::IntoIntoDart<crate::dto::OpmlImportReport>
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::error::PaprBridgeError {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            crate::error::PaprBridgeError::Database { message } => {
-                [0.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::Network { message } => {
-                [1.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::Parse { message } => {
-                [2.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::InvalidInput { message } => {
-                [3.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::NotFound { message } => {
-                [4.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::Ai { message } => {
-                [5.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::Platform { message } => {
-                [6.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            crate::error::PaprBridgeError::Unknown { message } => {
-                [7.into_dart(), message.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        [
+            self.category.into_into_dart().into_dart(),
+            self.code.into_into_dart().into_dart(),
+            self.detail.into_into_dart().into_dart(),
+        ]
+        .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::error::PaprBridgeError {}
@@ -1622,6 +1597,29 @@ impl SseEncode for crate::dto::Enclosure {
     }
 }
 
+impl SseEncode for crate::error::ErrorCategory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::error::ErrorCategory::Db => 0,
+                crate::error::ErrorCategory::Network => 1,
+                crate::error::ErrorCategory::Parse => 2,
+                crate::error::ErrorCategory::InvalidInput => 3,
+                crate::error::ErrorCategory::NotFound => 4,
+                crate::error::ErrorCategory::Ai => 5,
+                crate::error::ErrorCategory::Platform => 6,
+                crate::error::ErrorCategory::Sync => 7,
+                crate::error::ErrorCategory::Unknown => 8,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::dto::Feed {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1775,43 +1773,9 @@ impl SseEncode for Option<Vec<i64>> {
 impl SseEncode for crate::error::PaprBridgeError {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::error::PaprBridgeError::Database { message } => {
-                <i32>::sse_encode(0, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::Network { message } => {
-                <i32>::sse_encode(1, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::Parse { message } => {
-                <i32>::sse_encode(2, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::InvalidInput { message } => {
-                <i32>::sse_encode(3, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::NotFound { message } => {
-                <i32>::sse_encode(4, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::Ai { message } => {
-                <i32>::sse_encode(5, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::Platform { message } => {
-                <i32>::sse_encode(6, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            crate::error::PaprBridgeError::Unknown { message } => {
-                <i32>::sse_encode(7, serializer);
-                <String>::sse_encode(message, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
+        <crate::error::ErrorCategory>::sse_encode(self.category, serializer);
+        <String>::sse_encode(self.code, serializer);
+        <Option<String>>::sse_encode(self.detail, serializer);
     }
 }
 

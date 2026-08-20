@@ -27,9 +27,13 @@ async fn read_capped(mut resp: reqwest::Response) -> Result<Vec<u8>, CoreError> 
 }
 
 /// Build the shared HTTP client.
-pub fn build_client(timeout_secs: u64, proxy: &str) -> Result<Client, CoreError> {
+pub fn build_client(
+    timeout_secs: u64,
+    proxy: &str,
+    user_agent: Option<&str>,
+) -> Result<Client, CoreError> {
     let mut builder = Client::builder()
-        .user_agent(USER_AGENT)
+        .user_agent(user_agent.unwrap_or(USER_AGENT))
         .timeout(Duration::from_secs(timeout_secs.clamp(5, 300)))
         .connect_timeout(Duration::from_secs(10));
 

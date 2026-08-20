@@ -24,6 +24,7 @@ use services::{
 /// call its services.
 pub struct PaprCore {
     _db: Arc<Db>,
+    http: Arc<reqwest::Client>,
     config: PaprCoreConfig,
     feed_service: FeedService,
     article_service: ArticleService,
@@ -53,19 +54,31 @@ impl PaprCore {
 
         let db = Arc::new(Db::new(db_path)?);
 
+        let http = Arc::new(crate::ingestion::fetch::build_client(
+            config.http_timeout_secs.unwrap_or(30),
+            config.http_proxy.as_deref().unwrap_or("system"),
+            config.http_user_agent.as_deref(),
+        )?);
+
         Ok(Self {
             feed_service: FeedService::new(Arc::clone(&db)),
             article_service: ArticleService::new(Arc::clone(&db)),
-            ingestion_service: IngestionService::new(Arc::clone(&db)),
+            ingestion_service: IngestionService::new(Arc::clone(&db), Arc::clone(&http)),
             opml_service: OpmlService::new(Arc::clone(&db)),
             settings_service: SettingsService::new(Arc::clone(&db)),
             _db: db,
+            http,
             config,
         })
     }
 
     pub fn config(&self) -> &PaprCoreConfig {
         &self.config
+    }
+
+    /// Shared HTTP client, configured once at initialisation.
+    pub fn http(&self) -> &Arc<reqwest::Client> {
+        &self.http
     }
 
     pub fn platform(&self) -> Platform {

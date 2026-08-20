@@ -7,11 +7,12 @@ use crate::ingestion;
 
 pub struct IngestionService {
     db: Arc<Db>,
+    http: Arc<reqwest::Client>,
 }
 
 impl IngestionService {
-    pub fn new(db: Arc<Db>) -> Self {
-        Self { db }
+    pub fn new(db: Arc<Db>, http: Arc<reqwest::Client>) -> Self {
+        Self { db, http }
     }
 
     pub async fn refresh_feeds(
@@ -40,7 +41,7 @@ impl IngestionService {
             });
         }
 
-        let client = ingestion::fetch::build_client(30, "system")?;
+        let client = self.http.as_ref();
 
         let mut new_articles: i64 = 0;
         let mut errors: Vec<RefreshError> = Vec::new();
@@ -163,7 +164,10 @@ mod tests {
     async fn refresh_report_counts_feeds_and_keeps_db_consistent() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
-        let svc = IngestionService::new(db.clone());
+        let http = Arc::new(
+            crate::ingestion::fetch::build_client(30, "system", None).unwrap(),
+        );
+        let svc = IngestionService::new(db.clone(), http);
 
         let feed_url = "https://example.com/feed";
         db.add_feed(feed_url).unwrap();

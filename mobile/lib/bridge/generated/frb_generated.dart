@@ -535,6 +535,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ErrorCategory dco_decode_error_category(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ErrorCategory.values[raw as int];
+  }
+
+  @protected
   Feed dco_decode_feed(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -649,42 +655,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   PaprBridgeError dco_decode_papr_bridge_error(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    switch (raw[0]) {
-      case 0:
-        return PaprBridgeError_Database(
-          message: dco_decode_String(raw[1]),
-        );
-      case 1:
-        return PaprBridgeError_Network(
-          message: dco_decode_String(raw[1]),
-        );
-      case 2:
-        return PaprBridgeError_Parse(
-          message: dco_decode_String(raw[1]),
-        );
-      case 3:
-        return PaprBridgeError_InvalidInput(
-          message: dco_decode_String(raw[1]),
-        );
-      case 4:
-        return PaprBridgeError_NotFound(
-          message: dco_decode_String(raw[1]),
-        );
-      case 5:
-        return PaprBridgeError_Ai(
-          message: dco_decode_String(raw[1]),
-        );
-      case 6:
-        return PaprBridgeError_Platform(
-          message: dco_decode_String(raw[1]),
-        );
-      case 7:
-        return PaprBridgeError_Unknown(
-          message: dco_decode_String(raw[1]),
-        );
-      default:
-        throw Exception("unreachable");
-    }
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return PaprBridgeError(
+      category: dco_decode_error_category(arr[0]),
+      code: dco_decode_String(arr[1]),
+      detail: dco_decode_opt_String(arr[2]),
+    );
   }
 
   @protected
@@ -987,6 +965,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ErrorCategory sse_decode_error_category(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ErrorCategory.values[inner];
+  }
+
+  @protected
   Feed sse_decode_feed(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_i_64(deserializer);
@@ -1163,36 +1148,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   PaprBridgeError sse_decode_papr_bridge_error(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var tag_ = sse_decode_i_32(deserializer);
-    switch (tag_) {
-      case 0:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Database(message: var_message);
-      case 1:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Network(message: var_message);
-      case 2:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Parse(message: var_message);
-      case 3:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_InvalidInput(message: var_message);
-      case 4:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_NotFound(message: var_message);
-      case 5:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Ai(message: var_message);
-      case 6:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Platform(message: var_message);
-      case 7:
-        var var_message = sse_decode_String(deserializer);
-        return PaprBridgeError_Unknown(message: var_message);
-      default:
-        throw UnimplementedError('');
-    }
+    var var_category = sse_decode_error_category(deserializer);
+    var var_code = sse_decode_String(deserializer);
+    var var_detail = sse_decode_opt_String(deserializer);
+    return PaprBridgeError(
+        category: var_category, code: var_code, detail: var_detail);
   }
 
   @protected
@@ -1448,6 +1408,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_error_category(ErrorCategory self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
   void sse_encode_feed(Feed self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_64(self.id, serializer);
@@ -1593,32 +1559,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_papr_bridge_error(
       PaprBridgeError self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    switch (self) {
-      case PaprBridgeError_Database(message: final message):
-        sse_encode_i_32(0, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_Network(message: final message):
-        sse_encode_i_32(1, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_Parse(message: final message):
-        sse_encode_i_32(2, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_InvalidInput(message: final message):
-        sse_encode_i_32(3, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_NotFound(message: final message):
-        sse_encode_i_32(4, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_Ai(message: final message):
-        sse_encode_i_32(5, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_Platform(message: final message):
-        sse_encode_i_32(6, serializer);
-        sse_encode_String(message, serializer);
-      case PaprBridgeError_Unknown(message: final message):
-        sse_encode_i_32(7, serializer);
-        sse_encode_String(message, serializer);
-    }
+    sse_encode_error_category(self.category, serializer);
+    sse_encode_String(self.code, serializer);
+    sse_encode_opt_String(self.detail, serializer);
   }
 
   @protected

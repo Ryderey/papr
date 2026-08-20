@@ -5,35 +5,46 @@
 
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
-import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
-part 'error.freezed.dart';
 
-@freezed
-sealed class PaprBridgeError with _$PaprBridgeError implements FrbException {
-  const PaprBridgeError._();
+/// Coarse error category, mirrored from `papr_core::error::ErrorCategory`.
+enum ErrorCategory {
+  db,
+  network,
+  parse,
+  invalidInput,
+  notFound,
+  ai,
+  platform,
+  sync_,
+  unknown,
+  ;
+}
 
-  const factory PaprBridgeError.database({
-    required String message,
-  }) = PaprBridgeError_Database;
-  const factory PaprBridgeError.network({
-    required String message,
-  }) = PaprBridgeError_Network;
-  const factory PaprBridgeError.parse({
-    required String message,
-  }) = PaprBridgeError_Parse;
-  const factory PaprBridgeError.invalidInput({
-    required String message,
-  }) = PaprBridgeError_InvalidInput;
-  const factory PaprBridgeError.notFound({
-    required String message,
-  }) = PaprBridgeError_NotFound;
-  const factory PaprBridgeError.ai({
-    required String message,
-  }) = PaprBridgeError_Ai;
-  const factory PaprBridgeError.platform({
-    required String message,
-  }) = PaprBridgeError_Platform;
-  const factory PaprBridgeError.unknown({
-    required String message,
-  }) = PaprBridgeError_Unknown;
+/// Errors returned across the Flutter bridge.
+///
+/// Carries the three parts the Flutter side needs to localise a failure: a
+/// coarse category, a stable machine-readable code, and an optional safe detail
+/// (never containing secrets).
+class PaprBridgeError implements FrbException {
+  final ErrorCategory category;
+  final String code;
+  final String? detail;
+
+  const PaprBridgeError({
+    required this.category,
+    required this.code,
+    this.detail,
+  });
+
+  @override
+  int get hashCode => category.hashCode ^ code.hashCode ^ detail.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PaprBridgeError &&
+          runtimeType == other.runtimeType &&
+          category == other.category &&
+          code == other.code &&
+          detail == other.detail;
 }

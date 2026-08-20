@@ -1,32 +1,55 @@
 use flutter_rust_bridge::frb;
 
+/// Coarse error category, mirrored from `papr_core::error::ErrorCategory`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum ErrorCategory {
+    Db,
+    Network,
+    Parse,
+    InvalidInput,
+    NotFound,
+    Ai,
+    Platform,
+    Sync,
+    Unknown,
+}
+
+impl From<papr_core::error::ErrorCategory> for ErrorCategory {
+    fn from(c: papr_core::error::ErrorCategory) -> Self {
+        match c {
+            papr_core::error::ErrorCategory::Db => Self::Db,
+            papr_core::error::ErrorCategory::Network => Self::Network,
+            papr_core::error::ErrorCategory::Parse => Self::Parse,
+            papr_core::error::ErrorCategory::InvalidInput => Self::InvalidInput,
+            papr_core::error::ErrorCategory::NotFound => Self::NotFound,
+            papr_core::error::ErrorCategory::Ai => Self::Ai,
+            papr_core::error::ErrorCategory::Platform => Self::Platform,
+            papr_core::error::ErrorCategory::Sync => Self::Sync,
+            papr_core::error::ErrorCategory::Unknown => Self::Unknown,
+        }
+    }
+}
+
 /// Errors returned across the Flutter bridge.
+///
+/// Carries the three parts the Flutter side needs to localise a failure: a
+/// coarse category, a stable machine-readable code, and an optional safe detail
+/// (never containing secrets).
 #[derive(Debug)]
 #[frb]
-pub enum PaprBridgeError {
-    Database { message: String },
-    Network { message: String },
-    Parse { message: String },
-    InvalidInput { message: String },
-    NotFound { message: String },
-    Ai { message: String },
-    Platform { message: String },
-    Unknown { message: String },
+pub struct PaprBridgeError {
+    pub category: ErrorCategory,
+    pub code: String,
+    pub detail: Option<String>,
 }
 
 impl std::fmt::Display for PaprBridgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = match self {
-            PaprBridgeError::Database { message } => message,
-            PaprBridgeError::Network { message } => message,
-            PaprBridgeError::Parse { message } => message,
-            PaprBridgeError::InvalidInput { message } => message,
-            PaprBridgeError::NotFound { message } => message,
-            PaprBridgeError::Ai { message } => message,
-            PaprBridgeError::Platform { message } => message,
-            PaprBridgeError::Unknown { message } => message,
-        };
-        f.write_str(message)
+        match &self.detail {
+            Some(detail) => write!(f, "{}: {}", self.code, detail),
+            None => write!(f, "{}", self.code),
+        }
     }
 }
 
@@ -34,17 +57,10 @@ impl std::error::Error for PaprBridgeError {}
 
 impl From<papr_core::error::CoreError> for PaprBridgeError {
     fn from(e: papr_core::error::CoreError) -> Self {
-        use papr_core::error::CoreError;
-        let message = e.to_string();
-        match e {
-            CoreError::Db(_) => Self::Database { message },
-            CoreError::Network(_) => Self::Network { message },
-            CoreError::Parse(_) => Self::Parse { message },
-            CoreError::InvalidInput(_) => Self::InvalidInput { message },
-            CoreError::NotFound(_) => Self::NotFound { message },
-            CoreError::Ai(_) => Self::Ai { message },
-            CoreError::Platform(_) => Self::Platform { message },
-            CoreError::Unknown(_) => Self::Unknown { message },
+        Self {
+            category: e.category().into(),
+            code: e.code().to_string(),
+            detail: e.detail(),
         }
     }
 }

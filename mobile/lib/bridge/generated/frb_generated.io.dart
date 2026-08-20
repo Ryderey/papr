@@ -73,6 +73,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Enclosure dco_decode_enclosure(dynamic raw);
 
   @protected
+  ErrorCategory dco_decode_error_category(dynamic raw);
+
+  @protected
   Feed dco_decode_feed(dynamic raw);
 
   @protected
@@ -204,6 +207,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Enclosure sse_decode_enclosure(SseDeserializer deserializer);
+
+  @protected
+  ErrorCategory sse_decode_error_category(SseDeserializer deserializer);
 
   @protected
   Feed sse_decode_feed(SseDeserializer deserializer);
@@ -341,6 +347,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_enclosure(Enclosure self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_error_category(ErrorCategory self, SseSerializer serializer);
 
   @protected
   void sse_encode_feed(Feed self, SseSerializer serializer);
