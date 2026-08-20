@@ -824,16 +824,16 @@ After phase 1 is stable:
 - [x] Added Android NDK linkers to `C:\Users\Ryder\.cargo\config.toml`.
 - [x] Verified `cargo check -p papr-core -p papr-flutter-bridge` passes.
 - [x] Verified `cargo build -p papr-flutter-bridge --target aarch64-linux-android` produces `libpapr_flutter_bridge.so`.
-- [x] Verified `flutter analyze --no-pub` passes (only unused-import warnings remain in repositories).
+- [x] Verified `flutter analyze --no-pub` passes with no issues.
 
 ### Blocked / Not Yet Completed
 
 - [x] **Flutter Android APK build**: resolved by configuring Alibaba Cloud Gradle mirror, upgrading to Gradle 9.1.0, and overriding `:jni` / app NDK version to the locally intact `30.0.14904198`.
 - [x] **Android Gradle Rust integration**: replaced the upstream-incompatible `rust-android-gradle` plugin with a custom Gradle `buildRustBridge` task in `mobile/android/app/build.gradle.kts` that runs `cargo build` for each ABI and copies the resulting `.so` files into `src/main/jniLibs`.
 - [x] **Rust bridge for other Android ABIs**: `libpapr_flutter_bridge.so` is now built and packaged for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`.
-- [ ] **Stub business logic**: `IngestionService.refresh_feeds` and `OpmlService.import_text` are empty stubs.
-  - **Next step**: implement real feed refresh and OPML import, or at least wire them to produce minimal demo data.
-- [ ] **Runtime verification on device/emulator**: no APK has been installed or run.
+- [x] **Feed refresh business logic**: `IngestionService.refresh_feeds` performs conditional HTTP fetch, RSS/Atom parsing, article and enclosure insertion, feed metadata updates, and per-feed error isolation.
+- [ ] **Stub business logic**: `OpmlService.import_text` is still an empty stub.
+- [x] **Runtime verification on emulator**: Debug APK installed on `emulator-5554`; add Feed → refresh → article list → article detail was verified on 2026-08-20, including a repeated refresh with no duplicate article or enclosure.
 - [ ] **Desktop regression check**: `src-tauri` has not been switched to `papr-core`; current desktop build should still work but should be verified.
 
 ### Files Modified / Created (Current Branch)
@@ -874,22 +874,12 @@ C:\Users\Ryder\.cargo\config.toml               (added Android NDK linkers)
 
 ### Immediate Next Steps (When Work Resumes)
 
-1. **Resolve Gradle wrapper download**:
-   - Option A: run `flutter build apk --debug` from an environment with access to `services.gradle.org`.
-   - Option B: manually copy the existing Gradle 8.14.3 distribution into the wrapper's expected hash directory.
-2. **Add Rust-Android Gradle integration** to `mobile/android/app/build.gradle.kts`.
-3. **Build multi-ABI Rust libraries** or at least confirm `aarch64` APK can be built.
-4. **Implement stub services** (`IngestionService.refresh_feeds`, `OpmlService.import_text`) with minimal real behaviour.
-5. **Install APK on emulator/device** and verify:
-   - App launches without crash.
-   - `initPaprCore` creates SQLite database in app data.
-   - Feed/article/settings screens render.
-6. **Verify desktop build still passes** (`pnpm build`, `cargo check` in `src-tauri`).
-7. **Commit changes** once a successful APK build is achieved.
+1. **Implement OPML import** in `OpmlService.import_text`.
+2. **Render article HTML as content** instead of displaying markup as plain text.
+3. **Verify refresh against public feeds** on a device or emulator with working external networking.
+4. **Verify desktop build still passes** (`pnpm build`, `cargo check` in `src-tauri`).
+5. **Commit the completed refresh pipeline changes**.
 
 ### Known Warnings to Address Later
 
-- `papr-core`: `field 'db' is never read` in `PaprCore`, `IngestionService`, `OpmlService` — will disappear once services use the database directly.
-- `papr-core`: `hiding a lifetime` in `db.rs` `lock()` signature — cosmetic; fix with `MutexGuard<'_, Connection>`.
 - `papr-flutter-bridge`: `unexpected_cfgs` warnings from FRB macros — normal for FRB v2, can be silenced with `#![allow(unexpected_cfgs)]` if desired.
-- Flutter repositories: unused import `../core/exceptions.dart` — remove after build succeeds.

@@ -34,9 +34,10 @@ cargo test -p papr-core
 
 ## 验收检查点
 
-- [ ] `cargo check -p papr-core` 通过。
-- [ ] `cargo test -p papr-core` 通过。
-- [ ] `IngestionService::refresh_feeds` 不再返回空报告。
-- [ ] 刷新成功后 `articles` 与 `enclosures` 表有数据。
-- [ ] `feeds` 表的 `last_fetched_at` / `etag` / `last_modified` 被更新。
-- [ ] Flutter `FeedListScreen` 可触发刷新并更新列表。
+- [x] `cargo check -p papr-core` 通过。
+- [x] `cargo test -p papr-core` 通过。
+- [x] `IngestionService::refresh_feeds` 不再返回空报告。
+- [x] 刷新成功后 `articles` 与 `enclosures` 表有数据。
+- [x] `feeds` 表的 `last_fetched_at` / `etag` / `last_modified` 被更新。
+- [x] Flutter `FeedListScreen` 可触发刷新并更新列表。
+- [x] Debug APK 已安装到 `emulator-5554`，完成添加 Feed → 刷新 → 文章列表 → 文章详情闭环。

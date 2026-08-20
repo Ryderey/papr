@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import '../../bridge/generated/generated.dart' as bridge;
 import '../../repositories/article_repository.dart';
@@ -25,25 +26,42 @@ class ArticleDetailScreen extends ConsumerWidget {
         title: const Text('Article'),
       ),
       body: article.when(
-        data: (detail) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                detail.title,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              if (detail.author != null)
-                Text('By ${detail.author}', style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 16),
-              Text(
-                detail.extractedHtml ?? detail.contentHtml ?? 'No content',
-              ),
-            ],
-          ),
-        ),
+        data: (detail) {
+          final content = detail.extractedHtml ?? detail.contentHtml;
+          final hasContent = content?.trim().isNotEmpty ?? false;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  detail.title,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                if (detail.author != null)
+                  Text(
+                    'By ${detail.author}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                const SizedBox(height: 16),
+                if (!hasContent)
+                  const Text('No content')
+                else
+                  HtmlWidget(
+                    content!,
+                    baseUrl:
+                        detail.url == null ? null : Uri.tryParse(detail.url!),
+                    customStylesBuilder: (element) => element.localName == 'img'
+                        ? {'max-width': '100%', 'height': 'auto'}
+                        : null,
+                    textStyle: Theme.of(context).textTheme.bodyMedium,
+                  ),
+              ],
+            ),
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),

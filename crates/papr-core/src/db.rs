@@ -294,7 +294,7 @@ impl Db {
         &self, article_id: i64) -> Result<ArticleDetail, CoreError> {
         let conn = self.lock()?;
         let mut stmt = conn.prepare(
-            "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.url, articles.content_html, articles.extracted_html, articles.image_url, articles.published_at, articles.is_read, articles.is_starred, articles.read_later, articles.ai_summary, articles.translated_html, articles.translated_lang \
+            "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.url, articles.content_html, articles.extracted_html, articles.image_url, articles.published_at, articles.is_read, articles.is_starred, articles.read_later, articles.ai_summary, NULL, NULL \
              FROM articles \
              JOIN feeds ON feeds.id = articles.feed_id \
              WHERE articles.id = ?1"
@@ -382,7 +382,7 @@ impl Db {
         article: &NewArticle,
     ) -> Result<bool, CoreError> {
         let conn = self.lock()?;
-        conn.execute(
+        let inserted = conn.execute(
             "INSERT INTO articles \
              (feed_id, guid, url, title, author, summary, content_html, body_text, image_url, published_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
@@ -402,10 +402,10 @@ impl Db {
         )
         .map_err(|e| CoreError::Db(e.to_string()))?;
 
-        let article_id = conn.last_insert_rowid();
-        if article_id == 0 {
+        if inserted == 0 {
             return Ok(false);
         }
+        let article_id = conn.last_insert_rowid();
 
         for enc in &article.enclosures {
             conn.execute(
@@ -512,4 +512,40 @@ fn is_unique_violation(e: &rusqlite::Error) -> bool {
         e,
         rusqlite::Error::SqliteFailure(sqlite_err, _) if sqlite_err.code == rusqlite::ErrorCode::ConstraintViolation
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_article_is_not_counted_or_given_duplicate_enclosures() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        let article = NewArticle {
+            guid: "article-1".to_string(),
+            url: Some("https://example.com/article-1".to_string()),
+            title: "Article 1".to_string(),
+            author: None,
+            summary: None,
+            content_html: None,
+            body_text: "Article body".to_string(),
+            image_url: None,
+            published_at: None,
+            enclosures: vec![Enclosure {
+                url: "https://example.com/audio.mp3".to_string(),
+                mime_type: Some("audio/mpeg".to_string()),
+                length: Some(42),
+            }],
+        };
+
+        assert!(db.upsert_article(feed_id, &article).unwrap());
+        assert!(!db.upsert_article(feed_id, &article).unwrap());
+
+        let articles = db.list_articles(&ArticleFilter::default()).unwrap();
+        assert_eq!(articles.len(), 1);
+        let detail = db.get_article_detail(articles[0].id).unwrap();
+        assert_eq!(detail.enclosures.len(), 1);
+    }
 }

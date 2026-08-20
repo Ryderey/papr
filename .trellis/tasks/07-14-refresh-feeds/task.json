@@ -3,7 +3,7 @@
   "name": "refresh-feeds",
   "title": "实现 refreshFeeds 文章抓取展示闭环",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "wx_channels_download",
   "assignee": "wx_channels_download",
   "createdAt": "2026-07-14",
-  "completedAt": null,
+  "completedAt": "2026-08-20",
   "branch": null,
   "base_branch": "feat/flutter-android-rearchitecture",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "00-bootstrap-guidelines",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Verified on emulator-5554: add feed, refresh, list article, open detail, and repeat refresh without duplicate articles or enclosures.",
   "meta": {}
 }
