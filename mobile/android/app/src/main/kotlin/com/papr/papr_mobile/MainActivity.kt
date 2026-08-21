@@ -1,7 +1,9 @@
 package com.papr.papr_mobile
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
@@ -30,6 +32,12 @@ class MainActivity : FlutterActivity() {
                             saveOpmlDocument(text, result)
                         }
                     }
+                    "openUrl" -> openUrl(call.argument<String>("url"), result)
+                    "shareArticle" -> shareArticle(
+                        call.argument<String>("title"),
+                        call.argument<String>("url"),
+                        result,
+                    )
                     else -> result.notImplemented()
                 }
             }
@@ -115,6 +123,40 @@ class MainActivity : FlutterActivity() {
         }
         pendingResult = result
         return true
+    }
+
+    private fun openUrl(url: String?, result: MethodChannel.Result) {
+        val uri = url?.let(Uri::parse)
+        if (uri == null || uri.scheme !in setOf("http", "https")) {
+            result.error("invalidUrl", "Only HTTP(S) article URLs are supported", null)
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+            result.success(true)
+        } catch (_: ActivityNotFoundException) {
+            result.success(false)
+        }
+    }
+
+    private fun shareArticle(title: String?, url: String?, result: MethodChannel.Result) {
+        val uri = url?.let(Uri::parse)
+        if (uri == null || uri.scheme !in setOf("http", "https")) {
+            result.error("invalidUrl", "Only HTTP(S) article URLs are supported", null)
+            return
+        }
+        val text = listOfNotNull(title?.trim()?.takeIf(String::isNotEmpty), url).joinToString("\n")
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, title.orEmpty())
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        try {
+            startActivity(Intent.createChooser(intent, title.orEmpty()))
+            result.success(true)
+        } catch (_: ActivityNotFoundException) {
+            result.success(false)
+        }
     }
 
     companion object {
