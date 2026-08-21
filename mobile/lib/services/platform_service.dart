@@ -44,6 +44,35 @@ class PlatformService {
       return false;
     }
   }
+
+  Future<bool> openUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return false;
+    }
+    try {
+      return await _channel.invokeMethod<bool>('openUrl', {'url': url}) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<bool> shareArticle(String title, String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return false;
+    }
+    try {
+      return await _channel.invokeMethod<bool>(
+            'shareArticle',
+            {'title': title, 'url': url},
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }
 
 final platformService = PlatformService();

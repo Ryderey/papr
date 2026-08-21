@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:papr_mobile/bridge/generated/generated.dart' as bridge;
 import 'package:papr_mobile/l10n/l10n.dart';
+import 'package:papr_mobile/repositories/article_repository.dart';
 import 'package:papr_mobile/ui/navigation/app_shell.dart';
+import 'package:papr_mobile/ui/screens/article_list_screen.dart';
 
 void main() {
   Widget buildApp() {
+    final all = articleFilter(kind: const bridge.ArticleFilterKind.all());
+    final starred =
+        articleFilter(kind: const bridge.ArticleFilterKind.starred());
     return ProviderScope(
       overrides: [
-        articleCollectionProvider(false).overrideWith((ref) async => const []),
-        articleCollectionProvider(true).overrideWith((ref) async => const []),
+        articlePageProvider(all).overrideWith((ref) async => const []),
+        articlePageProvider(starred).overrideWith((ref) async => const []),
+        articleCountProvider(all).overrideWith((ref) async => 0),
+        articleCountProvider(starred).overrideWith((ref) async => 0),
+        articleCountsProvider.overrideWith(
+          (ref) async => const bridge.ArticleCounts(
+            all: 0,
+            unread: 0,
+            starred: 0,
+            readLater: 0,
+          ),
+        ),
+        articleTagsProvider.overrideWith((ref) async => const []),
       ],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,

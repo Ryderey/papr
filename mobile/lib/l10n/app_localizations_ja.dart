@@ -261,4 +261,149 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errorParse => '購読データを読み取れませんでした。';
+
+  @override
+  String get retry => '再試行';
+
+  @override
+  String get articleActions => '記事の操作';
+
+  @override
+  String get readerActions => 'リーダーの操作';
+
+  @override
+  String get markRead => '既読にする';
+
+  @override
+  String get markUnread => '未読にする';
+
+  @override
+  String get star => 'お気に入り';
+
+  @override
+  String get unstar => 'お気に入りを解除';
+
+  @override
+  String get readLater => 'あとで読む';
+
+  @override
+  String get removeReadLater => 'あとで読むから削除';
+
+  @override
+  String get searchArticles => 'タイトルと全文を検索';
+
+  @override
+  String get listOptions => '一覧オプション';
+
+  @override
+  String get hideRead => '既読記事を隠す';
+
+  @override
+  String get oldestFirst => '古い順';
+
+  @override
+  String get markAllRead => '現在の一覧をすべて既読にする';
+
+  @override
+  String markedAllRead(int count) {
+    return '$count 件の記事を既読にしました。';
+  }
+
+  @override
+  String get smartViews => 'スマートビュー';
+
+  @override
+  String get allArticles => 'すべての記事';
+
+  @override
+  String get unreadArticles => '未読';
+
+  @override
+  String get starredArticles => 'お気に入り';
+
+  @override
+  String get readLaterArticles => 'あとで読む';
+
+  @override
+  String get folders => 'フォルダー';
+
+  @override
+  String get tags => 'タグ';
+
+  @override
+  String get extractFulltext => '全文を抽出';
+
+  @override
+  String get reextractFulltext => '全文を再抽出';
+
+  @override
+  String get fulltextExtracted => '全文を抽出しました。';
+
+  @override
+  String get openInBrowser => 'ブラウザーで開く';
+
+  @override
+  String get shareArticle => '共有';
+
+  @override
+  String get platformActionFailed => 'この操作を実行できるアプリがありません。';
+
+  @override
+  String get readingSettings => '読書設定';
+
+  @override
+  String get readerFont => 'リーダーフォント';
+
+  @override
+  String get fontSystem => 'システム';
+
+  @override
+  String get fontSerif => 'セリフ';
+
+  @override
+  String get fontSans => 'サンセリフ';
+
+  @override
+  String get fontSize => '文字サイズ';
+
+  @override
+  String get lineHeight => '行間';
+
+  @override
+  String get readingWidth => '本文幅';
+
+  @override
+  String get showReadingTime => '読了時間を表示';
+
+  @override
+  String get autoExtractFulltext => '全文を自動抽出';
+
+  @override
+  String get autoExtractFulltextDescription => '全文キャッシュがない場合に元ページを取得します。';
+
+  @override
+  String readMinutes(int count) {
+    return '読了目安 $count 分';
+  }
+
+  @override
+  String get attachments => '添付ファイル';
+
+  @override
+  String get attachment => '添付ファイル';
+
+  @override
+  String get imageUnavailable => '画像を読み込めません';
+
+  @override
+  String get errorArticleNotFound => '記事が見つかりません。';
+
+  @override
+  String get errorArticleUrlMissing => 'この記事には元ページの URL がありません。';
+
+  @override
+  String get errorNoExtractableContent => '抽出できる本文が見つかりませんでした。';
+
+  @override
+  String get errorInvalidReadingSettings => '読書設定が対応範囲外です。';
 }

@@ -17,23 +17,38 @@ class AppearanceState {
   final String theme;
   final String language;
   final int refreshIntervalMin;
+  final bridge.ReadingSettings reading;
 
   const AppearanceState({
     required this.theme,
     required this.language,
     required this.refreshIntervalMin,
+    required this.reading,
   });
 
   const AppearanceState.defaults()
       : theme = 'system',
         language = 'en',
-        refreshIntervalMin = 30;
+        refreshIntervalMin = 30,
+        reading = const bridge.ReadingSettings(
+          font: 'system',
+          fontSize: 17,
+          lineHeight: 1.65,
+          contentWidth: 680,
+          showReadingTime: true,
+          autoExtract: false,
+        );
 
-  AppearanceState copyWith({String? theme, String? language}) {
+  AppearanceState copyWith({
+    String? theme,
+    String? language,
+    bridge.ReadingSettings? reading,
+  }) {
     return AppearanceState(
       theme: theme ?? this.theme,
       language: language ?? this.language,
       refreshIntervalMin: refreshIntervalMin,
+      reading: reading ?? this.reading,
     );
   }
 }
@@ -46,6 +61,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
       theme: snapshot.theme,
       language: snapshot.language,
       refreshIntervalMin: snapshot.refreshIntervalMin.toInt(),
+      reading: snapshot.reading,
     );
   }
 
@@ -65,6 +81,17 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
     state = AsyncData(previous.copyWith(language: language));
     try {
       await ref.read(settingsRepositoryProvider).setLanguage(language);
+    } catch (error) {
+      state = AsyncData(previous);
+      rethrow;
+    }
+  }
+
+  Future<void> setReading(bridge.ReadingSettings reading) async {
+    final previous = state.asData?.value ?? const AppearanceState.defaults();
+    state = AsyncData(previous.copyWith(reading: reading));
+    try {
+      await ref.read(settingsRepositoryProvider).setReading(reading);
     } catch (error) {
       state = AsyncData(previous);
       rethrow;
@@ -103,4 +130,32 @@ class SettingsRepository {
       throw PaprCoreService.mapError(e);
     }
   }
+
+  Future<void> setReading(bridge.ReadingSettings settings) async {
+    final core = await _ref.read(paprCoreBridgeProvider.future);
+    try {
+      await bridge.setReadingSettings(core: core, settings: settings);
+    } catch (e) {
+      throw PaprCoreService.mapError(e);
+    }
+  }
+}
+
+bridge.ReadingSettings copyReadingSettings(
+  bridge.ReadingSettings settings, {
+  String? font,
+  double? fontSize,
+  double? lineHeight,
+  double? contentWidth,
+  bool? showReadingTime,
+  bool? autoExtract,
+}) {
+  return bridge.ReadingSettings(
+    font: font ?? settings.font,
+    fontSize: fontSize ?? settings.fontSize,
+    lineHeight: lineHeight ?? settings.lineHeight,
+    contentWidth: contentWidth ?? settings.contentWidth,
+    showReadingTime: showReadingTime ?? settings.showReadingTime,
+    autoExtract: autoExtract ?? settings.autoExtract,
+  );
 }

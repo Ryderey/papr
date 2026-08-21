@@ -3,29 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../bridge/generated/generated.dart' as bridge;
 import '../../l10n/l10n.dart';
-import '../../repositories/article_repository.dart';
 import '../../repositories/feed_repository.dart';
 import '../../services/platform_service.dart';
-import '../screens/article_detail_screen.dart';
+import '../screens/article_browser_screen.dart';
 import '../screens/feed_list_screen.dart';
 import '../screens/settings_screen.dart';
-
-final articleCollectionProvider =
-    FutureProvider.family<List<bridge.ArticleSummary>, bool>(
-  (ref, savedOnly) {
-    return ref.watch(articleRepositoryProvider).listArticles(
-          filter: bridge.ArticleFilter(
-            kind: savedOnly
-                ? const bridge.ArticleFilterKind.starred()
-                : const bridge.ArticleFilterKind.all(),
-            limit: 100,
-            offset: 0,
-          ),
-        );
-  },
-);
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -79,9 +62,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     ];
     final pages = const [
-      _ArticleCollectionScreen(savedOnly: false),
+      ArticleBrowserScreen(savedOnly: false),
       FeedListScreen(),
-      _ArticleCollectionScreen(savedOnly: true),
+      ArticleBrowserScreen(savedOnly: true),
       SettingsScreen(),
     ];
 
@@ -147,64 +130,5 @@ class _AppShellState extends ConsumerState<AppShell> {
         );
       }
     }
-  }
-}
-
-class _ArticleCollectionScreen extends ConsumerWidget {
-  final bool savedOnly;
-
-  const _ArticleCollectionScreen({required this.savedOnly});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final articles = ref.watch(articleCollectionProvider(savedOnly));
-    final l10n = context.l10n;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(savedOnly ? l10n.savedTitle : l10n.articlesTitle),
-      ),
-      body: articles.when(
-        data: (items) {
-          if (items.isEmpty) {
-            return Center(
-              child: Text(
-                savedOnly ? l10n.noSavedArticles : l10n.noArticles,
-              ),
-            );
-          }
-          return ListView.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final article = items[index];
-              return ListTile(
-                leading: Icon(
-                  article.isStarred ? Icons.star : Icons.article_outlined,
-                ),
-                title: Text(
-                  article.title,
-                  style: TextStyle(
-                    fontWeight:
-                        article.isRead ? FontWeight.normal : FontWeight.bold,
-                  ),
-                ),
-                subtitle:
-                    article.snippet == null ? null : Text(article.snippet!),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ArticleDetailScreen(
-                      articleId: article.id.toInt(),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text(l10n.errorMessage(error.toString())),
-        ),
-      ),
-    );
   }
 }

@@ -15,7 +15,7 @@ void main() {
               contentHtml: '''
                 <p>Rendered <strong>body</strong></p>
                 <img
-                  src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                  src="https://example.com/image.jpg"
                   width="2000"
                   height="1000"
                 >
@@ -59,18 +59,57 @@ void main() {
 
     expect(find.text('No content'), findsOneWidget);
   });
+
+  testWidgets('disables browser and sharing when source URL is absent',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          articleDetailProvider(1).overrideWith(
+            (ref) async => _article(contentHtml: '<p>Cached</p>', url: null),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ArticleDetailScreen(articleId: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Reader actions'));
+    await tester.pumpAndSettle();
+
+    final browser = tester.widget<Widget>(
+      find.ancestor(
+        of: find.text('Open in browser'),
+        matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+      ),
+    );
+    final share = tester.widget<Widget>(
+      find.ancestor(
+        of: find.text('Share'),
+        matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+      ),
+    );
+    expect((browser as dynamic).enabled, isFalse);
+    expect((share as dynamic).enabled, isFalse);
+  });
 }
 
-bridge.ArticleDetail _article({String? contentHtml}) {
+bridge.ArticleDetail _article({
+  String? contentHtml,
+  String? url = 'https://example.com/articles/1',
+}) {
   return bridge.ArticleDetail(
     id: 1,
     feedId: 1,
     feedTitle: 'Feed',
     sourceType: bridge.SourceType.rss,
     title: 'Article title',
-    url: 'https://example.com/articles/1',
+    url: url,
     contentHtml: contentHtml,
-    isRead: false,
+    isRead: true,
     isStarred: false,
     readLater: false,
     enclosures: const [],

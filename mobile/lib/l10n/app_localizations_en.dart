@@ -264,4 +264,151 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorParse => 'The subscription data could not be read.';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get articleActions => 'Article actions';
+
+  @override
+  String get readerActions => 'Reader actions';
+
+  @override
+  String get markRead => 'Mark read';
+
+  @override
+  String get markUnread => 'Mark unread';
+
+  @override
+  String get star => 'Star';
+
+  @override
+  String get unstar => 'Unstar';
+
+  @override
+  String get readLater => 'Read later';
+
+  @override
+  String get removeReadLater => 'Remove from read later';
+
+  @override
+  String get searchArticles => 'Search title and full text';
+
+  @override
+  String get listOptions => 'List options';
+
+  @override
+  String get hideRead => 'Hide read articles';
+
+  @override
+  String get oldestFirst => 'Oldest first';
+
+  @override
+  String get markAllRead => 'Mark current view read';
+
+  @override
+  String markedAllRead(int count) {
+    return 'Marked $count article(s) read.';
+  }
+
+  @override
+  String get smartViews => 'Smart views';
+
+  @override
+  String get allArticles => 'All articles';
+
+  @override
+  String get unreadArticles => 'Unread';
+
+  @override
+  String get starredArticles => 'Starred';
+
+  @override
+  String get readLaterArticles => 'Read later';
+
+  @override
+  String get folders => 'Folders';
+
+  @override
+  String get tags => 'Tags';
+
+  @override
+  String get extractFulltext => 'Extract full text';
+
+  @override
+  String get reextractFulltext => 'Extract again';
+
+  @override
+  String get fulltextExtracted => 'Full text extracted.';
+
+  @override
+  String get openInBrowser => 'Open in browser';
+
+  @override
+  String get shareArticle => 'Share';
+
+  @override
+  String get platformActionFailed => 'No app is available for that action.';
+
+  @override
+  String get readingSettings => 'Reading settings';
+
+  @override
+  String get readerFont => 'Reader font';
+
+  @override
+  String get fontSystem => 'System';
+
+  @override
+  String get fontSerif => 'Serif';
+
+  @override
+  String get fontSans => 'Sans';
+
+  @override
+  String get fontSize => 'Font size';
+
+  @override
+  String get lineHeight => 'Line spacing';
+
+  @override
+  String get readingWidth => 'Reading width';
+
+  @override
+  String get showReadingTime => 'Show reading time';
+
+  @override
+  String get autoExtractFulltext => 'Automatically extract full text';
+
+  @override
+  String get autoExtractFulltextDescription =>
+      'Fetch the source page when no extracted copy is cached.';
+
+  @override
+  String readMinutes(int count) {
+    return '$count min read';
+  }
+
+  @override
+  String get attachments => 'Attachments';
+
+  @override
+  String get attachment => 'Attachment';
+
+  @override
+  String get imageUnavailable => 'Image unavailable';
+
+  @override
+  String get errorArticleNotFound => 'The article no longer exists.';
+
+  @override
+  String get errorArticleUrlMissing => 'This article has no source URL.';
+
+  @override
+  String get errorNoExtractableContent => 'No readable full text was found.';
+
+  @override
+  String get errorInvalidReadingSettings =>
+      'The reading setting is outside the supported range.';
 }

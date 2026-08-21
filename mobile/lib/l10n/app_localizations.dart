@@ -567,6 +567,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The subscription data could not be read.'**
   String get errorParse;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @articleActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Article actions'**
+  String get articleActions;
+
+  /// No description provided for @readerActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader actions'**
+  String get readerActions;
+
+  /// No description provided for @markRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark read'**
+  String get markRead;
+
+  /// No description provided for @markUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark unread'**
+  String get markUnread;
+
+  /// No description provided for @star.
+  ///
+  /// In en, this message translates to:
+  /// **'Star'**
+  String get star;
+
+  /// No description provided for @unstar.
+  ///
+  /// In en, this message translates to:
+  /// **'Unstar'**
+  String get unstar;
+
+  /// No description provided for @readLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Read later'**
+  String get readLater;
+
+  /// No description provided for @removeReadLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from read later'**
+  String get removeReadLater;
+
+  /// No description provided for @searchArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'Search title and full text'**
+  String get searchArticles;
+
+  /// No description provided for @listOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'List options'**
+  String get listOptions;
+
+  /// No description provided for @hideRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide read articles'**
+  String get hideRead;
+
+  /// No description provided for @oldestFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest first'**
+  String get oldestFirst;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark current view read'**
+  String get markAllRead;
+
+  /// No description provided for @markedAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked {count} article(s) read.'**
+  String markedAllRead(int count);
+
+  /// No description provided for @smartViews.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart views'**
+  String get smartViews;
+
+  /// No description provided for @allArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'All articles'**
+  String get allArticles;
+
+  /// No description provided for @unreadArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get unreadArticles;
+
+  /// No description provided for @starredArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'Starred'**
+  String get starredArticles;
+
+  /// No description provided for @readLaterArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'Read later'**
+  String get readLaterArticles;
+
+  /// No description provided for @folders.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders'**
+  String get folders;
+
+  /// No description provided for @tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get tags;
+
+  /// No description provided for @extractFulltext.
+  ///
+  /// In en, this message translates to:
+  /// **'Extract full text'**
+  String get extractFulltext;
+
+  /// No description provided for @reextractFulltext.
+  ///
+  /// In en, this message translates to:
+  /// **'Extract again'**
+  String get reextractFulltext;
+
+  /// No description provided for @fulltextExtracted.
+  ///
+  /// In en, this message translates to:
+  /// **'Full text extracted.'**
+  String get fulltextExtracted;
+
+  /// No description provided for @openInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in browser'**
+  String get openInBrowser;
+
+  /// No description provided for @shareArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get shareArticle;
+
+  /// No description provided for @platformActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'No app is available for that action.'**
+  String get platformActionFailed;
+
+  /// No description provided for @readingSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading settings'**
+  String get readingSettings;
+
+  /// No description provided for @readerFont.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader font'**
+  String get readerFont;
+
+  /// No description provided for @fontSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get fontSystem;
+
+  /// No description provided for @fontSerif.
+  ///
+  /// In en, this message translates to:
+  /// **'Serif'**
+  String get fontSerif;
+
+  /// No description provided for @fontSans.
+  ///
+  /// In en, this message translates to:
+  /// **'Sans'**
+  String get fontSans;
+
+  /// No description provided for @fontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font size'**
+  String get fontSize;
+
+  /// No description provided for @lineHeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Line spacing'**
+  String get lineHeight;
+
+  /// No description provided for @readingWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading width'**
+  String get readingWidth;
+
+  /// No description provided for @showReadingTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Show reading time'**
+  String get showReadingTime;
+
+  /// No description provided for @autoExtractFulltext.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically extract full text'**
+  String get autoExtractFulltext;
+
+  /// No description provided for @autoExtractFulltextDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch the source page when no extracted copy is cached.'**
+  String get autoExtractFulltextDescription;
+
+  /// No description provided for @readMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min read'**
+  String readMinutes(int count);
+
+  /// No description provided for @attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments'**
+  String get attachments;
+
+  /// No description provided for @attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment'**
+  String get attachment;
+
+  /// No description provided for @imageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Image unavailable'**
+  String get imageUnavailable;
+
+  /// No description provided for @errorArticleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'The article no longer exists.'**
+  String get errorArticleNotFound;
+
+  /// No description provided for @errorArticleUrlMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This article has no source URL.'**
+  String get errorArticleUrlMissing;
+
+  /// No description provided for @errorNoExtractableContent.
+  ///
+  /// In en, this message translates to:
+  /// **'No readable full text was found.'**
+  String get errorNoExtractableContent;
+
+  /// No description provided for @errorInvalidReadingSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'The reading setting is outside the supported range.'**
+  String get errorInvalidReadingSettings;
 }
 
 class _AppLocalizationsDelegate

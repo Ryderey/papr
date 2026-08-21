@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../bridge/generated/generated.dart' as bridge;
 import '../../l10n/l10n.dart';
+import '../../repositories/article_repository.dart';
 import '../../repositories/feed_repository.dart';
 import '../../services/platform_service.dart';
 import 'article_list_screen.dart';
@@ -224,7 +225,8 @@ class _FeedListScreenState extends ConsumerState<FeedListScreen> {
       }
     } finally {
       ref.invalidate(feedListProvider);
-      ref.invalidate(articleListProvider);
+      ref.invalidate(articlePageProvider);
+      ref.invalidate(articleCountsProvider);
     }
   }
 
@@ -336,7 +338,8 @@ class _FeedListScreenState extends ConsumerState<FeedListScreen> {
       }
     } finally {
       ref.invalidate(feedListProvider);
-      ref.invalidate(articleListProvider);
+      ref.invalidate(articlePageProvider);
+      ref.invalidate(articleCountsProvider);
     }
   }
 

@@ -261,4 +261,149 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorParse => '无法读取订阅数据。';
+
+  @override
+  String get retry => '重试';
+
+  @override
+  String get articleActions => '文章操作';
+
+  @override
+  String get readerActions => '阅读器操作';
+
+  @override
+  String get markRead => '标为已读';
+
+  @override
+  String get markUnread => '标为未读';
+
+  @override
+  String get star => '收藏';
+
+  @override
+  String get unstar => '取消收藏';
+
+  @override
+  String get readLater => '稍后读';
+
+  @override
+  String get removeReadLater => '移出稍后读';
+
+  @override
+  String get searchArticles => '搜索标题和全文';
+
+  @override
+  String get listOptions => '列表选项';
+
+  @override
+  String get hideRead => '隐藏已读文章';
+
+  @override
+  String get oldestFirst => '最早优先';
+
+  @override
+  String get markAllRead => '将当前视图全部标为已读';
+
+  @override
+  String markedAllRead(int count) {
+    return '已将 $count 篇文章标为已读。';
+  }
+
+  @override
+  String get smartViews => '智能视图';
+
+  @override
+  String get allArticles => '全部文章';
+
+  @override
+  String get unreadArticles => '未读';
+
+  @override
+  String get starredArticles => '收藏';
+
+  @override
+  String get readLaterArticles => '稍后读';
+
+  @override
+  String get folders => '文件夹';
+
+  @override
+  String get tags => '标签';
+
+  @override
+  String get extractFulltext => '提取全文';
+
+  @override
+  String get reextractFulltext => '重新提取全文';
+
+  @override
+  String get fulltextExtracted => '全文提取完成。';
+
+  @override
+  String get openInBrowser => '在浏览器中打开';
+
+  @override
+  String get shareArticle => '分享';
+
+  @override
+  String get platformActionFailed => '没有可执行此操作的应用。';
+
+  @override
+  String get readingSettings => '阅读设置';
+
+  @override
+  String get readerFont => '阅读字体';
+
+  @override
+  String get fontSystem => '系统';
+
+  @override
+  String get fontSerif => '衬线';
+
+  @override
+  String get fontSans => '无衬线';
+
+  @override
+  String get fontSize => '字号';
+
+  @override
+  String get lineHeight => '行距';
+
+  @override
+  String get readingWidth => '阅读宽度';
+
+  @override
+  String get showReadingTime => '显示阅读时长';
+
+  @override
+  String get autoExtractFulltext => '自动提取全文';
+
+  @override
+  String get autoExtractFulltextDescription => '没有全文缓存时抓取原始网页。';
+
+  @override
+  String readMinutes(int count) {
+    return '预计阅读 $count 分钟';
+  }
+
+  @override
+  String get attachments => '附件';
+
+  @override
+  String get attachment => '附件';
+
+  @override
+  String get imageUnavailable => '图片无法加载';
+
+  @override
+  String get errorArticleNotFound => '文章已不存在。';
+
+  @override
+  String get errorArticleUrlMissing => '此文章没有原文链接。';
+
+  @override
+  String get errorNoExtractableContent => '未找到可阅读的全文。';
+
+  @override
+  String get errorInvalidReadingSettings => '阅读设置超出支持范围。';
 }

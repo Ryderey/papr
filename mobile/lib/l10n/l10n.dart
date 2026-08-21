@@ -21,6 +21,14 @@ extension AppErrorLocalizations on AppLocalizations {
       'emptyFeedUrl' => errorEmptyFeedUrl,
       'feedNotFound' => errorFeedNotFound,
       'invalidFeedUrl' => errorInvalidFeedUrl,
+      'articleNotFound' => errorArticleNotFound,
+      'articleUrlMissing' => errorArticleUrlMissing,
+      'noExtractableContent' => errorNoExtractableContent,
+      'invalidReadingFont' ||
+      'invalidReadingFontSize' ||
+      'invalidReadingLineHeight' ||
+      'invalidReadingWidth' =>
+        errorInvalidReadingSettings,
       _ => switch (error.kind) {
           AppErrorKind.network => errorNetwork,
           AppErrorKind.parse => errorParse,
