@@ -27,6 +27,35 @@ class AddFeedInput {
           input == other.input;
 }
 
+/// Counts shown beside the built-in article smart views.
+class ArticleCounts {
+  final PlatformInt64 all;
+  final PlatformInt64 unread;
+  final PlatformInt64 starred;
+  final PlatformInt64 readLater;
+
+  const ArticleCounts({
+    required this.all,
+    required this.unread,
+    required this.starred,
+    required this.readLater,
+  });
+
+  @override
+  int get hashCode =>
+      all.hashCode ^ unread.hashCode ^ starred.hashCode ^ readLater.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ArticleCounts &&
+          runtimeType == other.runtimeType &&
+          all == other.all &&
+          unread == other.unread &&
+          starred == other.starred &&
+          readLater == other.readLater;
+}
+
 /// The full article shown in the reader.
 class ArticleDetail {
   final PlatformInt64 id;
@@ -122,17 +151,29 @@ class ArticleDetail {
 /// Filter for paginated article lists.
 class ArticleFilter {
   final ArticleFilterKind kind;
+  final String? search;
+  final bool unreadOnly;
+  final bool oldestFirst;
   final PlatformInt64? limit;
   final PlatformInt64? offset;
 
   const ArticleFilter({
     required this.kind,
+    this.search,
+    required this.unreadOnly,
+    required this.oldestFirst,
     this.limit,
     this.offset,
   });
 
   @override
-  int get hashCode => kind.hashCode ^ limit.hashCode ^ offset.hashCode;
+  int get hashCode =>
+      kind.hashCode ^
+      search.hashCode ^
+      unreadOnly.hashCode ^
+      oldestFirst.hashCode ^
+      limit.hashCode ^
+      offset.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -140,6 +181,9 @@ class ArticleFilter {
       other is ArticleFilter &&
           runtimeType == other.runtimeType &&
           kind == other.kind &&
+          search == other.search &&
+          unreadOnly == other.unreadOnly &&
+          oldestFirst == other.oldestFirst &&
           limit == other.limit &&
           offset == other.offset;
 }
@@ -463,6 +507,46 @@ enum Platform {
   ;
 }
 
+/// Reader appearance and behaviour settings.
+class ReadingSettings {
+  final String font;
+  final double fontSize;
+  final double lineHeight;
+  final double contentWidth;
+  final bool showReadingTime;
+  final bool autoExtract;
+
+  const ReadingSettings({
+    required this.font,
+    required this.fontSize,
+    required this.lineHeight,
+    required this.contentWidth,
+    required this.showReadingTime,
+    required this.autoExtract,
+  });
+
+  @override
+  int get hashCode =>
+      font.hashCode ^
+      fontSize.hashCode ^
+      lineHeight.hashCode ^
+      contentWidth.hashCode ^
+      showReadingTime.hashCode ^
+      autoExtract.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReadingSettings &&
+          runtimeType == other.runtimeType &&
+          font == other.font &&
+          fontSize == other.fontSize &&
+          lineHeight == other.lineHeight &&
+          contentWidth == other.contentWidth &&
+          showReadingTime == other.showReadingTime &&
+          autoExtract == other.autoExtract;
+}
+
 /// Per-feed error inside a refresh report.
 class RefreshError {
   final PlatformInt64 feedId;
@@ -538,16 +622,21 @@ class SettingsSnapshot {
   final String theme;
   final String language;
   final PlatformInt64 refreshIntervalMin;
+  final ReadingSettings reading;
 
   const SettingsSnapshot({
     required this.theme,
     required this.language,
     required this.refreshIntervalMin,
+    required this.reading,
   });
 
   @override
   int get hashCode =>
-      theme.hashCode ^ language.hashCode ^ refreshIntervalMin.hashCode;
+      theme.hashCode ^
+      language.hashCode ^
+      refreshIntervalMin.hashCode ^
+      reading.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -556,7 +645,8 @@ class SettingsSnapshot {
           runtimeType == other.runtimeType &&
           theme == other.theme &&
           language == other.language &&
-          refreshIntervalMin == other.refreshIntervalMin;
+          refreshIntervalMin == other.refreshIntervalMin &&
+          reading == other.reading;
 }
 
 /// The kind of source a feed represents.
@@ -594,4 +684,33 @@ class Tag {
           id == other.id &&
           name == other.name &&
           color == other.color;
+}
+
+/// A tag exposed for read-only article filtering.
+class TagSummary {
+  final PlatformInt64 id;
+  final String name;
+  final String color;
+  final PlatformInt64 articleCount;
+
+  const TagSummary({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.articleCount,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^ name.hashCode ^ color.hashCode ^ articleCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TagSummary &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          color == other.color &&
+          articleCount == other.articleCount;
 }

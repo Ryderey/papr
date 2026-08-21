@@ -48,6 +48,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AddFeedInput dco_decode_add_feed_input(dynamic raw);
 
   @protected
+  ArticleCounts dco_decode_article_counts(dynamic raw);
+
+  @protected
   ArticleDetail dco_decode_article_detail(dynamic raw);
 
   @protected
@@ -75,6 +78,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PaprCoreConfig dco_decode_box_autoadd_papr_core_config(dynamic raw);
 
   @protected
+  ReadingSettings dco_decode_box_autoadd_reading_settings(dynamic raw);
+
+  @protected
   RefreshOptions dco_decode_box_autoadd_refresh_options(dynamic raw);
 
   @protected
@@ -85,6 +91,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorCategory dco_decode_error_category(dynamic raw);
+
+  @protected
+  double dco_decode_f_64(dynamic raw);
 
   @protected
   Feed dco_decode_feed(dynamic raw);
@@ -129,6 +138,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Tag> dco_decode_list_tag(dynamic raw);
 
   @protected
+  List<TagSummary> dco_decode_list_tag_summary(dynamic raw);
+
+  @protected
   OpmlImportReport dco_decode_opml_import_report(dynamic raw);
 
   @protected
@@ -150,6 +162,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Platform dco_decode_platform(dynamic raw);
 
   @protected
+  ReadingSettings dco_decode_reading_settings(dynamic raw);
+
+  @protected
   RefreshError dco_decode_refresh_error(dynamic raw);
 
   @protected
@@ -166,6 +181,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Tag dco_decode_tag(dynamic raw);
+
+  @protected
+  TagSummary dco_decode_tag_summary(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -196,6 +214,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AddFeedInput sse_decode_add_feed_input(SseDeserializer deserializer);
+
+  @protected
+  ArticleCounts sse_decode_article_counts(SseDeserializer deserializer);
 
   @protected
   ArticleDetail sse_decode_article_detail(SseDeserializer deserializer);
@@ -229,6 +250,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  ReadingSettings sse_decode_box_autoadd_reading_settings(
+      SseDeserializer deserializer);
+
+  @protected
   RefreshOptions sse_decode_box_autoadd_refresh_options(
       SseDeserializer deserializer);
 
@@ -240,6 +265,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorCategory sse_decode_error_category(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
   Feed sse_decode_feed(SseDeserializer deserializer);
@@ -287,6 +315,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Tag> sse_decode_list_tag(SseDeserializer deserializer);
 
   @protected
+  List<TagSummary> sse_decode_list_tag_summary(SseDeserializer deserializer);
+
+  @protected
   OpmlImportReport sse_decode_opml_import_report(SseDeserializer deserializer);
 
   @protected
@@ -308,6 +339,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Platform sse_decode_platform(SseDeserializer deserializer);
 
   @protected
+  ReadingSettings sse_decode_reading_settings(SseDeserializer deserializer);
+
+  @protected
   RefreshError sse_decode_refresh_error(SseDeserializer deserializer);
 
   @protected
@@ -324,6 +358,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Tag sse_decode_tag(SseDeserializer deserializer);
+
+  @protected
+  TagSummary sse_decode_tag_summary(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -354,6 +391,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_add_feed_input(AddFeedInput self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_article_counts(ArticleCounts self, SseSerializer serializer);
 
   @protected
   void sse_encode_article_detail(ArticleDetail self, SseSerializer serializer);
@@ -389,6 +429,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       PaprCoreConfig self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_reading_settings(
+      ReadingSettings self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_refresh_options(
       RefreshOptions self, SseSerializer serializer);
 
@@ -401,6 +445,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_error_category(ErrorCategory self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_feed(Feed self, SseSerializer serializer);
@@ -451,6 +498,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_tag(List<Tag> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_tag_summary(
+      List<TagSummary> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opml_import_report(
       OpmlImportReport self, SseSerializer serializer);
 
@@ -477,6 +528,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_platform(Platform self, SseSerializer serializer);
 
   @protected
+  void sse_encode_reading_settings(
+      ReadingSettings self, SseSerializer serializer);
+
+  @protected
   void sse_encode_refresh_error(RefreshError self, SseSerializer serializer);
 
   @protected
@@ -495,6 +550,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_tag(Tag self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tag_summary(TagSummary self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

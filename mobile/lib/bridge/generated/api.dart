@@ -8,7 +8,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -97,11 +97,55 @@ Future<List<ArticleSummary>> getArticles(
         {required PaprCoreBridge core, required ArticleFilter filter}) =>
     RustLib.instance.api.crateApiGetArticles(core: core, filter: filter);
 
+/// Count articles matching an unbounded filter.
+Future<PlatformInt64> countArticles(
+        {required PaprCoreBridge core, required ArticleFilter filter}) =>
+    RustLib.instance.api.crateApiCountArticles(core: core, filter: filter);
+
+/// Return counts for the built-in smart views.
+Future<ArticleCounts> getArticleCounts({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGetArticleCounts(core: core);
+
+/// List existing tags for read-only article filtering.
+Future<List<TagSummary>> listArticleTags({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiListArticleTags(core: core);
+
 /// Fetch the full detail for one article.
 Future<ArticleDetail> getArticleDetail(
         {required PaprCoreBridge core, required PlatformInt64 articleId}) =>
     RustLib.instance.api
         .crateApiGetArticleDetail(core: core, articleId: articleId);
+
+Future<void> setArticleRead(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required bool value}) =>
+    RustLib.instance.api
+        .crateApiSetArticleRead(core: core, articleId: articleId, value: value);
+
+Future<void> setArticleStarred(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required bool value}) =>
+    RustLib.instance.api.crateApiSetArticleStarred(
+        core: core, articleId: articleId, value: value);
+
+Future<void> setArticleReadLater(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required bool value}) =>
+    RustLib.instance.api.crateApiSetArticleReadLater(
+        core: core, articleId: articleId, value: value);
+
+Future<PlatformInt64> markAllArticlesRead(
+        {required PaprCoreBridge core, required ArticleFilter filter}) =>
+    RustLib.instance.api
+        .crateApiMarkAllArticlesRead(core: core, filter: filter);
+
+Future<String> extractArticleFulltext(
+        {required PaprCoreBridge core, required PlatformInt64 articleId}) =>
+    RustLib.instance.api
+        .crateApiExtractArticleFulltext(core: core, articleId: articleId);
 
 /// Refresh feeds.
 Future<RefreshReport> refreshFeeds(
@@ -129,6 +173,12 @@ Future<void> setTheme({required PaprCoreBridge core, required String theme}) =>
 Future<void> setLanguage(
         {required PaprCoreBridge core, required String language}) =>
     RustLib.instance.api.crateApiSetLanguage(core: core, language: language);
+
+/// Persist validated reader appearance and behaviour settings.
+Future<void> setReadingSettings(
+        {required PaprCoreBridge core, required ReadingSettings settings}) =>
+    RustLib.instance.api
+        .crateApiSetReadingSettings(core: core, settings: settings);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>>
 abstract class PaprCoreBridge implements RustOpaqueInterface {}

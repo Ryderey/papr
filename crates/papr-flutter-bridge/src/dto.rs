@@ -141,8 +141,31 @@ pub enum ArticleFilterKind {
 #[frb]
 pub struct ArticleFilter {
     pub kind: ArticleFilterKind,
+    pub search: Option<String>,
+    pub unread_only: bool,
+    pub oldest_first: bool,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+}
+
+/// Counts shown beside the built-in article smart views.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct ArticleCounts {
+    pub all: i64,
+    pub unread: i64,
+    pub starred: i64,
+    pub read_later: i64,
+}
+
+/// A tag exposed for read-only article filtering.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct TagSummary {
+    pub id: i64,
+    pub name: String,
+    pub color: String,
+    pub article_count: i64,
 }
 
 /// The full article shown in the reader.
@@ -211,4 +234,17 @@ pub struct SettingsSnapshot {
     pub theme: String,
     pub language: String,
     pub refresh_interval_min: i64,
+    pub reading: ReadingSettings,
+}
+
+/// Reader appearance and behaviour settings.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct ReadingSettings {
+    pub font: String,
+    pub font_size: f64,
+    pub line_height: f64,
+    pub content_width: f64,
+    pub show_reading_time: bool,
+    pub auto_extract: bool,
 }

@@ -11,9 +11,10 @@ use flutter_rust_bridge::frb;
 use papr_core::PaprCore;
 
 use crate::dto::{
-    AddFeedInput, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, DiscoveryResult,
-    Enclosure, Feed, Folder, OpmlImportReport, PaprCoreConfig, Platform, RefreshError,
-    RefreshOptions, RefreshReport, SettingsSnapshot, SourceType, Tag,
+    AddFeedInput, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary,
+    DiscoveryResult, Enclosure, Feed, Folder, OpmlImportReport, PaprCoreConfig, Platform,
+    ReadingSettings, RefreshError, RefreshOptions, RefreshReport, SettingsSnapshot, SourceType,
+    Tag, TagSummary,
 };
 use crate::error::PaprBridgeError;
 
@@ -170,6 +171,35 @@ pub async fn get_articles(
     Ok(articles.into_iter().map(Into::into).collect())
 }
 
+/// Count articles matching an unbounded filter.
+pub async fn count_articles(
+    core: &PaprCoreBridge,
+    filter: ArticleFilter,
+) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .count_articles(filter.into())
+        .await?)
+}
+
+/// Return counts for the built-in smart views.
+pub async fn get_article_counts(core: &PaprCoreBridge) -> Result<ArticleCounts, PaprBridgeError> {
+    Ok(core.inner.article_service().article_counts().await?.into())
+}
+
+/// List existing tags for read-only article filtering.
+pub async fn list_article_tags(core: &PaprCoreBridge) -> Result<Vec<TagSummary>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .list_tags()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
 /// Fetch the full detail for one article.
 pub async fn get_article_detail(
     core: &PaprCoreBridge,
@@ -181,6 +211,64 @@ pub async fn get_article_detail(
         .get_article_detail(article_id)
         .await?;
     Ok(detail.into())
+}
+
+pub async fn set_article_read(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    value: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_read(article_id, value)
+        .await?)
+}
+
+pub async fn set_article_starred(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    value: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_starred(article_id, value)
+        .await?)
+}
+
+pub async fn set_article_read_later(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    value: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_read_later(article_id, value)
+        .await?)
+}
+
+pub async fn mark_all_articles_read(
+    core: &PaprCoreBridge,
+    filter: ArticleFilter,
+) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .mark_all_read(filter.into())
+        .await?)
+}
+
+pub async fn extract_article_fulltext(
+    core: &PaprCoreBridge,
+    article_id: i64,
+) -> Result<String, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .extract_fulltext(article_id)
+        .await?)
 }
 
 /// Refresh feeds.
@@ -224,6 +312,18 @@ pub async fn set_theme(core: &PaprCoreBridge, theme: String) -> Result<(), PaprB
 /// Persist the UI language (`en`, `zh`, or `ja`).
 pub async fn set_language(core: &PaprCoreBridge, language: String) -> Result<(), PaprBridgeError> {
     Ok(core.inner.settings_service().set_language(language).await?)
+}
+
+/// Persist validated reader appearance and behaviour settings.
+pub async fn set_reading_settings(
+    core: &PaprCoreBridge,
+    settings: ReadingSettings,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .set_reading_settings(settings.into())
+        .await?)
 }
 
 // ---------------------------------------------------------------------------
@@ -371,8 +471,33 @@ impl From<ArticleFilter> for papr_core::ArticleFilter {
     fn from(f: ArticleFilter) -> Self {
         Self {
             kind: f.kind.into(),
+            search: f.search,
+            unread_only: f.unread_only,
+            oldest_first: f.oldest_first,
             limit: f.limit,
             offset: f.offset,
+        }
+    }
+}
+
+impl From<papr_core::ArticleCounts> for ArticleCounts {
+    fn from(c: papr_core::ArticleCounts) -> Self {
+        Self {
+            all: c.all,
+            unread: c.unread,
+            starred: c.starred,
+            read_later: c.read_later,
+        }
+    }
+}
+
+impl From<papr_core::TagSummary> for TagSummary {
+    fn from(t: papr_core::TagSummary) -> Self {
+        Self {
+            id: t.id,
+            name: t.name,
+            color: t.color,
+            article_count: t.article_count,
         }
     }
 }
@@ -447,6 +572,33 @@ impl From<papr_core::SettingsSnapshot> for SettingsSnapshot {
             theme: s.theme,
             language: s.language,
             refresh_interval_min: s.refresh_interval_min,
+            reading: s.reading.into(),
+        }
+    }
+}
+
+impl From<papr_core::ReadingSettings> for ReadingSettings {
+    fn from(s: papr_core::ReadingSettings) -> Self {
+        Self {
+            font: s.font,
+            font_size: s.font_size,
+            line_height: s.line_height,
+            content_width: s.content_width,
+            show_reading_time: s.show_reading_time,
+            auto_extract: s.auto_extract,
+        }
+    }
+}
+
+impl From<ReadingSettings> for papr_core::ReadingSettings {
+    fn from(s: ReadingSettings) -> Self {
+        Self {
+            font: s.font,
+            font_size: s.font_size,
+            line_height: s.line_height,
+            content_width: s.content_width,
+            show_reading_time: s.show_reading_time,
+            auto_extract: s.auto_extract,
         }
     }
 }
