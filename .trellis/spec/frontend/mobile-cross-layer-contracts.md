@@ -2,11 +2,11 @@
 
 ## 1. Scope / Trigger
 
-Use this contract when a mobile subscription feature crosses SQLite, `papr-core`, Flutter Rust Bridge (FRB), Flutter repositories, and Android platform APIs. Business rules belong in `papr-core`; FRB and platform channels remain thin adapters.
+Use this contract when a mobile subscription or reading feature crosses SQLite, `papr-core`, Flutter Rust Bridge (FRB), Flutter repositories, and Android platform APIs. Business rules belong in `papr-core`; FRB and platform channels remain thin adapters.
 
 ## 2. Signatures
 
-The P1 bridge surface is defined in `crates/papr-flutter-bridge/src/api.rs`:
+The bridge surface is defined in `crates/papr-flutter-bridge/src/api.rs`. P1 subscription APIs are:
 
 ```rust
 add_feed(core, AddFeedInput { input }) -> Result<Feed, PaprBridgeError>
@@ -26,7 +26,20 @@ search_directory(query, lang) -> Vec<DiscoveryResult>
 parse_deep_link(url) -> Option<String>
 ```
 
-Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `openOpmlDocument`, `saveOpmlDocument`, and the pushed `deepLink` event.
+P2 reading APIs are:
+
+```rust
+list_articles(core, ArticleFilter) -> Result<Vec<ArticleSummary>, PaprBridgeError>
+count_articles(core, ArticleFilter) -> Result<i64, PaprBridgeError>
+get_article_counts(core) -> Result<ArticleCounts, PaprBridgeError>
+list_article_tags(core) -> Result<Vec<TagSummary>, PaprBridgeError>
+set_article_read/core, set_article_starred, set_article_read_later(core, id, value)
+mark_all_articles_read(core, ArticleFilter) -> Result<i64, PaprBridgeError>
+extract_article_fulltext(core, id) -> Result<ArticleDetail, PaprBridgeError>
+set_reading_settings(core, ReadingSettings) -> Result<(), PaprBridgeError>
+```
+
+Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `openOpmlDocument`, `saveOpmlDocument`, `openUrl`, `shareArticle`, and the pushed `deepLink` event.
 
 ## 3. Contracts
 
@@ -37,6 +50,12 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Deleting a folder preserves feeds with `folder_id = NULL`; deleting a feed relies on database cascades for its articles.
 - OPML transport is text. Android uses Storage Access Framework document intents and requests no broad storage permission.
 - A supported deep link is `papr://subscribe?url=<encoded>`; invalid or unsupported links return `None` and do not open the add-feed flow.
+- `ArticleFilter` is the single query contract for list, count, and bulk-read operations. It carries exactly one view kind plus optional ID/search/unread/order/limit/offset values.
+- Core bounds every article page to 1-200 rows (default 50), builds FTS terms from safe alphanumeric tokens, and applies deterministic effective-date then ID ordering.
+- Article read/star/read-later writes and their `article` change-log rows commit in one transaction. Repeating the same value is idempotent.
+- Fulltext extraction fetches and sanitizes in Core. Persisting extracted HTML updates the FTS row and lead image and clears stale translation fields atomically; a failed extraction preserves existing cached content.
+- Reading settings are validated and persisted as one Core settings update. Flutter may preview controls locally, but Core remains authoritative after save or failure.
+- Android `openUrl` and `shareArticle` accept only HTTP(S) article URLs. Flutter disables these actions when no usable URL exists.
 
 ## 4. Validation & Error Matrix
 
@@ -53,6 +72,10 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 | Invalid feed or no discovered feed | category `parse`, code `feedNotFound` or `parse` |
 | User cancels document picker | `null` for open, `false` for save |
 | Concurrent document request | `documentPickerBusy` |
+| Article ID not found | `articleNotFound` |
+| Invalid reading setting or article URL | category/code `validation` |
+| Fulltext fetch failure | category/code `network` |
+| Fulltext parse/extraction failure | category/code `parse` |
 
 Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse human-readable `detail` text.
 
@@ -62,6 +85,9 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Base: delete a folder; its feeds remain visible as unclassified and folder ordering stays contiguous.
 - Bad: first article insertion fails; the feed and change-log write roll back. Never persist a partial subscription.
 - Bad: malformed OPML or a failed SAF write reports an error and leaves existing subscriptions unchanged.
+- Good: the same article filter drives a 50-row page, its count, and mark-all-read; rows and count stay consistent after optimistic refresh.
+- Base: extraction is unavailable offline; the reader keeps showing cached extracted/content HTML and local state writes continue to work.
+- Bad: a punctuation-only search string becomes an empty safe query, not raw FTS syntax or an unbounded SQL fragment.
 
 ## 6. Tests Required
 
@@ -69,6 +95,9 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Bridge: DTO conversion and stable error propagation; generated bindings must be reproducible.
 - Flutter: phone `NavigationBar`, tablet `NavigationRail`, feed/folder actions, directory add flow, localized errors, and reader regressions.
 - Android acceptance: cold and warm deep links, SAF import/export, process restart persistence, rotation/narrow layout, and TalkBack labels.
+- Reading Core: safe FTS terms, tag/feed/folder/smart filters, bounded paging and deterministic order, count parity, idempotent state/change-log writes, extraction cache invalidation, and reading-setting validation/persistence.
+- Reading Flutter: smart-view counts, 50-row next-page offset, metadata/placeholder rendering, optimistic rollback, safe HTML/link behavior, and URL-dependent browser/share actions.
+- Reading Android acceptance: browser/share intents, back navigation, rotation, process restore, and large-list scrolling.
 - Full gate: `cargo test -p papr-core`, `cargo test -p papr-flutter-bridge`, `cargo test -p papr`, `flutter analyze`, `flutter test`, and `flutter build apk --debug`.
 
 ## 7. Wrong vs Correct
@@ -88,3 +117,5 @@ await repository.addFeed(input);
 ```
 
 Keep validation at the Core boundary, transport typed DTOs through FRB, and limit Flutter to presentation and orchestration.
+
+For optimistic article state, update the visible row immediately, call the repository, and on failure restore the old row before invalidating list/count/detail providers. Never hide a failed write behind a refresh-only fallback.
