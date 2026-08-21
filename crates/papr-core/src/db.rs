@@ -11,16 +11,20 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{Connection, OptionalExtension};
-use rusqlite_migration::{M, Migrations};
+use rusqlite_migration::{Migrations, M};
 
 use crate::dto::{
-    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure, Feed, NewArticle,
-    SourceType,
+    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure, Feed, Folder,
+    NewArticle, SourceType,
 };
-use crate::error::CoreError;
+use crate::error::{CoreError, ErrorCategory};
 
 /// Number of read-only connections in the UI query pool.
 const READER_POOL_SIZE: usize = 3;
+
+/// The "never auto-refresh" sentinel (minutes ≈ one year). A per-feed interval
+/// can carry it to opt one feed out of automatic refresh.
+pub const REFRESH_OFF_MINUTES: i64 = 525_600;
 
 /// Append-only schema migrations. Never edit a shipped migration — add a new
 /// one. v1–v15 mirror the desktop's migration history exactly so an existing
@@ -225,9 +229,7 @@ fn migrations() -> Vec<M<'static>> {
                              id DESC);",
         ),
         // v13 — mark feeds whose title the user has set by hand.
-        M::up(
-            "ALTER TABLE feeds ADD COLUMN custom_title INTEGER NOT NULL DEFAULT 0;",
-        ),
+        M::up("ALTER TABLE feeds ADD COLUMN custom_title INTEGER NOT NULL DEFAULT 0;"),
         // v14 — cache a translated copy of the article body.
         M::up(
             "ALTER TABLE articles ADD COLUMN translated_html TEXT;
@@ -332,8 +334,13 @@ fn reset_legacy_validation_db(path: &Path) -> Result<(), CoreError> {
     if !path.exists() {
         return Ok(());
     }
-    let conn = Connection::open(path)
-        .map_err(|e| CoreError::Db(format!("failed to open database at {}: {}", path.display(), e)))?;
+    let conn = Connection::open(path).map_err(|e| {
+        CoreError::Db(format!(
+            "failed to open database at {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
     let has_folders: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='folders'",
@@ -362,8 +369,13 @@ fn reset_legacy_validation_db(path: &Path) -> Result<(), CoreError> {
 /// WAL mode is persisted in the database header, so reader connections opened
 /// afterwards inherit it automatically.
 fn open(path: &Path) -> Result<Connection, CoreError> {
-    let mut conn = Connection::open(path)
-        .map_err(|e| CoreError::Db(format!("failed to open database at {}: {}", path.display(), e)))?;
+    let mut conn = Connection::open(path).map_err(|e| {
+        CoreError::Db(format!(
+            "failed to open database at {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|e| CoreError::Db(e.to_string()))?;
     conn.pragma_update(None, "foreign_keys", "ON")
@@ -381,8 +393,13 @@ fn open(path: &Path) -> Result<Connection, CoreError> {
 /// `open` has migrated. `query_only` is a safety net against an accidental
 /// write on a pooled reader.
 fn open_reader(path: &Path) -> Result<Connection, CoreError> {
-    let conn = Connection::open(path)
-        .map_err(|e| CoreError::Db(format!("failed to open database at {}: {}", path.display(), e)))?;
+    let conn = Connection::open(path).map_err(|e| {
+        CoreError::Db(format!(
+            "failed to open database at {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
     conn.pragma_update(None, "busy_timeout", 5000)
         .map_err(|e| CoreError::Db(e.to_string()))?;
     conn.pragma_update(None, "query_only", true)
@@ -431,17 +448,17 @@ impl Db {
 
     /// Acquire the writer connection. All mutations hold this exclusively.
     fn writer(&self) -> Result<MutexGuard<'_, Connection>, CoreError> {
-        self.writer.lock().map_err(|e| {
-            CoreError::Db(format!("database writer mutex poisoned: {e}"))
-        })
+        self.writer
+            .lock()
+            .map_err(|e| CoreError::Db(format!("database writer mutex poisoned: {e}")))
     }
 
     /// Acquire a read-only connection from the pool (round-robin).
     fn reader(&self) -> Result<MutexGuard<'_, Connection>, CoreError> {
         let i = self.next_reader.fetch_add(1, Ordering::Relaxed) % self.readers.len();
-        self.readers[i].lock().map_err(|e| {
-            CoreError::Db(format!("database reader mutex poisoned: {e}"))
-        })
+        self.readers[i]
+            .lock()
+            .map_err(|e| CoreError::Db(format!("database reader mutex poisoned: {e}")))
     }
 
     /// Run a closure inside a transaction on the writer connection. On `Ok` the
@@ -453,10 +470,148 @@ impl Db {
         F: for<'a> FnOnce(&rusqlite::Transaction<'a>) -> Result<T, CoreError>,
     {
         let mut conn = self.writer()?;
-        let tx = conn.transaction().map_err(|e| CoreError::Db(e.to_string()))?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| CoreError::Db(e.to_string()))?;
         let result = f(&tx)?;
         tx.commit().map_err(|e| CoreError::Db(e.to_string()))?;
         Ok(result)
+    }
+
+    /// List all folders, ordered by position then name.
+    pub fn list_folders(&self) -> Result<Vec<Folder>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn
+            .prepare("SELECT id, name, position FROM folders ORDER BY position, name")
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(Folder {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    position: r.get(2)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    /// Create a folder, returning an existing same-name folder's id when present
+    /// (case-insensitive). Rejects empty/whitespace-only names.
+    pub fn create_folder(&self, name: &str) -> Result<i64, CoreError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyFolderName",
+                None,
+            ));
+        }
+        self.transact(|tx| {
+            if let Some(id) = tx
+                .query_row(
+                    "SELECT id FROM folders WHERE name = ?1 COLLATE NOCASE",
+                    [name],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(|e| CoreError::Db(e.to_string()))?
+            {
+                return Ok(id);
+            }
+            tx.execute(
+                "INSERT INTO folders (name, position) \
+                 VALUES (?1, (SELECT COALESCE(MAX(position), 0) + 1 FROM folders))",
+                [name],
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+            let id = tx.last_insert_rowid();
+            append_change_log(tx, "folder", id, "upsert", None, None)?;
+            Ok(id)
+        })
+    }
+
+    /// Rename a folder, rejecting a name that collides with a *different* folder.
+    pub fn rename_folder(&self, id: i64, name: &str) -> Result<(), CoreError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyFolderName",
+                None,
+            ));
+        }
+        self.transact(|tx| {
+            let clash: Option<i64> = tx
+                .query_row(
+                    "SELECT id FROM folders WHERE name = ?1 COLLATE NOCASE AND id != ?2",
+                    (name, id),
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if clash.is_some() {
+                return Err(CoreError::coded(
+                    ErrorCategory::InvalidInput,
+                    "folderNameExists",
+                    None,
+                ));
+            }
+            tx.execute("UPDATE folders SET name = ?2 WHERE id = ?1", (id, name))
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "folder", id, "upsert", None, None)?;
+            Ok(())
+        })
+    }
+
+    /// Delete a folder. Its feeds move to uncategorised (`folder_id = NULL` via
+    /// `ON DELETE SET NULL`), never deleted.
+    pub fn delete_folder(&self, id: i64) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            tx.execute("DELETE FROM folders WHERE id = ?1", [id])
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "folder", id, "delete", None, None)?;
+            Ok(())
+        })
+    }
+
+    /// Persist the complete folder order. The supplied IDs must contain every
+    /// current folder exactly once.
+    pub fn reorder_folders(&self, folder_ids: &[i64]) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            let mut stmt = tx
+                .prepare("SELECT id FROM folders ORDER BY position, name")
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            let current = stmt
+                .query_map([], |row| row.get::<_, i64>(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+
+            let mut expected = current;
+            let mut supplied = folder_ids.to_vec();
+            expected.sort_unstable();
+            supplied.sort_unstable();
+            if supplied != expected {
+                return Err(CoreError::coded(
+                    ErrorCategory::InvalidInput,
+                    "invalidFolderOrder",
+                    None,
+                ));
+            }
+
+            for (position, id) in folder_ids.iter().enumerate() {
+                tx.execute(
+                    "UPDATE folders SET position = ?2 WHERE id = ?1",
+                    (*id, position as i64),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+                append_change_log(tx, "folder", *id, "upsert", None, None)?;
+            }
+            Ok(())
+        })
     }
 
     /// List all feeds.
@@ -467,25 +622,29 @@ impl Db {
 
     fn list_feeds_locked(conn: &Connection) -> Result<Vec<Feed>, CoreError> {
         let mut stmt = conn.prepare(
-            "SELECT id, feed_url, site_url, title, description, favicon_url, folder_id, source_type, last_fetched_at, fetch_error FROM feeds ORDER BY title"
+            "SELECT id, feed_url, site_url, title, description, favicon_url, folder_id, source_type, last_fetched_at, fetch_error, custom_title, refresh_interval_min FROM feeds ORDER BY title COLLATE NOCASE"
         ).map_err(|e| CoreError::Db(e.to_string()))?;
 
-        let rows = stmt.query_map([], |row| {
-            let source_type: String = row.get(7)?;
-            Ok(Feed {
-                id: row.get(0)?,
-                feed_url: row.get(1)?,
-                site_url: row.get(2)?,
-                title: row.get(3)?,
-                description: row.get(4)?,
-                favicon_url: row.get(5)?,
-                folder_id: row.get(6)?,
-                source_type: parse_source_type(&source_type),
-                last_fetched_at: row.get(8)?,
-                fetch_error: row.get(9)?,
-                unread_count: 0, // computed below
+        let rows = stmt
+            .query_map([], |row| {
+                let source_type: String = row.get(7)?;
+                Ok(Feed {
+                    id: row.get(0)?,
+                    feed_url: row.get(1)?,
+                    site_url: row.get(2)?,
+                    title: row.get(3)?,
+                    description: row.get(4)?,
+                    favicon_url: row.get(5)?,
+                    folder_id: row.get(6)?,
+                    source_type: parse_source_type(&source_type),
+                    last_fetched_at: row.get(8)?,
+                    fetch_error: row.get(9)?,
+                    unread_count: 0, // computed below
+                    custom_title: row.get(10)?,
+                    refresh_interval_min: row.get(11)?,
+                })
             })
-        }).map_err(|e| CoreError::Db(e.to_string()))?;
+            .map_err(|e| CoreError::Db(e.to_string()))?;
 
         let mut feeds = Vec::new();
         for row in rows {
@@ -507,41 +666,220 @@ impl Db {
         let conn = self.reader()?;
         let mut feeds = Self::list_feeds_locked(&conn)?;
         feeds.retain(|f| f.id == id);
-        feeds.into_iter().next().ok_or_else(|| {
-            CoreError::NotFound(format!("feed {} not found", id))
+        feeds
+            .into_iter()
+            .next()
+            .ok_or_else(|| CoreError::NotFound(format!("feed {} not found", id)))
+    }
+
+    /// Insert a feed with full metadata and return its generated row ID. The
+    /// feed row and its change-log entry commit in the same transaction.
+    pub fn insert_feed(
+        &self,
+        feed_url: &str,
+        site_url: Option<&str>,
+        title: &str,
+        description: Option<&str>,
+        source_type: SourceType,
+        folder_id: Option<i64>,
+    ) -> Result<i64, CoreError> {
+        self.transact(|tx| {
+            Self::insert_feed_tx(
+                tx,
+                feed_url,
+                site_url,
+                title,
+                description,
+                source_type,
+                folder_id,
+            )
         })
     }
 
-    /// Insert a new feed and return its generated row ID. The feed row and its
-    /// change-log entry commit in the same transaction.
+    /// Insert a feed and its initial articles atomically. A failed article,
+    /// enclosure, or FTS write rolls back both the feed and its change log.
+    pub fn insert_feed_with_articles(
+        &self,
+        feed_url: &str,
+        site_url: Option<&str>,
+        title: &str,
+        description: Option<&str>,
+        source_type: SourceType,
+        folder_id: Option<i64>,
+        articles: &[NewArticle],
+    ) -> Result<i64, CoreError> {
+        self.transact(|tx| {
+            let feed_id = Self::insert_feed_tx(
+                tx,
+                feed_url,
+                site_url,
+                title,
+                description,
+                source_type,
+                folder_id,
+            )?;
+            for article in articles {
+                Self::upsert_article_tx(tx, feed_id, article)?;
+            }
+            Ok(feed_id)
+        })
+    }
+
+    fn insert_feed_tx(
+        tx: &rusqlite::Transaction<'_>,
+        feed_url: &str,
+        site_url: Option<&str>,
+        title: &str,
+        description: Option<&str>,
+        source_type: SourceType,
+        folder_id: Option<i64>,
+    ) -> Result<i64, CoreError> {
+        tx.execute(
+            "INSERT INTO feeds (feed_url, site_url, title, description, source_type, folder_id, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+            (
+                feed_url,
+                site_url,
+                title,
+                description,
+                source_type.as_str(),
+                folder_id,
+            ),
+        )
+        .map_err(|e| {
+            if is_unique_violation(&e) {
+                CoreError::coded(
+                    ErrorCategory::InvalidInput,
+                    "feedAlreadyExists",
+                    Some(feed_url.to_string()),
+                )
+            } else {
+                CoreError::Db(e.to_string())
+            }
+        })?;
+        let id = tx.last_insert_rowid();
+        append_change_log(tx, "feed", id, "upsert", None, None)?;
+        Ok(id)
+    }
+
+    /// Insert a new feed and return its generated row ID (simple path).
     pub fn add_feed(&self, feed_url: &str) -> Result<i64, CoreError> {
+        self.insert_feed(feed_url, None, feed_url, None, SourceType::Rss, None)
+    }
+
+    /// Find a feed's id by its URL, if it exists.
+    pub fn find_feed_by_url(&self, url: &str) -> Result<Option<i64>, CoreError> {
+        let conn = self.reader()?;
+        conn.query_row("SELECT id FROM feeds WHERE feed_url = ?1", [url], |r| {
+            r.get(0)
+        })
+        .optional()
+        .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    /// Promote a feed's `source_type` once its real kind is known — but only
+    /// when it is still the generic `'rss'` (never demote an existing type).
+    pub fn refine_feed_source_type(
+        &self,
+        id: i64,
+        source_type: SourceType,
+    ) -> Result<(), CoreError> {
+        if source_type == SourceType::Rss {
+            return Ok(());
+        }
+        let conn = self.writer()?;
+        conn.execute(
+            "UPDATE feeds SET source_type = ?2 WHERE id = ?1 AND source_type = 'rss'",
+            (id, source_type.as_str()),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Delete a feed. Its articles and other dependent rows cascade-delete.
+    pub fn delete_feed(&self, id: i64) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            tx.execute("DELETE FROM feeds WHERE id = ?1", [id])
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "feed", id, "delete", None, None)?;
+            Ok(())
+        })
+    }
+
+    /// Set a feed's display title to a user-chosen value, marking it so a later
+    /// refresh does not overwrite the rename from the feed document.
+    pub fn rename_feed(&self, id: i64, title: &str) -> Result<(), CoreError> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyFeedTitle",
+                None,
+            ));
+        }
         self.transact(|tx| {
             tx.execute(
-                "INSERT INTO feeds (feed_url, title, source_type, updated_at) \
-                 VALUES (?1, ?2, 'rss', datetime('now'))",
-                [feed_url, feed_url],
+                "UPDATE feeds SET title = ?2, custom_title = 1 WHERE id = ?1",
+                (id, title),
             )
-            .map_err(|e| {
-                if is_unique_violation(&e) {
-                    CoreError::coded(
-                        crate::error::ErrorCategory::InvalidInput,
-                        "feedAlreadyExists",
-                        Some(feed_url.to_string()),
-                    )
-                } else {
-                    CoreError::Db(e.to_string())
-                }
-            })?;
-            let id = tx.last_insert_rowid();
+            .map_err(|e| CoreError::Db(e.to_string()))?;
             append_change_log(tx, "feed", id, "upsert", None, None)?;
-            Ok(id)
+            Ok(())
         })
     }
 
-    fn count_unread_articles_locked(
-        conn: &Connection,
-        feed_id: i64,
-    ) -> Result<i64, CoreError> {
+    /// Move a feed into (or out of) a folder. `None` files it under "uncategorised".
+    pub fn move_feed(&self, id: i64, folder_id: Option<i64>) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            tx.execute(
+                "UPDATE feeds SET folder_id = ?2 WHERE id = ?1",
+                (id, folder_id),
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "feed", id, "upsert", None, None)?;
+            Ok(())
+        })
+    }
+
+    /// Set (or clear) a feed's per-feed refresh interval. `None` reverts to the
+    /// global interval; `Some(REFRESH_OFF_MINUTES)` opts it out entirely.
+    pub fn set_feed_refresh_interval(
+        &self,
+        id: i64,
+        minutes: Option<i64>,
+    ) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            tx.execute(
+                "UPDATE feeds SET refresh_interval_min = ?2 WHERE id = ?1",
+                (id, minutes),
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "feed", id, "upsert", None, None)?;
+            Ok(())
+        })
+    }
+
+    /// Feeds for OPML export as `(title, feed_url, folder)` tuples. Newsletter
+    /// sources are excluded (their `feed_url` is a synthetic `imap://` string).
+    pub fn feeds_for_export(&self) -> Result<Vec<(String, String, Option<String>)>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT f.title, f.feed_url, fo.name \
+                 FROM feeds f LEFT JOIN folders fo ON fo.id = f.folder_id \
+                 WHERE f.source_type != 'newsletter' \
+                 ORDER BY fo.name, f.title",
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    fn count_unread_articles_locked(conn: &Connection, feed_id: i64) -> Result<i64, CoreError> {
         conn.query_row(
             "SELECT COUNT(*) FROM articles WHERE feed_id = ?1 AND is_read = 0",
             [feed_id],
@@ -551,8 +889,7 @@ impl Db {
     }
 
     /// List articles matching a filter.
-    pub fn list_articles(
-        &self, filter: &ArticleFilter) -> Result<Vec<ArticleSummary>, CoreError> {
+    pub fn list_articles(&self, filter: &ArticleFilter) -> Result<Vec<ArticleSummary>, CoreError> {
         let conn = self.reader()?;
         let mut clauses = Vec::new();
         let mut params: Vec<rusqlite::types::Value> = Vec::new();
@@ -603,31 +940,33 @@ impl Db {
             sql.push_str(&format!(" OFFSET {offset}"));
         }
 
-        let param_refs: Vec<&dyn rusqlite::ToSql> = params
-            .iter()
-            .map(|v| v as &dyn rusqlite::ToSql)
-            .collect();
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
 
-        let mut stmt = conn.prepare(&sql).map_err(|e| CoreError::Db(e.to_string()))?;
+        let mut stmt = conn
+            .prepare(&sql)
+            .map_err(|e| CoreError::Db(e.to_string()))?;
 
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            let source_type: String = row.get(3)?;
-            Ok(ArticleSummary {
-                id: row.get(0)?,
-                feed_id: row.get(1)?,
-                feed_title: row.get(2)?,
-                source_type: parse_source_type(&source_type),
-                title: row.get(4)?,
-                author: row.get(5)?,
-                snippet: row.get(6)?,
-                image_url: row.get(7)?,
-                url: row.get(8)?,
-                published_at: row.get(9)?,
-                is_read: row.get::<usize, i64>(10)? != 0,
-                is_starred: row.get::<usize, i64>(11)? != 0,
-                read_later: row.get::<usize, i64>(12)? != 0,
+        let rows = stmt
+            .query_map(param_refs.as_slice(), |row| {
+                let source_type: String = row.get(3)?;
+                Ok(ArticleSummary {
+                    id: row.get(0)?,
+                    feed_id: row.get(1)?,
+                    feed_title: row.get(2)?,
+                    source_type: parse_source_type(&source_type),
+                    title: row.get(4)?,
+                    author: row.get(5)?,
+                    snippet: row.get(6)?,
+                    image_url: row.get(7)?,
+                    url: row.get(8)?,
+                    published_at: row.get(9)?,
+                    is_read: row.get::<usize, i64>(10)? != 0,
+                    is_starred: row.get::<usize, i64>(11)? != 0,
+                    read_later: row.get::<usize, i64>(12)? != 0,
+                })
             })
-        }).map_err(|e| CoreError::Db(e.to_string()))?;
+            .map_err(|e| CoreError::Db(e.to_string()))?;
 
         let mut articles = Vec::new();
         for row in rows {
@@ -638,8 +977,7 @@ impl Db {
     }
 
     /// Fetch a single article by ID.
-    pub fn get_article_detail(
-        &self, article_id: i64) -> Result<ArticleDetail, CoreError> {
+    pub fn get_article_detail(&self, article_id: i64) -> Result<ArticleDetail, CoreError> {
         let conn = self.reader()?;
         let mut stmt = conn.prepare(
             "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.url, articles.content_html, articles.extracted_html, articles.image_url, articles.published_at, articles.is_read, articles.is_starred, articles.read_later, articles.ai_summary, articles.translated_html, articles.translated_lang \
@@ -648,35 +986,37 @@ impl Db {
              WHERE articles.id = ?1"
         ).map_err(|e| CoreError::Db(e.to_string()))?;
 
-        let mut row = stmt.query_row([article_id], |row| {
-            let source_type: String = row.get(3)?;
-            Ok(ArticleDetail {
-                id: row.get(0)?,
-                feed_id: row.get(1)?,
-                feed_title: row.get(2)?,
-                source_type: parse_source_type(&source_type),
-                title: row.get(4)?,
-                author: row.get(5)?,
-                url: row.get(6)?,
-                content_html: row.get(7)?,
-                extracted_html: row.get(8)?,
-                image_url: row.get(9)?,
-                published_at: row.get(10)?,
-                is_read: row.get::<usize, i64>(11)? != 0,
-                is_starred: row.get::<usize, i64>(12)? != 0,
-                read_later: row.get::<usize, i64>(13)? != 0,
-                ai_summary: row.get(14)?,
-                translated_html: row.get(15)?,
-                translated_lang: row.get(16)?,
-                enclosures: Vec::new(), // loaded below
-                tags: Vec::new(),       // phase 1: not loaded
+        let mut row = stmt
+            .query_row([article_id], |row| {
+                let source_type: String = row.get(3)?;
+                Ok(ArticleDetail {
+                    id: row.get(0)?,
+                    feed_id: row.get(1)?,
+                    feed_title: row.get(2)?,
+                    source_type: parse_source_type(&source_type),
+                    title: row.get(4)?,
+                    author: row.get(5)?,
+                    url: row.get(6)?,
+                    content_html: row.get(7)?,
+                    extracted_html: row.get(8)?,
+                    image_url: row.get(9)?,
+                    published_at: row.get(10)?,
+                    is_read: row.get::<usize, i64>(11)? != 0,
+                    is_starred: row.get::<usize, i64>(12)? != 0,
+                    read_later: row.get::<usize, i64>(13)? != 0,
+                    ai_summary: row.get(14)?,
+                    translated_html: row.get(15)?,
+                    translated_lang: row.get(16)?,
+                    enclosures: Vec::new(), // loaded below
+                    tags: Vec::new(),       // phase 1: not loaded
+                })
             })
-        }).map_err(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => {
-                CoreError::NotFound(format!("article {} not found", article_id))
-            }
-            _ => CoreError::Db(e.to_string()),
-        })?;
+            .map_err(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    CoreError::NotFound(format!("article {} not found", article_id))
+                }
+                _ => CoreError::Db(e.to_string()),
+            })?;
 
         row.enclosures = Self::load_enclosures(&conn, article_id)?;
 
@@ -686,23 +1026,30 @@ impl Db {
     /// Read a single settings value.
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, CoreError> {
         let conn = self.reader()?;
-        conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            [key],
-            |row| row.get::<usize, String>(0),
-        )
+        conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+            row.get::<usize, String>(0)
+        })
         .optional()
         .map_err(|e| CoreError::Db(e.to_string()))
     }
 
+    /// Persist one validated setting value.
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), CoreError> {
+        let conn = self.writer()?;
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES (?1, ?2) \
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
     /// Returns all feeds that should be refreshed.
-    pub fn feeds_to_refresh(&self,
-    ) -> Result<Vec<FeedRefreshInfo>, CoreError> {
+    pub fn feeds_to_refresh(&self) -> Result<Vec<FeedRefreshInfo>, CoreError> {
         let conn = self.reader()?;
         let mut stmt = conn
-            .prepare(
-                "SELECT id, feed_url, etag, last_modified FROM feeds ORDER BY title",
-            )
+            .prepare("SELECT id, feed_url, etag, last_modified FROM feeds ORDER BY title")
             .map_err(|e| CoreError::Db(e.to_string()))?;
         let rows = stmt
             .query_map([], |row| {
@@ -726,16 +1073,15 @@ impl Db {
     /// row, its FTS index entry, and its enclosures land in one transaction so
     /// a mid-loop failure cannot leave a partially-indexed article.
     /// Returns true if a new row was inserted.
-    pub fn upsert_article(
-        &self,
+    pub fn upsert_article(&self, feed_id: i64, article: &NewArticle) -> Result<bool, CoreError> {
+        self.transact(|tx| Self::upsert_article_tx(tx, feed_id, article))
+    }
+
+    fn upsert_article_tx(
+        tx: &rusqlite::Transaction<'_>,
         feed_id: i64,
         article: &NewArticle,
     ) -> Result<bool, CoreError> {
-        let mut conn = self.writer()?;
-        let tx = conn
-            .transaction()
-            .map_err(|e| CoreError::Db(e.to_string()))?;
-
         let inserted = tx.execute(
             "INSERT INTO articles \
              (feed_id, guid, url, title, author, summary, content_html, body_text, image_url, published_at) \
@@ -775,7 +1121,6 @@ impl Db {
             .map_err(|e| CoreError::Db(e.to_string()))?;
         }
 
-        tx.commit().map_err(|e| CoreError::Db(e.to_string()))?;
         Ok(true)
     }
 
@@ -835,10 +1180,7 @@ impl Db {
     }
 
     /// Load enclosures for a given article.
-    fn load_enclosures(
-        conn: &Connection,
-        article_id: i64,
-    ) -> Result<Vec<Enclosure>, CoreError> {
+    fn load_enclosures(conn: &Connection, article_id: i64) -> Result<Vec<Enclosure>, CoreError> {
         let mut stmt = conn
             .prepare("SELECT url, mime_type, length FROM enclosures WHERE article_id = ?1")
             .map_err(|e| CoreError::Db(e.to_string()))?;
@@ -988,7 +1330,8 @@ mod tests {
         // migrations, then inserting a row.
         {
             let mut conn = Connection::open(&path).unwrap();
-            let v1_to_v15: Migrations = Migrations::new(migrations().into_iter().take(15).collect());
+            let v1_to_v15: Migrations =
+                Migrations::new(migrations().into_iter().take(15).collect());
             v1_to_v15.to_latest(&mut conn).unwrap();
             conn.execute(
                 "INSERT INTO folders (name, position) VALUES ('existing', 0)",
@@ -1121,6 +1464,55 @@ mod tests {
     }
 
     #[test]
+    fn initial_feed_and_articles_roll_back_together() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        {
+            let writer = db.writer().unwrap();
+            writer
+                .execute_batch(
+                    "CREATE TRIGGER fail_initial_article \
+                     BEFORE INSERT ON articles \
+                     BEGIN SELECT RAISE(ABORT, 'forced article failure'); END;",
+                )
+                .unwrap();
+        }
+        let article = NewArticle {
+            guid: "g1".to_string(),
+            url: None,
+            title: "Article".to_string(),
+            author: None,
+            summary: None,
+            content_html: None,
+            body_text: "Body".to_string(),
+            image_url: None,
+            published_at: None,
+            enclosures: Vec::new(),
+        };
+
+        let result = db.insert_feed_with_articles(
+            "https://example.com/feed.xml",
+            None,
+            "Feed",
+            None,
+            SourceType::Rss,
+            None,
+            &[article],
+        );
+        assert!(result.is_err());
+
+        let reader = db.reader().unwrap();
+        let feeds: i64 = reader
+            .query_row("SELECT COUNT(*) FROM feeds", [], |row| row.get(0))
+            .unwrap();
+        let logs: i64 = reader
+            .query_row("SELECT COUNT(*) FROM change_log", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(feeds, 0);
+        assert_eq!(logs, 0);
+    }
+
+    #[test]
     fn legacy_validation_database_is_reset_once_then_upgrades_without_clearing() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join("test.db");
@@ -1134,8 +1526,11 @@ mod tests {
                 [],
             )
             .unwrap();
-            conn.execute("INSERT INTO folders (name, position) VALUES ('stale', 0)", [])
-                .unwrap();
+            conn.execute(
+                "INSERT INTO folders (name, position) VALUES ('stale', 0)",
+                [],
+            )
+            .unwrap();
         }
 
         // First open: the legacy DB is reset and the full Alpha schema built.
@@ -1157,5 +1552,78 @@ mod tests {
             )
             .unwrap();
         assert_eq!(has_fts, 1);
+    }
+
+    #[test]
+    fn folder_crud_dedups_and_rejects_collisions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+
+        // Create is idempotent on name (case-insensitive).
+        let id = db.create_folder("Tech").unwrap();
+        assert_eq!(db.create_folder("tech").unwrap(), id);
+        assert_eq!(db.create_folder("  tech  ").unwrap(), id);
+
+        // Empty name rejected.
+        assert!(db.create_folder("   ").is_err());
+
+        // Rename collision with a different folder rejected.
+        let other = db.create_folder("News").unwrap();
+        assert!(db.rename_folder(other, "Tech").is_err());
+        db.rename_folder(other, "World").unwrap();
+
+        // List reflects the folders.
+        let folders = db.list_folders().unwrap();
+        assert_eq!(folders.len(), 2);
+        assert!(folders.iter().any(|f| f.name == "Tech"));
+        assert!(folders.iter().any(|f| f.name == "World"));
+
+        db.reorder_folders(&[other, id]).unwrap();
+        let reordered = db.list_folders().unwrap();
+        assert_eq!(
+            reordered.iter().map(|f| f.id).collect::<Vec<_>>(),
+            [other, id]
+        );
+        assert!(db.reorder_folders(&[id]).is_err());
+    }
+
+    #[test]
+    fn delete_folder_keeps_feeds_ungrouped_and_delete_feed_cascades() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+
+        let folder_id = db.create_folder("Tech").unwrap();
+        let feed_id = db
+            .insert_feed(
+                "https://example.com/feed.xml",
+                None,
+                "Example",
+                None,
+                SourceType::Rss,
+                Some(folder_id),
+            )
+            .unwrap();
+
+        // Delete the folder: the feed stays, now ungrouped.
+        db.delete_folder(folder_id).unwrap();
+        let feed = db.get_feed(feed_id).unwrap();
+        assert_eq!(feed.folder_id, None);
+
+        // Feed rename sets custom_title and reflects in list.
+        db.rename_feed(feed_id, "Renamed").unwrap();
+        assert!(db.rename_feed(feed_id, "   ").is_err());
+        let feed = db.get_feed(feed_id).unwrap();
+        assert_eq!(feed.title, "Renamed");
+
+        // Move + refresh interval round-trip.
+        let f2 = db.create_folder("Other").unwrap();
+        db.move_feed(feed_id, Some(f2)).unwrap();
+        assert_eq!(db.get_feed(feed_id).unwrap().folder_id, Some(f2));
+        db.set_feed_refresh_interval(feed_id, Some(60)).unwrap();
+        assert_eq!(db.get_feed(feed_id).unwrap().refresh_interval_min, Some(60));
+
+        // Delete feed removes it.
+        db.delete_feed(feed_id).unwrap();
+        assert!(db.get_feed(feed_id).is_err());
     }
 }

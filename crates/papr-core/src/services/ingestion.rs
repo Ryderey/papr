@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use crate::db::{Db, FeedRefreshInfo};
-use crate::dto::{RefreshError, RefreshOptions, RefreshReport};
-use crate::error::CoreError;
+use crate::dto::{Feed, RefreshError, RefreshOptions, RefreshReport, SourceType};
+use crate::error::{CoreError, ErrorCategory};
 use crate::ingestion;
+use crate::ingestion::parse::ParsedFeed;
 
 pub struct IngestionService {
     db: Arc<Db>,
@@ -15,10 +16,62 @@ impl IngestionService {
         Self { db, http }
     }
 
-    pub async fn refresh_feeds(
-        &self,
-        options: RefreshOptions,
-    ) -> Result<RefreshReport, CoreError> {
+    /// Add a subscription from a URL/query: source normalization, (page) feed
+    /// discovery, first fetch, parse, classification, then persist feed + articles.
+    pub async fn add_feed(&self, input: String) -> Result<Feed, CoreError> {
+        let trimmed = input.trim().to_string();
+        if trimmed.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyFeedUrl",
+                None,
+            ));
+        }
+
+        let client = self.http.as_ref();
+
+        // Resolve to a concrete feed URL + initial source type.
+        let (feed_url, source_type) = resolve_input(&trimmed, client).await?;
+
+        // Dedup by feed_url.
+        let db = Arc::clone(&self.db);
+        let dedup_url = feed_url.clone();
+        let already_exists = tokio::task::spawn_blocking(move || db.find_feed_by_url(&dedup_url))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))??;
+        if already_exists.is_some() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "feedAlreadyExists",
+                Some(feed_url),
+            ));
+        }
+
+        // Fetch + parse, discovering a feed URL from an HTML page if needed.
+        let (feed_url, parsed, source_type) =
+            fetch_and_parse(client, &feed_url, source_type).await?;
+
+        // Persist the feed, articles, enclosures, FTS rows, and feed change log
+        // in one transaction on the blocking pool.
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || {
+            let title = parsed.title.unwrap_or_else(|| feed_url.clone());
+            let feed_id = db.insert_feed_with_articles(
+                &feed_url,
+                parsed.site_url.as_deref(),
+                &title,
+                parsed.description.as_deref(),
+                source_type,
+                None,
+                &parsed.articles,
+            )?;
+            db.get_feed(feed_id)
+        })
+        .await
+        .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
+
+    pub async fn refresh_feeds(&self, options: RefreshOptions) -> Result<RefreshReport, CoreError> {
         let feeds = {
             let db = Arc::clone(&self.db);
             tokio::task::block_in_place(move || db.feeds_to_refresh())?
@@ -27,7 +80,10 @@ impl IngestionService {
         let feeds: Vec<_> = match options.feed_ids {
             Some(ids) => {
                 let id_set: std::collections::HashSet<i64> = ids.into_iter().collect();
-                feeds.into_iter().filter(|f| id_set.contains(&f.id)).collect()
+                feeds
+                    .into_iter()
+                    .filter(|f| id_set.contains(&f.id))
+                    .collect()
             }
             None => feeds,
         };
@@ -89,6 +145,73 @@ impl IngestionService {
     }
 }
 
+/// Resolve a user-pasted string to a concrete feed URL + initial source type.
+async fn resolve_input(
+    input: &str,
+    client: &reqwest::Client,
+) -> Result<(String, SourceType), CoreError> {
+    match ingestion::sources::normalize_source(input) {
+        ingestion::sources::Normalized::Feed { url, source_type } => Ok((url, source_type)),
+        ingestion::sources::Normalized::NeedsYoutubeResolution { page_url } => {
+            let (bytes, _, _) = ingestion::fetch::get(client, &page_url).await?;
+            let html = ingestion::fetch::decode_html(&bytes, None);
+            let channel_id = ingestion::sources::extract_channel_id(&html).ok_or_else(|| {
+                CoreError::coded(ErrorCategory::InvalidInput, "feedNotFound", None)
+            })?;
+            Ok((
+                ingestion::sources::youtube_feed_url(&channel_id),
+                SourceType::Youtube,
+            ))
+        }
+        ingestion::sources::Normalized::Untouched => {
+            if let Some(expanded) = ingestion::sources::expand_rsshub(
+                input,
+                ingestion::sources::DEFAULT_RSSHUB_INSTANCE,
+            ) {
+                Ok((expanded, SourceType::Rss))
+            } else {
+                Ok((
+                    ingestion::discovery::normalize_query_url(input),
+                    SourceType::Rss,
+                ))
+            }
+        }
+    }
+}
+
+/// Fetch a feed document, falling back to page feed-discovery when the URL
+/// resolves to an HTML page rather than a feed.
+async fn fetch_and_parse(
+    client: &reqwest::Client,
+    feed_url: &str,
+    source_type: SourceType,
+) -> Result<(String, ParsedFeed, SourceType), CoreError> {
+    let mut url = feed_url.to_string();
+    loop {
+        let fetched = ingestion::fetch::conditional_get(client, &url, None, None).await?;
+        let bytes = match fetched {
+            ingestion::fetch::Fetched::Body { bytes, .. } => bytes,
+            ingestion::fetch::Fetched::NotModified => {
+                return Err(CoreError::coded(ErrorCategory::Parse, "feedNotFound", None));
+            }
+        };
+        if ingestion::parse::looks_like_feed(&bytes) {
+            let parsed = ingestion::parse::parse_feed(&bytes, &url)?;
+            let refined = ingestion::parse::refine_source_type(source_type, &parsed, &url);
+            return Ok((url, parsed, refined));
+        }
+        // HTML page — discover a feed URL and retry.
+        let html = ingestion::fetch::decode_html(&bytes, None);
+        let discovered = ingestion::parse::discover_feeds(&html, &url);
+        match discovered.into_iter().next() {
+            Some(u) => url = u,
+            None => {
+                return Err(CoreError::coded(ErrorCategory::Parse, "feedNotFound", None));
+            }
+        }
+    }
+}
+
 async fn refresh_one(
     db: &Arc<Db>,
     client: &reqwest::Client,
@@ -113,8 +236,7 @@ async fn refresh_one(
             last_modified,
         } => {
             let text = ingestion::fetch::decode_html(
-                &bytes,
-                None, // content_type could be passed here if we stored it
+                &bytes, None, // content_type could be passed here if we stored it
             );
             let parsed = ingestion::parse::parse_feed(text.as_bytes(), feed_url)?;
 
@@ -140,12 +262,7 @@ async fn refresh_one(
                 let db = Arc::clone(db);
                 move || {
                     db.update_feed_meta(feed_id, title, site_url, description, icon)?;
-                    db.set_feed_fetch_state(
-                        feed_id,
-                        etag2,
-                        last_modified2,
-                        None,
-                    )?;
+                    db.set_feed_fetch_state(feed_id, etag2, last_modified2, None)?;
                     db.touch_feed(feed_id)?;
                     Ok::<(), CoreError>(())
                 }
@@ -164,9 +281,7 @@ mod tests {
     async fn refresh_report_counts_feeds_and_keeps_db_consistent() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
-        let http = Arc::new(
-            crate::ingestion::fetch::build_client(30, "system", None).unwrap(),
-        );
+        let http = Arc::new(crate::ingestion::fetch::build_client(30, "system", None).unwrap());
         let svc = IngestionService::new(db.clone(), http);
 
         let feed_url = "https://example.com/feed";

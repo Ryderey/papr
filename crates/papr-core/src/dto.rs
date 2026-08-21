@@ -46,6 +46,19 @@ pub struct Feed {
     pub last_fetched_at: Option<String>,
     pub fetch_error: Option<String>,
     pub unread_count: i64,
+    /// Whether the user manually renamed this feed.
+    pub custom_title: bool,
+    /// Per-feed refresh interval in minutes. `None` follows the global
+    /// `refresh_interval_min`; the `525_600` sentinel means "never".
+    pub refresh_interval_min: Option<i64>,
+}
+
+/// A folder that groups feeds.
+#[derive(Debug, Clone)]
+pub struct Folder {
+    pub id: i64,
+    pub name: String,
+    pub position: i64,
 }
 
 /// A media enclosure attached to an article.
@@ -199,4 +212,22 @@ impl Default for SettingsSnapshot {
             refresh_interval_min: 30,
         }
     }
+}
+
+/// A single feed-discovery result surfaced to the UI.
+#[derive(Debug, Clone)]
+pub struct DiscoveryResult {
+    /// Display name of the feed.
+    pub title: String,
+    /// The subscribable feed URL — passed straight to `add_feed`.
+    pub feed_url: String,
+    /// The website the feed belongs to, when known.
+    pub site_url: Option<String>,
+    /// Category for directory entries; `None` for live page scrapes.
+    pub category: Option<String>,
+    /// Short description, when known.
+    pub description: Option<String>,
+    /// `true` when the result came from the curated directory, `false` when
+    /// it was scraped live from a page the user pasted.
+    pub from_directory: bool,
 }

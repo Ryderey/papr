@@ -1,8 +1,10 @@
 //! Feed parsing (RSS / Atom / JSON Feed via `feed-rs`).
 
-use crate::dto::{Enclosure, NewArticle};
+use crate::dto::{Enclosure, NewArticle, SourceType};
 use crate::error::CoreError;
 use feed_rs::model::{Entry, Feed as RawFeed};
+use scraper::{Html, Selector};
+use std::sync::LazyLock;
 use url::Url;
 
 use super::sanitize;
@@ -35,6 +37,89 @@ pub fn parse_feed(bytes: &[u8], base_url: &str) -> Result<ParsedFeed, CoreError>
         icon: raw.icon.or(raw.logo).map(|i| i.uri),
         articles,
     })
+}
+
+/// Detect the source type from a feed/site URL — drives differentiated UI.
+pub fn detect_source_type(url: &str) -> SourceType {
+    let parsed = Url::parse(url).ok();
+    let host = parsed
+        .as_ref()
+        .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
+        .unwrap_or_default();
+    if host.contains("youtube.com") || host.contains("youtu.be") {
+        SourceType::Youtube
+    } else if host.contains("bsky.app") || host.contains("bsky.social") {
+        SourceType::Bluesky
+    } else if is_reddit_feed(&host, parsed.as_ref().map(|u| u.path()).unwrap_or("")) {
+        SourceType::Reddit
+    } else {
+        // Mastodon and podcast detection happen after parsing (refine_source_type).
+        SourceType::Rss
+    }
+}
+
+/// True when `host` + `path` look like a Reddit subreddit RSS feed.
+fn is_reddit_feed(host: &str, path: &str) -> bool {
+    let is_reddit_host = host == "reddit.com" || host.ends_with(".reddit.com");
+    is_reddit_host && path.split('/').find(|s| !s.is_empty()) == Some("r")
+}
+
+/// Refine the source type once a feed has been parsed (e.g. audio enclosures
+/// → podcast). Only promotes a still-generic `rss` type; never demotes.
+pub fn refine_source_type(initial: SourceType, parsed: &ParsedFeed, feed_url: &str) -> SourceType {
+    if initial != SourceType::Rss {
+        return initial;
+    }
+    let has_audio = parsed.articles.iter().any(|a| {
+        a.enclosures.iter().any(|e| {
+            e.mime_type
+                .as_deref()
+                .map(|m| m.starts_with("audio"))
+                .unwrap_or(false)
+        })
+    });
+    if has_audio {
+        return SourceType::Podcast;
+    }
+    if feed_url.contains("/@") && feed_url.ends_with(".rss") {
+        return SourceType::Mastodon;
+    }
+    if detect_source_type(feed_url) == SourceType::Reddit {
+        return SourceType::Reddit;
+    }
+    SourceType::Rss
+}
+
+/// Given the HTML of a web page, find `<link rel="alternate">` feed URLs.
+pub fn discover_feeds(html: &str, page_url: &str) -> Vec<String> {
+    static ALTERNATE: LazyLock<Selector> =
+        LazyLock::new(|| Selector::parse("link[rel~=alternate]").unwrap());
+    let doc = Html::parse_document(html);
+    let base = Url::parse(page_url).ok();
+    let mut found = Vec::new();
+    for el in doc.select(&ALTERNATE) {
+        let ty = el.value().attr("type").unwrap_or("").to_lowercase();
+        let is_feed = ty.contains("rss") || ty.contains("atom") || ty.contains("json");
+        if !is_feed {
+            continue;
+        }
+        if let Some(href) = el.value().attr("href") {
+            let resolved = base
+                .as_ref()
+                .and_then(|b| b.join(href).ok())
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| href.to_string());
+            if !found.contains(&resolved) {
+                found.push(resolved);
+            }
+        }
+    }
+    found
+}
+
+/// Decide whether bytes look like a feed (vs an HTML page) by attempting a parse.
+pub fn looks_like_feed(bytes: &[u8]) -> bool {
+    feed_rs::parser::parse(bytes).is_ok()
 }
 
 fn pick_site_url(links: &[feed_rs::model::Link]) -> Option<String> {
@@ -75,9 +160,7 @@ fn mime_from_url(url: &str) -> Option<&'static str> {
 }
 
 /// Clamp a feed-supplied publication date so it never lands in the future.
-pub fn clamp_publish_date(
-    date: chrono::DateTime<chrono::Utc>,
-) -> chrono::DateTime<chrono::Utc> {
+pub fn clamp_publish_date(date: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
     let now = chrono::Utc::now();
     let cutoff = now + chrono::Duration::hours(24);
     if date > cutoff {
@@ -194,7 +277,10 @@ mod tests {
     #[test]
     fn resolve_url_keeps_absolute_links_unchanged() {
         assert_eq!(
-            resolve_url("https://other.example.com/post/1", "https://feed.example.com/rss"),
+            resolve_url(
+                "https://other.example.com/post/1",
+                "https://feed.example.com/rss"
+            ),
             "https://other.example.com/post/1"
         );
     }
@@ -218,7 +304,10 @@ mod tests {
 
     #[test]
     fn infers_audio_and_video_from_extension() {
-        assert_eq!(mime_from_url("https://cdn.example.com/ep1.mp3"), Some("audio/mpeg"));
+        assert_eq!(
+            mime_from_url("https://cdn.example.com/ep1.mp3"),
+            Some("audio/mpeg")
+        );
         assert_eq!(mime_from_url("http://x/y/show.m4a"), Some("audio/aac"));
         assert_eq!(mime_from_url("https://x/clip.MP4"), Some("video/mp4"));
         assert_eq!(mime_from_url("https://x/clip.webm"), Some("video/webm"));

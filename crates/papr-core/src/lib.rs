@@ -7,6 +7,7 @@ pub mod dto;
 pub use dto::*;
 pub mod error;
 pub mod ingestion;
+pub mod opml;
 pub mod services;
 
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use std::sync::Arc;
 use db::Db;
 use error::CoreError;
 use services::{
-    ArticleService, FeedService, IngestionService, OpmlService, SettingsService,
+    ArticleService, FeedService, FolderService, IngestionService, OpmlService, SettingsService,
 };
 
 /// The root handle for all Papr business operations.
@@ -27,6 +28,7 @@ pub struct PaprCore {
     http: Arc<reqwest::Client>,
     config: PaprCoreConfig,
     feed_service: FeedService,
+    folder_service: FolderService,
     article_service: ArticleService,
     ingestion_service: IngestionService,
     opml_service: OpmlService,
@@ -62,6 +64,7 @@ impl PaprCore {
 
         Ok(Self {
             feed_service: FeedService::new(Arc::clone(&db)),
+            folder_service: FolderService::new(Arc::clone(&db)),
             article_service: ArticleService::new(Arc::clone(&db)),
             ingestion_service: IngestionService::new(Arc::clone(&db), Arc::clone(&http)),
             opml_service: OpmlService::new(Arc::clone(&db)),
@@ -87,6 +90,10 @@ impl PaprCore {
 
     pub fn feed_service(&self) -> &FeedService {
         &self.feed_service
+    }
+
+    pub fn folder_service(&self) -> &FolderService {
+        &self.folder_service
     }
 
     pub fn article_service(&self) -> &ArticleService {

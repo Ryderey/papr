@@ -38,4 +38,36 @@ impl FeedService {
             .await
             .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
     }
+
+    pub async fn delete_feed(&self, id: i64) -> Result<(), CoreError> {
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.delete_feed(id))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
+
+    pub async fn rename_feed(&self, id: i64, title: String) -> Result<(), CoreError> {
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.rename_feed(id, &title))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
+
+    pub async fn move_feed(&self, id: i64, folder_id: Option<i64>) -> Result<(), CoreError> {
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.move_feed(id, folder_id))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
+
+    pub async fn set_feed_refresh_interval(
+        &self,
+        id: i64,
+        minutes: Option<i64>,
+    ) -> Result<(), CoreError> {
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_feed_refresh_interval(id, minutes))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
 }
