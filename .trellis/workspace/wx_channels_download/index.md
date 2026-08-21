@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
-- **Last Active**: 2026-07-14
+- **Total Sessions**: 2
+- **Last Active**: 2026-08-21
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~40 | Active |
+| `journal-1.md` | ~77 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-08-21 | 完成 P1 Android 订阅管理 | `376d586`, `2885d9d`, `6c267f7`, `615ee22`, `457f0bb` | `feat/flutter-android-rearchitecture` |
 | 1 | 2026-07-14 | 实现 Flutter Android 添加 feed 功能 | `238ea2a` | `feat/flutter-android-rearchitecture` |
 <!-- @@@/auto:session-history -->
 
