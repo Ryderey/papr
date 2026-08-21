@@ -8,7 +8,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -19,8 +19,78 @@ Future<List<Feed>> getFeeds({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGetFeeds(core: core);
 
 /// Add a new feed by URL.
-Future<Feed> addFeed({required PaprCoreBridge core, required String feedUrl}) =>
-    RustLib.instance.api.crateApiAddFeed(core: core, feedUrl: feedUrl);
+Future<Feed> addFeed(
+        {required PaprCoreBridge core, required AddFeedInput input}) =>
+    RustLib.instance.api.crateApiAddFeed(core: core, input: input);
+
+/// List all folders.
+Future<List<Folder>> listFolders({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiListFolders(core: core);
+
+/// Create a folder and return its ID.
+Future<PlatformInt64> createFolder(
+        {required PaprCoreBridge core, required String name}) =>
+    RustLib.instance.api.crateApiCreateFolder(core: core, name: name);
+
+/// Rename a folder.
+Future<void> renameFolder(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String name}) =>
+    RustLib.instance.api.crateApiRenameFolder(core: core, id: id, name: name);
+
+/// Delete a folder without deleting its feeds.
+Future<void> deleteFolder(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiDeleteFolder(core: core, id: id);
+
+/// Persist the complete folder order.
+Future<void> reorderFolders(
+        {required PaprCoreBridge core, required Int64List folderIds}) =>
+    RustLib.instance.api
+        .crateApiReorderFolders(core: core, folderIds: folderIds);
+
+/// Delete a feed and its dependent rows.
+Future<void> deleteFeed(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiDeleteFeed(core: core, id: id);
+
+/// Rename a feed.
+Future<void> renameFeed(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String title}) =>
+    RustLib.instance.api.crateApiRenameFeed(core: core, id: id, title: title);
+
+/// Move a feed to a folder, or to uncategorised when `folder_id` is absent.
+Future<void> moveFeed(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        PlatformInt64? folderId}) =>
+    RustLib.instance.api
+        .crateApiMoveFeed(core: core, id: id, folderId: folderId);
+
+/// Override a feed's refresh interval, or clear the override.
+Future<void> setFeedRefreshInterval(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        PlatformInt64? minutes}) =>
+    RustLib.instance.api
+        .crateApiSetFeedRefreshInterval(core: core, id: id, minutes: minutes);
+
+/// Force-refresh one feed through the shared refresh pipeline.
+Future<RefreshReport> refreshFeed(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiRefreshFeed(core: core, id: id);
+
+/// Search the bundled subscription directory.
+Future<List<DiscoveryResult>> searchDirectory(
+        {required String query, required String lang}) =>
+    RustLib.instance.api.crateApiSearchDirectory(query: query, lang: lang);
+
+/// Extract a subscription target from a Papr deep link.
+Future<String?> parseDeepLink({required String url}) =>
+    RustLib.instance.api.crateApiParseDeepLink(url: url);
 
 /// List articles matching a filter.
 Future<List<ArticleSummary>> getArticles(
@@ -43,9 +113,22 @@ Future<OpmlImportReport> importOpml(
         {required PaprCoreBridge core, required String opmlText}) =>
     RustLib.instance.api.crateApiImportOpml(core: core, opmlText: opmlText);
 
+/// Export subscriptions as OPML text.
+Future<String> exportOpml({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiExportOpml(core: core);
+
 /// Read a snapshot of user settings.
 Future<SettingsSnapshot> getSettings({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGetSettings(core: core);
+
+/// Persist the application theme (`system`, `light`, or `dark`).
+Future<void> setTheme({required PaprCoreBridge core, required String theme}) =>
+    RustLib.instance.api.crateApiSetTheme(core: core, theme: theme);
+
+/// Persist the UI language (`en`, `zh`, or `ja`).
+Future<void> setLanguage(
+        {required PaprCoreBridge core, required String language}) =>
+    RustLib.instance.api.crateApiSetLanguage(core: core, language: language);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>>
 abstract class PaprCoreBridge implements RustOpaqueInterface {}

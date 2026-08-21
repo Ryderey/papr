@@ -11,9 +11,9 @@ use flutter_rust_bridge::frb;
 use papr_core::PaprCore;
 
 use crate::dto::{
-    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure, Feed,
-    OpmlImportReport, PaprCoreConfig, Platform, RefreshError, RefreshOptions, RefreshReport,
-    SettingsSnapshot, SourceType, Tag,
+    AddFeedInput, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, DiscoveryResult,
+    Enclosure, Feed, Folder, OpmlImportReport, PaprCoreConfig, Platform, RefreshError,
+    RefreshOptions, RefreshReport, SettingsSnapshot, SourceType, Tag,
 };
 use crate::error::PaprBridgeError;
 
@@ -33,9 +33,7 @@ pub fn init_app() {
 }
 
 /// Initialise `PaprCore` with platform-provided configuration.
-pub async fn init_papr_core(
-    config: PaprCoreConfig,
-) -> Result<PaprCoreBridge, PaprBridgeError> {
+pub async fn init_papr_core(config: PaprCoreConfig) -> Result<PaprCoreBridge, PaprBridgeError> {
     let core = PaprCore::new(config.into()).await?;
     Ok(PaprCoreBridge {
         inner: Arc::new(core),
@@ -49,12 +47,114 @@ pub async fn get_feeds(core: &PaprCoreBridge) -> Result<Vec<Feed>, PaprBridgeErr
 }
 
 /// Add a new feed by URL.
-pub async fn add_feed(
-    core: &PaprCoreBridge,
-    feed_url: String,
-) -> Result<Feed, PaprBridgeError> {
-    let feed = core.inner.feed_service().add_feed(feed_url).await?;
+pub async fn add_feed(core: &PaprCoreBridge, input: AddFeedInput) -> Result<Feed, PaprBridgeError> {
+    let feed = core.inner.ingestion_service().add_feed(input.input).await?;
     Ok(feed.into())
+}
+
+/// List all folders.
+pub async fn list_folders(core: &PaprCoreBridge) -> Result<Vec<Folder>, PaprBridgeError> {
+    let folders = core.inner.folder_service().list_folders().await?;
+    Ok(folders.into_iter().map(Into::into).collect())
+}
+
+/// Create a folder and return its ID.
+pub async fn create_folder(core: &PaprCoreBridge, name: String) -> Result<i64, PaprBridgeError> {
+    Ok(core.inner.folder_service().create_folder(name).await?)
+}
+
+/// Rename a folder.
+pub async fn rename_folder(
+    core: &PaprCoreBridge,
+    id: i64,
+    name: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.folder_service().rename_folder(id, name).await?)
+}
+
+/// Delete a folder without deleting its feeds.
+pub async fn delete_folder(core: &PaprCoreBridge, id: i64) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.folder_service().delete_folder(id).await?)
+}
+
+/// Persist the complete folder order.
+pub async fn reorder_folders(
+    core: &PaprCoreBridge,
+    folder_ids: Vec<i64>,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .folder_service()
+        .reorder_folders(folder_ids)
+        .await?)
+}
+
+/// Delete a feed and its dependent rows.
+pub async fn delete_feed(core: &PaprCoreBridge, id: i64) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.feed_service().delete_feed(id).await?)
+}
+
+/// Rename a feed.
+pub async fn rename_feed(
+    core: &PaprCoreBridge,
+    id: i64,
+    title: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.feed_service().rename_feed(id, title).await?)
+}
+
+/// Move a feed to a folder, or to uncategorised when `folder_id` is absent.
+pub async fn move_feed(
+    core: &PaprCoreBridge,
+    id: i64,
+    folder_id: Option<i64>,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.feed_service().move_feed(id, folder_id).await?)
+}
+
+/// Override a feed's refresh interval, or clear the override.
+pub async fn set_feed_refresh_interval(
+    core: &PaprCoreBridge,
+    id: i64,
+    minutes: Option<i64>,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .feed_service()
+        .set_feed_refresh_interval(id, minutes)
+        .await?)
+}
+
+/// Force-refresh one feed through the shared refresh pipeline.
+pub async fn refresh_feed(
+    core: &PaprCoreBridge,
+    id: i64,
+) -> Result<RefreshReport, PaprBridgeError> {
+    let report = core
+        .inner
+        .ingestion_service()
+        .refresh_feeds(papr_core::RefreshOptions {
+            feed_ids: Some(vec![id]),
+            force: true,
+        })
+        .await?;
+    Ok(report.into())
+}
+
+/// Search the bundled subscription directory.
+pub fn search_directory(query: String, lang: String) -> Vec<DiscoveryResult> {
+    papr_core::ingestion::discovery::search_directory(&query, &lang)
+        .into_iter()
+        .map(Into::into)
+        .collect()
+}
+
+/// Extract a subscription target from a Papr deep link.
+pub fn parse_deep_link(url: String) -> Option<String> {
+    match papr_core::ingestion::discovery::parse_deep_link(&url) {
+        Some(papr_core::ingestion::discovery::DeepLink::Subscribe { url }) => Some(url),
+        None => None,
+    }
 }
 
 /// List articles matching a filter.
@@ -105,12 +205,25 @@ pub async fn import_opml(
     Ok(report.into())
 }
 
+/// Export subscriptions as OPML text.
+pub async fn export_opml(core: &PaprCoreBridge) -> Result<String, PaprBridgeError> {
+    Ok(core.inner.opml_service().export_text().await?)
+}
+
 /// Read a snapshot of user settings.
-pub async fn get_settings(
-    core: &PaprCoreBridge,
-) -> Result<SettingsSnapshot, PaprBridgeError> {
+pub async fn get_settings(core: &PaprCoreBridge) -> Result<SettingsSnapshot, PaprBridgeError> {
     let snapshot = core.inner.settings_service().get_settings().await?;
     Ok(snapshot.into())
+}
+
+/// Persist the application theme (`system`, `light`, or `dark`).
+pub async fn set_theme(core: &PaprCoreBridge, theme: String) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.settings_service().set_theme(theme).await?)
+}
+
+/// Persist the UI language (`en`, `zh`, or `ja`).
+pub async fn set_language(core: &PaprCoreBridge, language: String) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.settings_service().set_language(language).await?)
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +284,31 @@ impl From<papr_core::Feed> for Feed {
             last_fetched_at: f.last_fetched_at,
             fetch_error: f.fetch_error,
             unread_count: f.unread_count,
+            custom_title: f.custom_title,
+            refresh_interval_min: f.refresh_interval_min,
+        }
+    }
+}
+
+impl From<papr_core::Folder> for Folder {
+    fn from(f: papr_core::Folder) -> Self {
+        Self {
+            id: f.id,
+            name: f.name,
+            position: f.position,
+        }
+    }
+}
+
+impl From<papr_core::DiscoveryResult> for DiscoveryResult {
+    fn from(d: papr_core::DiscoveryResult) -> Self {
+        Self {
+            title: d.title,
+            feed_url: d.feed_url,
+            site_url: d.site_url,
+            category: d.category,
+            description: d.description,
+            from_directory: d.from_directory,
         }
     }
 }
@@ -310,5 +448,21 @@ impl From<papr_core::SettingsSnapshot> for SettingsSnapshot {
             language: s.language,
             refresh_interval_min: s.refresh_interval_min,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_deep_link;
+
+    #[test]
+    fn deep_link_api_returns_only_valid_subscription_targets() {
+        assert_eq!(
+            parse_deep_link(
+                "papr://subscribe?url=https%3A%2F%2Fexample.com%2Ffeed.xml".to_string()
+            ),
+            Some("https://example.com/feed.xml".to_string())
+        );
+        assert_eq!(parse_deep_link("https://example.com".to_string()), None);
     }
 }

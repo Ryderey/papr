@@ -8,6 +8,25 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'dto.freezed.dart';
 
+/// Input accepted by the full add-subscription pipeline.
+class AddFeedInput {
+  final String input;
+
+  const AddFeedInput({
+    required this.input,
+  });
+
+  @override
+  int get hashCode => input.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AddFeedInput &&
+          runtimeType == other.runtimeType &&
+          input == other.input;
+}
+
 /// The full article shown in the reader.
 class ArticleDetail {
   final PlatformInt64 id;
@@ -212,6 +231,46 @@ class ArticleSummary {
           readLater == other.readLater;
 }
 
+/// A curated feed-directory result.
+class DiscoveryResult {
+  final String title;
+  final String feedUrl;
+  final String? siteUrl;
+  final String? category;
+  final String? description;
+  final bool fromDirectory;
+
+  const DiscoveryResult({
+    required this.title,
+    required this.feedUrl,
+    this.siteUrl,
+    this.category,
+    this.description,
+    required this.fromDirectory,
+  });
+
+  @override
+  int get hashCode =>
+      title.hashCode ^
+      feedUrl.hashCode ^
+      siteUrl.hashCode ^
+      category.hashCode ^
+      description.hashCode ^
+      fromDirectory.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DiscoveryResult &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          feedUrl == other.feedUrl &&
+          siteUrl == other.siteUrl &&
+          category == other.category &&
+          description == other.description &&
+          fromDirectory == other.fromDirectory;
+}
+
 /// A media enclosure attached to an article.
 class Enclosure {
   final String url;
@@ -250,6 +309,8 @@ class Feed {
   final String? lastFetchedAt;
   final String? fetchError;
   final PlatformInt64 unreadCount;
+  final bool customTitle;
+  final PlatformInt64? refreshIntervalMin;
 
   const Feed({
     required this.id,
@@ -263,6 +324,8 @@ class Feed {
     this.lastFetchedAt,
     this.fetchError,
     required this.unreadCount,
+    required this.customTitle,
+    this.refreshIntervalMin,
   });
 
   @override
@@ -277,7 +340,9 @@ class Feed {
       sourceType.hashCode ^
       lastFetchedAt.hashCode ^
       fetchError.hashCode ^
-      unreadCount.hashCode;
+      unreadCount.hashCode ^
+      customTitle.hashCode ^
+      refreshIntervalMin.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -294,7 +359,34 @@ class Feed {
           sourceType == other.sourceType &&
           lastFetchedAt == other.lastFetchedAt &&
           fetchError == other.fetchError &&
-          unreadCount == other.unreadCount;
+          unreadCount == other.unreadCount &&
+          customTitle == other.customTitle &&
+          refreshIntervalMin == other.refreshIntervalMin;
+}
+
+/// A folder that groups feeds.
+class Folder {
+  final PlatformInt64 id;
+  final String name;
+  final PlatformInt64 position;
+
+  const Folder({
+    required this.id,
+    required this.name,
+    required this.position,
+  });
+
+  @override
+  int get hashCode => id.hashCode ^ name.hashCode ^ position.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Folder &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          position == other.position;
 }
 
 /// Result of an OPML text import.

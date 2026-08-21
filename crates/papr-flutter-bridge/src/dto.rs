@@ -54,6 +54,36 @@ pub struct Feed {
     pub last_fetched_at: Option<String>,
     pub fetch_error: Option<String>,
     pub unread_count: i64,
+    pub custom_title: bool,
+    pub refresh_interval_min: Option<i64>,
+}
+
+/// A folder that groups feeds.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct Folder {
+    pub id: i64,
+    pub name: String,
+    pub position: i64,
+}
+
+/// Input accepted by the full add-subscription pipeline.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct AddFeedInput {
+    pub input: String,
+}
+
+/// A curated feed-directory result.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct DiscoveryResult {
+    pub title: String,
+    pub feed_url: String,
+    pub site_url: Option<String>,
+    pub category: Option<String>,
+    pub description: Option<String>,
+    pub from_directory: bool,
 }
 
 /// A lightweight article row for lists.

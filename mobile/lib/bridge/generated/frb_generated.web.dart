@@ -45,6 +45,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AddFeedInput dco_decode_add_feed_input(dynamic raw);
+
+  @protected
   ArticleDetail dco_decode_article_detail(dynamic raw);
 
   @protected
@@ -60,6 +63,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  AddFeedInput dco_decode_box_autoadd_add_feed_input(dynamic raw);
+
+  @protected
   ArticleFilter dco_decode_box_autoadd_article_filter(dynamic raw);
 
   @protected
@@ -72,6 +78,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RefreshOptions dco_decode_box_autoadd_refresh_options(dynamic raw);
 
   @protected
+  DiscoveryResult dco_decode_discovery_result(dynamic raw);
+
+  @protected
   Enclosure dco_decode_enclosure(dynamic raw);
 
   @protected
@@ -79,6 +88,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Feed dco_decode_feed(dynamic raw);
+
+  @protected
+  Folder dco_decode_folder(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -93,10 +105,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ArticleSummary> dco_decode_list_article_summary(dynamic raw);
 
   @protected
+  List<DiscoveryResult> dco_decode_list_discovery_result(dynamic raw);
+
+  @protected
   List<Enclosure> dco_decode_list_enclosure(dynamic raw);
 
   @protected
   List<Feed> dco_decode_list_feed(dynamic raw);
+
+  @protected
+  List<Folder> dco_decode_list_folder(dynamic raw);
 
   @protected
   Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
@@ -177,6 +195,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AddFeedInput sse_decode_add_feed_input(SseDeserializer deserializer);
+
+  @protected
   ArticleDetail sse_decode_article_detail(SseDeserializer deserializer);
 
   @protected
@@ -191,6 +212,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  AddFeedInput sse_decode_box_autoadd_add_feed_input(
+      SseDeserializer deserializer);
 
   @protected
   ArticleFilter sse_decode_box_autoadd_article_filter(
@@ -208,6 +233,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  DiscoveryResult sse_decode_discovery_result(SseDeserializer deserializer);
+
+  @protected
   Enclosure sse_decode_enclosure(SseDeserializer deserializer);
 
   @protected
@@ -215,6 +243,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Feed sse_decode_feed(SseDeserializer deserializer);
+
+  @protected
+  Folder sse_decode_folder(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -230,10 +261,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  List<DiscoveryResult> sse_decode_list_discovery_result(
+      SseDeserializer deserializer);
+
+  @protected
   List<Enclosure> sse_decode_list_enclosure(SseDeserializer deserializer);
 
   @protected
   List<Feed> sse_decode_list_feed(SseDeserializer deserializer);
+
+  @protected
+  List<Folder> sse_decode_list_folder(SseDeserializer deserializer);
 
   @protected
   Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
@@ -315,6 +353,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_add_feed_input(AddFeedInput self, SseSerializer serializer);
+
+  @protected
   void sse_encode_article_detail(ArticleDetail self, SseSerializer serializer);
 
   @protected
@@ -330,6 +371,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_add_feed_input(
+      AddFeedInput self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_article_filter(
@@ -348,6 +393,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       RefreshOptions self, SseSerializer serializer);
 
   @protected
+  void sse_encode_discovery_result(
+      DiscoveryResult self, SseSerializer serializer);
+
+  @protected
   void sse_encode_enclosure(Enclosure self, SseSerializer serializer);
 
   @protected
@@ -355,6 +404,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_feed(Feed self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_folder(Folder self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -370,11 +422,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       List<ArticleSummary> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_discovery_result(
+      List<DiscoveryResult> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_enclosure(
       List<Enclosure> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_feed(List<Feed> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_folder(List<Folder> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_i_64_strict(
