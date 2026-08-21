@@ -19,7 +19,9 @@
 
 ### Main Changes
 
-(Add details)
+- Core: bounded article filters, safe FTS, smart counts, idempotent state and change-log transactions, fulltext extraction, and persisted reading settings.
+- Bridge/UI: regenerated FRB contracts; smart views, pagination, reader actions/settings, optimistic rollback, and localized labels.
+- Android: browser and share intents, with URL validation and disabled actions when no source URL exists.
 
 ### Git Commits
 
@@ -29,7 +31,10 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] FRB code generation is idempotent.
+- [OK] `cargo test -p papr-core` (46), `cargo test -p papr-flutter-bridge` (1), and `cargo test -p papr` (252).
+- [OK] `flutter analyze`, `flutter test` (10), and `flutter build apk --debug`.
+- [OK] Physical-device acceptance passed.
 
 ### Status
 
@@ -63,6 +68,43 @@
 | `6c267f7` | (see git log) |
 | `615ee22` | (see git log) |
 | `457f0bb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 3: Complete P2 mobile article reading loop
+
+**Date**: 2026-08-22
+**Task**: Complete P2 mobile article reading loop
+**Branch**: `feat/flutter-android-rearchitecture`
+
+### Summary
+
+Completed and device-validated P2: Core article queries, state and extraction; FRB bindings; Flutter smart views, reader settings and optimistic actions; Android browser/share intents. Full automated gate passed and the debug APK was accepted on a physical device.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2a3162b` | (see git log) |
+| `c8d7f03` | (see git log) |
+| `347ba43` | (see git log) |
+| `9d320e8` | (see git log) |
+| `ac6b325` | (see git log) |
 
 ### Testing
 
