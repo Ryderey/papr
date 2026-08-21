@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:papr_mobile/bridge/generated/generated.dart' as bridge;
+import 'package:papr_mobile/l10n/l10n.dart';
 import 'package:papr_mobile/ui/screens/article_detail_screen.dart';
 
 void main() {
@@ -23,6 +24,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ArticleDetailScreen(articleId: 1),
         ),
       ),
@@ -45,6 +48,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ArticleDetailScreen(articleId: 1),
         ),
       ),

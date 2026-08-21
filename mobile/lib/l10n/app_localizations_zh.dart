@@ -1,0 +1,264 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Chinese (`zh`).
+class AppLocalizationsZh extends AppLocalizations {
+  AppLocalizationsZh([String locale = 'zh']) : super(locale);
+
+  @override
+  String get appTitle => 'Papr';
+
+  @override
+  String get navArticles => '文章';
+
+  @override
+  String get navSubscriptions => '订阅';
+
+  @override
+  String get navSaved => '已保存';
+
+  @override
+  String get navSettings => '设置';
+
+  @override
+  String get articlesTitle => '文章';
+
+  @override
+  String get savedTitle => '已保存';
+
+  @override
+  String get subscriptionsTitle => '订阅';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get themeLabel => '主题';
+
+  @override
+  String get themeSystem => '跟随系统';
+
+  @override
+  String get themeLight => '浅色';
+
+  @override
+  String get themeDark => '深色';
+
+  @override
+  String get languageLabel => '语言';
+
+  @override
+  String get languageEnglish => '英语';
+
+  @override
+  String get languageChinese => '简体中文';
+
+  @override
+  String get languageJapanese => '日语';
+
+  @override
+  String get refreshInterval => '刷新间隔';
+
+  @override
+  String minutes(int count) {
+    return '$count 分钟';
+  }
+
+  @override
+  String get articleTitle => '文章';
+
+  @override
+  String byAuthor(String author) {
+    return '作者：$author';
+  }
+
+  @override
+  String get noContent => '暂无正文';
+
+  @override
+  String get noArticles => '暂无文章';
+
+  @override
+  String get noSavedArticles => '暂无已保存文章';
+
+  @override
+  String get noFeeds => '暂无订阅，点击 + 添加。';
+
+  @override
+  String get selectSubscription => '选择一个订阅以查看文章';
+
+  @override
+  String errorMessage(String message) {
+    return '错误：$message';
+  }
+
+  @override
+  String get refreshTooltip => '刷新';
+
+  @override
+  String refreshComplete(int count) {
+    return '刷新完成：新增 $count 篇文章。';
+  }
+
+  @override
+  String refreshPartial(int newCount, int errorCount) {
+    return '刷新完成：新增 $newCount 篇，$errorCount 个订阅失败。';
+  }
+
+  @override
+  String refreshFailed(String message) {
+    return '刷新失败：$message';
+  }
+
+  @override
+  String get addFeed => '添加订阅';
+
+  @override
+  String get feedUrl => 'Feed 或网页地址';
+
+  @override
+  String get feedUrlHint => 'https://example.com/feed.xml';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get add => '添加';
+
+  @override
+  String get feedUrlRequired => '请输入 Feed 或网页地址';
+
+  @override
+  String get feedTitle => '订阅名称';
+
+  @override
+  String appearanceSaveFailed(String message) {
+    return '无法保存外观设置：$message';
+  }
+
+  @override
+  String get unknownError => '发生错误';
+
+  @override
+  String get manageFolders => '管理文件夹';
+
+  @override
+  String get folderName => '文件夹名称';
+
+  @override
+  String get createFolder => '新建文件夹';
+
+  @override
+  String get rename => '重命名';
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get deleteFolderTitle => '删除文件夹？';
+
+  @override
+  String get deleteFolderMessage => '该文件夹内的订阅将移至“未分类”。';
+
+  @override
+  String get uncategorized => '未分类';
+
+  @override
+  String get feedActions => '订阅操作';
+
+  @override
+  String get renameFeed => '重命名订阅';
+
+  @override
+  String get moveToFolder => '移动到文件夹';
+
+  @override
+  String get refreshIntervalTitle => '订阅刷新间隔';
+
+  @override
+  String get useGlobalInterval => '使用全局间隔';
+
+  @override
+  String get refreshOff => '不自动刷新';
+
+  @override
+  String get deleteFeedTitle => '删除订阅？';
+
+  @override
+  String deleteFeedMessage(String title) {
+    return '删除“$title”及其已下载文章？';
+  }
+
+  @override
+  String refreshOneComplete(String title, int count) {
+    return '已更新“$title”：新增 $count 篇文章。';
+  }
+
+  @override
+  String get directory => '订阅目录';
+
+  @override
+  String get search => '搜索';
+
+  @override
+  String get directoryHint => '搜索刊物或主题';
+
+  @override
+  String get noResults => '没有匹配的订阅';
+
+  @override
+  String get opml => 'OPML';
+
+  @override
+  String get importOpml => '导入 OPML 文本';
+
+  @override
+  String get exportOpml => '导出 OPML';
+
+  @override
+  String get opmlRequired => '所选 OPML 文件为空。';
+
+  @override
+  String opmlImported(int imported, int failed) {
+    return '已导入 $imported 个订阅，$failed 个失败。';
+  }
+
+  @override
+  String get opmlExported => 'OPML 文件已保存。';
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get errorEmptyFolderName => '文件夹名称不能为空。';
+
+  @override
+  String get errorFolderNameExists => '已存在同名文件夹。';
+
+  @override
+  String get errorInvalidFolderOrder => '文件夹顺序已在其他位置变更，请刷新后重试。';
+
+  @override
+  String get errorEmptyFeedTitle => '订阅名称不能为空。';
+
+  @override
+  String get errorFeedAlreadyExists => '该订阅已存在。';
+
+  @override
+  String get errorEmptyFeedUrl => '订阅地址不能为空。';
+
+  @override
+  String get errorFeedNotFound => '该地址未发现 Feed。';
+
+  @override
+  String get errorInvalidFeedUrl => '请输入有效的 Feed 或网页地址。';
+
+  @override
+  String get errorNetwork => '网络请求失败，请检查连接后重试。';
+
+  @override
+  String get errorParse => '无法读取订阅数据。';
+}

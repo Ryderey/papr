@@ -1,45 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../bridge/generated/generated.dart' as bridge;
+import '../../l10n/l10n.dart';
 import '../../repositories/settings_repository.dart';
-
-final settingsProvider = FutureProvider<bridge.SettingsSnapshot>((ref) async {
-  final repo = ref.watch(settingsRepositoryProvider);
-  return repo.getSettings();
-});
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
+    final appearance = ref.watch(appearanceProvider);
+    final settings =
+        appearance.asData?.value ?? const AppearanceState.defaults();
+    final l10n = context.l10n;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(l10n.settingsTitle),
       ),
-      body: settings.when(
-        data: (snapshot) => ListView(
-          children: [
-            ListTile(
-              title: const Text('Theme'),
-              subtitle: Text(snapshot.theme),
+      body: Column(
+        children: [
+          if (appearance.isLoading) const LinearProgressIndicator(),
+          Expanded(
+            child: ListView(
+              children: [
+                ListTile(
+                  title: Text(l10n.themeLabel),
+                  trailing: DropdownButton<String>(
+                    value: settings.theme,
+                    onChanged: appearance.isLoading
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              _save(
+                                context,
+                                () => ref
+                                    .read(appearanceProvider.notifier)
+                                    .setTheme(value),
+                              );
+                            }
+                          },
+                    items: [
+                      DropdownMenuItem(
+                        value: 'system',
+                        child: Text(l10n.themeSystem),
+                      ),
+                      DropdownMenuItem(
+                        value: 'light',
+                        child: Text(l10n.themeLight),
+                      ),
+                      DropdownMenuItem(
+                        value: 'dark',
+                        child: Text(l10n.themeDark),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  title: Text(l10n.languageLabel),
+                  trailing: DropdownButton<String>(
+                    value: settings.language,
+                    onChanged: appearance.isLoading
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              _save(
+                                context,
+                                () => ref
+                                    .read(appearanceProvider.notifier)
+                                    .setLanguage(value),
+                              );
+                            }
+                          },
+                    items: [
+                      DropdownMenuItem(
+                        value: 'en',
+                        child: Text(l10n.languageEnglish),
+                      ),
+                      DropdownMenuItem(
+                        value: 'zh',
+                        child: Text(l10n.languageChinese),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ja',
+                        child: Text(l10n.languageJapanese),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  title: Text(l10n.refreshInterval),
+                  subtitle: Text(l10n.minutes(settings.refreshIntervalMin)),
+                ),
+              ],
             ),
-            ListTile(
-              title: const Text('Language'),
-              subtitle: Text(snapshot.language),
-            ),
-            ListTile(
-              title: const Text('Refresh interval'),
-              subtitle: Text('${snapshot.refreshIntervalMin} min'),
-            ),
-          ],
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _save(BuildContext context, Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.appearanceSaveFailed(
+                context.l10n.localizeError(error),
+              ),
+            ),
+          ),
+        );
+      }
+    }
   }
 }

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../bridge/generated/generated.dart' as bridge;
+import '../../l10n/l10n.dart';
 import '../../repositories/article_repository.dart';
 import 'article_detail_screen.dart';
 
-final articleListProvider = FutureProvider.family<List<bridge.ArticleSummary>, bridge.Feed>(
+final articleListProvider =
+    FutureProvider.family<List<bridge.ArticleSummary>, bridge.Feed>(
   (ref, feed) async {
     final repo = ref.watch(articleRepositoryProvider);
     return repo.listArticles(
@@ -40,14 +42,16 @@ class ArticleListScreen extends ConsumerWidget {
               title: Text(
                 article.title,
                 style: TextStyle(
-                  fontWeight: article.isRead ? FontWeight.normal : FontWeight.bold,
+                  fontWeight:
+                      article.isRead ? FontWeight.normal : FontWeight.bold,
                 ),
               ),
               subtitle: article.snippet != null ? Text(article.snippet!) : null,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ArticleDetailScreen(articleId: article.id.toInt()),
+                    builder: (_) =>
+                        ArticleDetailScreen(articleId: article.id.toInt()),
                   ),
                 );
               },
@@ -55,7 +59,8 @@ class ArticleListScreen extends ConsumerWidget {
           },
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) =>
+            Center(child: Text(context.l10n.errorMessage(err.toString()))),
       ),
     );
   }

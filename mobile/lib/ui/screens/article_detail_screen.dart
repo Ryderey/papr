@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
 import '../../bridge/generated/generated.dart' as bridge;
+import '../../l10n/l10n.dart';
 import '../../repositories/article_repository.dart';
 
 final articleDetailProvider = FutureProvider.family<bridge.ArticleDetail, int>(
@@ -23,7 +24,7 @@ class ArticleDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Article'),
+        title: Text(context.l10n.articleTitle),
       ),
       body: article.when(
         data: (detail) {
@@ -42,12 +43,12 @@ class ArticleDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 if (detail.author != null)
                   Text(
-                    'By ${detail.author}',
+                    context.l10n.byAuthor(detail.author!),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 const SizedBox(height: 16),
                 if (!hasContent)
-                  const Text('No content')
+                  Text(context.l10n.noContent)
                 else
                   HtmlWidget(
                     content!,
@@ -63,7 +64,8 @@ class ArticleDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) =>
+            Center(child: Text(context.l10n.errorMessage(err.toString()))),
       ),
     );
   }
