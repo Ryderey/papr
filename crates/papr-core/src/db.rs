@@ -14,8 +14,8 @@ use rusqlite::{Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
 
 use crate::dto::{
-    ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure, Feed, Folder,
-    NewArticle, SourceType,
+    ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure,
+    Feed, Folder, NewArticle, SourceType, TagSummary,
 };
 use crate::error::{CoreError, ErrorCategory};
 
@@ -25,6 +25,102 @@ const READER_POOL_SIZE: usize = 3;
 /// The "never auto-refresh" sentinel (minutes ≈ one year). A per-feed interval
 /// can carry it to opt one feed out of automatic refresh.
 pub const REFRESH_OFF_MINUTES: i64 = 525_600;
+
+const DEFAULT_ARTICLE_LIMIT: i64 = 50;
+const MAX_ARTICLE_LIMIT: i64 = 200;
+
+struct ArticleQueryParts {
+    join_fts: bool,
+    clauses: Vec<String>,
+    params: Vec<rusqlite::types::Value>,
+}
+
+fn article_query_parts(filter: &ArticleFilter, force_unread: bool) -> ArticleQueryParts {
+    let mut clauses = Vec::new();
+    let mut params = Vec::new();
+
+    match &filter.kind {
+        ArticleFilterKind::All => {}
+        ArticleFilterKind::Unread => clauses.push("a.is_read = 0".to_string()),
+        ArticleFilterKind::Starred => clauses.push("a.is_starred = 1".to_string()),
+        ArticleFilterKind::ReadLater => clauses.push("a.read_later = 1".to_string()),
+        ArticleFilterKind::Feed(id) => {
+            clauses.push("a.feed_id = ?".to_string());
+            params.push((*id).into());
+        }
+        ArticleFilterKind::Folder(id) => {
+            clauses.push("f.folder_id = ?".to_string());
+            params.push((*id).into());
+        }
+        ArticleFilterKind::Tag(id) => {
+            clauses
+                .push("a.id IN (SELECT article_id FROM article_tags WHERE tag_id = ?)".to_string());
+            params.push((*id).into());
+        }
+    }
+
+    if (force_unread || filter.unread_only) && !matches!(filter.kind, ArticleFilterKind::Unread) {
+        clauses.push("a.is_read = 0".to_string());
+    }
+
+    let mut join_fts = false;
+    if let Some(search) = filter
+        .search
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if let Some(query) = fts_query(search) {
+            join_fts = true;
+            clauses.push("articles_fts MATCH ?".to_string());
+            params.push(query.into());
+        } else {
+            // A punctuation-only query is a valid empty result, not an FTS
+            // syntax error and not an accidental unfiltered list.
+            clauses.push("0".to_string());
+        }
+    }
+
+    ArticleQueryParts {
+        join_fts,
+        clauses,
+        params,
+    }
+}
+
+fn fts_query(input: &str) -> Option<String> {
+    let terms: Vec<String> = input
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .map(|term| format!("\"{term}\"*"))
+        .collect();
+    (!terms.is_empty()).then(|| terms.join(" "))
+}
+
+#[derive(Clone, Copy)]
+enum ArticleStateField {
+    Read,
+    Starred,
+    ReadLater,
+}
+
+impl ArticleStateField {
+    fn column(self) -> &'static str {
+        match self {
+            Self::Read => "is_read",
+            Self::Starred => "is_starred",
+            Self::ReadLater => "read_later",
+        }
+    }
+
+    fn change_field(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Starred => "starred",
+            Self::ReadLater => "read_later",
+        }
+    }
+}
 
 /// Append-only schema migrations. Never edit a shipped migration — add a new
 /// one. v1–v15 mirror the desktop's migration history exactly so an existing
@@ -891,64 +987,49 @@ impl Db {
     /// List articles matching a filter.
     pub fn list_articles(&self, filter: &ArticleFilter) -> Result<Vec<ArticleSummary>, CoreError> {
         let conn = self.reader()?;
-        let mut clauses = Vec::new();
-        let mut params: Vec<rusqlite::types::Value> = Vec::new();
-
-        match &filter.kind {
-            ArticleFilterKind::All => {}
-            ArticleFilterKind::Unread => {
-                clauses.push("articles.is_read = 0".to_string());
-            }
-            ArticleFilterKind::Starred => {
-                clauses.push("articles.is_starred = 1".to_string());
-            }
-            ArticleFilterKind::ReadLater => {
-                clauses.push("articles.read_later = 1".to_string());
-            }
-            ArticleFilterKind::Feed(id) => {
-                clauses.push("articles.feed_id = ?".to_string());
-                params.push((*id).into());
-            }
-            ArticleFilterKind::Folder(id) => {
-                clauses.push("feeds.folder_id = ?".to_string());
-                params.push((*id).into());
-            }
-            ArticleFilterKind::Tag(_id) => {
-                // Tags are stored separately; article_tags join is not yet
-                // exposed through this phase-1 filter — fall back to All.
-            }
-        }
-
-        let where_sql = if clauses.is_empty() {
+        let mut parts = article_query_parts(filter, false);
+        let where_sql = if parts.clauses.is_empty() {
             String::new()
         } else {
-            format!("WHERE {}", clauses.join(" AND "))
+            format!("WHERE {}", parts.clauses.join(" AND "))
         };
-
-        let mut sql = format!(
-            "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.summary, articles.image_url, articles.url, articles.published_at, articles.is_read, articles.is_starred, articles.read_later \
-             FROM articles \
-             JOIN feeds ON feeds.id = articles.feed_id \
+        let fts_join = if parts.join_fts {
+            "JOIN articles_fts ON articles_fts.rowid = a.id"
+        } else {
+            ""
+        };
+        let order_sql = if parts.join_fts {
+            "articles_fts.rank, a.id DESC"
+        } else if filter.oldest_first {
+            "datetime(COALESCE(a.published_at, a.fetched_at)) ASC, a.id ASC"
+        } else {
+            "datetime(COALESCE(a.published_at, a.fetched_at)) DESC, a.id DESC"
+        };
+        let limit = filter
+            .limit
+            .unwrap_or(DEFAULT_ARTICLE_LIMIT)
+            .clamp(1, MAX_ARTICLE_LIMIT);
+        let offset = filter.offset.unwrap_or(0).max(0);
+        parts.params.push(limit.into());
+        parts.params.push(offset.into());
+        let sql = format!(
+            "SELECT a.id, a.feed_id, f.title, f.source_type, a.title, a.author, \
+                    substr(a.body_text, 1, 280), a.image_url, a.url, \
+                    COALESCE(a.published_at, a.fetched_at), \
+                    a.is_read, a.is_starred, a.read_later \
+             FROM articles a \
+             JOIN feeds f ON f.id = a.feed_id \
+             {fts_join} \
              {where_sql} \
-             ORDER BY articles.published_at DESC NULLS LAST"
+             ORDER BY {order_sql} LIMIT ? OFFSET ?"
         );
-
-        if let Some(limit) = filter.limit {
-            sql.push_str(&format!(" LIMIT {limit}"));
-        }
-        if let Some(offset) = filter.offset {
-            sql.push_str(&format!(" OFFSET {offset}"));
-        }
-
-        let param_refs: Vec<&dyn rusqlite::ToSql> =
-            params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
 
         let mut stmt = conn
             .prepare(&sql)
             .map_err(|e| CoreError::Db(e.to_string()))?;
 
         let rows = stmt
-            .query_map(param_refs.as_slice(), |row| {
+            .query_map(rusqlite::params_from_iter(parts.params), |row| {
                 let source_type: String = row.get(3)?;
                 Ok(ArticleSummary {
                     id: row.get(0)?,
@@ -976,11 +1057,81 @@ impl Db {
         Ok(articles)
     }
 
+    /// Count articles matching the same unbounded filter used by the list.
+    pub fn count_articles(&self, filter: &ArticleFilter) -> Result<i64, CoreError> {
+        let conn = self.reader()?;
+        let parts = article_query_parts(filter, false);
+        let fts_join = if parts.join_fts {
+            "JOIN articles_fts ON articles_fts.rowid = a.id"
+        } else {
+            ""
+        };
+        let where_sql = if parts.clauses.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", parts.clauses.join(" AND "))
+        };
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM articles a JOIN feeds f ON f.id = a.feed_id \
+                 {fts_join} {where_sql}"
+            ),
+            rusqlite::params_from_iter(parts.params),
+            |row| row.get(0),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn article_counts(&self) -> Result<ArticleCounts, CoreError> {
+        let conn = self.reader()?;
+        conn.query_row(
+            "SELECT COUNT(*), \
+                    SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), \
+                    SUM(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END), \
+                    SUM(CASE WHEN read_later = 1 THEN 1 ELSE 0 END) \
+             FROM articles",
+            [],
+            |row| {
+                Ok(ArticleCounts {
+                    all: row.get(0)?,
+                    unread: row.get::<_, Option<i64>>(1)?.unwrap_or(0),
+                    starred: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                    read_later: row.get::<_, Option<i64>>(3)?.unwrap_or(0),
+                })
+            },
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn list_tag_summaries(&self) -> Result<Vec<TagSummary>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT t.id, t.name, t.color, COUNT(at.article_id) \
+                 FROM tags t LEFT JOIN article_tags at ON at.tag_id = t.id \
+                 WHERE t.deleted_at IS NULL \
+                 GROUP BY t.id ORDER BY t.position, t.name COLLATE NOCASE",
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(TagSummary {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    article_count: row.get(3)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
     /// Fetch a single article by ID.
     pub fn get_article_detail(&self, article_id: i64) -> Result<ArticleDetail, CoreError> {
         let conn = self.reader()?;
         let mut stmt = conn.prepare(
-            "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.url, articles.content_html, articles.extracted_html, articles.image_url, articles.published_at, articles.is_read, articles.is_starred, articles.read_later, articles.ai_summary, articles.translated_html, articles.translated_lang \
+            "SELECT articles.id, articles.feed_id, feeds.title, feeds.source_type, articles.title, articles.author, articles.url, articles.content_html, articles.extracted_html, articles.image_url, COALESCE(articles.published_at, articles.fetched_at), articles.is_read, articles.is_starred, articles.read_later, articles.ai_summary, articles.translated_html, articles.translated_lang \
              FROM articles \
              JOIN feeds ON feeds.id = articles.feed_id \
              WHERE articles.id = ?1"
@@ -1012,15 +1163,149 @@ impl Db {
                 })
             })
             .map_err(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    CoreError::NotFound(format!("article {} not found", article_id))
-                }
+                rusqlite::Error::QueryReturnedNoRows => CoreError::coded(
+                    ErrorCategory::NotFound,
+                    "articleNotFound",
+                    Some(article_id.to_string()),
+                ),
                 _ => CoreError::Db(e.to_string()),
             })?;
 
         row.enclosures = Self::load_enclosures(&conn, article_id)?;
 
         Ok(row)
+    }
+
+    pub fn set_article_read(&self, article_id: i64, value: bool) -> Result<(), CoreError> {
+        self.set_article_state(article_id, ArticleStateField::Read, value)
+    }
+
+    pub fn set_article_starred(&self, article_id: i64, value: bool) -> Result<(), CoreError> {
+        self.set_article_state(article_id, ArticleStateField::Starred, value)
+    }
+
+    pub fn set_article_read_later(&self, article_id: i64, value: bool) -> Result<(), CoreError> {
+        self.set_article_state(article_id, ArticleStateField::ReadLater, value)
+    }
+
+    fn set_article_state(
+        &self,
+        article_id: i64,
+        field: ArticleStateField,
+        value: bool,
+    ) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            let current = tx
+                .query_row(
+                    &format!("SELECT {} FROM articles WHERE id = ?1", field.column()),
+                    [article_id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .optional()
+                .map_err(|e| CoreError::Db(e.to_string()))?
+                .ok_or_else(|| {
+                    CoreError::coded(
+                        ErrorCategory::NotFound,
+                        "articleNotFound",
+                        Some(article_id.to_string()),
+                    )
+                })?;
+            if current == value {
+                return Ok(());
+            }
+            let changed = tx
+                .execute(
+                    &format!("UPDATE articles SET {} = ?2 WHERE id = ?1", field.column()),
+                    (article_id, value),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            debug_assert_eq!(changed, 1);
+            append_change_log(
+                tx,
+                "article",
+                article_id,
+                "upsert",
+                Some(field.change_field()),
+                Some(if value { "1" } else { "0" }),
+            )
+        })
+    }
+
+    /// Mark every unread article in the unbounded filter as read.
+    pub fn mark_all_read(&self, filter: &ArticleFilter) -> Result<i64, CoreError> {
+        self.transact(|tx| {
+            let parts = article_query_parts(filter, true);
+            let fts_join = if parts.join_fts {
+                "JOIN articles_fts ON articles_fts.rowid = a.id"
+            } else {
+                ""
+            };
+            let where_sql = if parts.clauses.is_empty() {
+                String::new()
+            } else {
+                format!("WHERE {}", parts.clauses.join(" AND "))
+            };
+            let ids = {
+                let mut stmt = tx
+                    .prepare(&format!(
+                        "SELECT a.id FROM articles a JOIN feeds f ON f.id = a.feed_id \
+                         {fts_join} {where_sql}"
+                    ))
+                    .map_err(|e| CoreError::Db(e.to_string()))?;
+                let rows = stmt
+                    .query_map(rusqlite::params_from_iter(parts.params), |row| {
+                        row.get::<_, i64>(0)
+                    })
+                    .map_err(|e| CoreError::Db(e.to_string()))?;
+                rows.collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| CoreError::Db(e.to_string()))?
+            };
+
+            for id in &ids {
+                tx.execute("UPDATE articles SET is_read = 1 WHERE id = ?1", [id])
+                    .map_err(|e| CoreError::Db(e.to_string()))?;
+                append_change_log(tx, "article", *id, "upsert", Some("read"), Some("1"))?;
+            }
+            Ok(ids.len() as i64)
+        })
+    }
+
+    /// Persist sanitized extracted HTML, refresh FTS and invalidate any
+    /// translation generated from the previous body in one transaction.
+    pub fn set_extracted_html(
+        &self,
+        article_id: i64,
+        html: &str,
+        image_url: Option<&str>,
+    ) -> Result<(), CoreError> {
+        let plain_text = crate::ingestion::sanitize::html_to_text(html);
+        self.transact(|tx| {
+            let changed = tx
+                .execute(
+                    "UPDATE articles \
+                     SET extracted_html = ?2, \
+                         image_url = CASE \
+                             WHEN ?3 IS NOT NULL AND (image_url IS NULL OR trim(image_url) = '') \
+                             THEN ?3 ELSE image_url END, \
+                         translated_html = NULL, translated_lang = NULL \
+                     WHERE id = ?1",
+                    (article_id, html, image_url),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if changed == 0 {
+                return Err(CoreError::coded(
+                    ErrorCategory::NotFound,
+                    "articleNotFound",
+                    Some(article_id.to_string()),
+                ));
+            }
+            tx.execute(
+                "UPDATE articles_fts SET body = ?2 WHERE rowid = ?1",
+                (article_id, &plain_text),
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+            Ok(())
+        })
     }
 
     /// Read a single settings value.
@@ -1043,6 +1328,21 @@ impl Db {
         )
         .map_err(|e| CoreError::Db(e.to_string()))?;
         Ok(())
+    }
+
+    /// Persist a coherent settings group atomically.
+    pub fn set_settings(&self, values: &[(&str, String)]) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            for (key, value) in values {
+                tx.execute(
+                    "INSERT INTO settings(key, value) VALUES (?1, ?2) \
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, value),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            }
+            Ok(())
+        })
     }
 
     /// Returns all feeds that should be refreshed.
@@ -1625,5 +1925,214 @@ mod tests {
         // Delete feed removes it.
         db.delete_feed(feed_id).unwrap();
         assert!(db.get_feed(feed_id).is_err());
+    }
+
+    #[test]
+    fn article_filters_counts_tags_and_paging_share_one_contract() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db
+            .insert_feed(
+                "https://example.com/feed.xml",
+                None,
+                "Example",
+                None,
+                SourceType::Rss,
+                None,
+            )
+            .unwrap();
+        for (guid, title, body, date) in [
+            (
+                "rust",
+                "Rust guide",
+                "A complete Rust language guide",
+                "2024-01-01T00:00:00Z",
+            ),
+            (
+                "food",
+                "Cooking notes",
+                "A seasonal cooking notebook",
+                "2025-01-01T00:00:00Z",
+            ),
+        ] {
+            db.upsert_article(
+                feed_id,
+                &NewArticle {
+                    guid: guid.to_string(),
+                    url: Some(format!("https://example.com/{guid}")),
+                    title: title.to_string(),
+                    author: None,
+                    summary: None,
+                    content_html: None,
+                    body_text: body.to_string(),
+                    image_url: None,
+                    published_at: Some(date.to_string()),
+                    enclosures: Vec::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let all = db.list_articles(&ArticleFilter::default()).unwrap();
+        assert_eq!(
+            all.iter().map(|a| a.title.as_str()).collect::<Vec<_>>(),
+            ["Cooking notes", "Rust guide",]
+        );
+        let rust_id = all.iter().find(|a| a.title == "Rust guide").unwrap().id;
+        let food_id = all.iter().find(|a| a.title == "Cooking notes").unwrap().id;
+
+        let tag_id = {
+            let writer = db.writer().unwrap();
+            writer
+                .execute(
+                    "INSERT INTO tags(name, color, position) VALUES ('Tech', 'blue', 0)",
+                    [],
+                )
+                .unwrap();
+            let id = writer.last_insert_rowid();
+            writer
+                .execute(
+                    "INSERT INTO article_tags(article_id, tag_id) VALUES (?1, ?2)",
+                    (rust_id, id),
+                )
+                .unwrap();
+            id
+        };
+
+        let searched = db
+            .list_articles(&ArticleFilter {
+                search: Some("rust language".to_string()),
+                ..ArticleFilter::default()
+            })
+            .unwrap();
+        assert_eq!(searched.len(), 1);
+        assert_eq!(searched[0].id, rust_id);
+        assert!(db
+            .list_articles(&ArticleFilter {
+                search: Some("---".to_string()),
+                ..ArticleFilter::default()
+            })
+            .unwrap()
+            .is_empty());
+
+        let tagged = db
+            .list_articles(&ArticleFilter {
+                kind: ArticleFilterKind::Tag(tag_id),
+                oldest_first: true,
+                ..ArticleFilter::default()
+            })
+            .unwrap();
+        assert_eq!(tagged.iter().map(|a| a.id).collect::<Vec<_>>(), [rust_id]);
+        assert_eq!(db.list_tag_summaries().unwrap()[0].article_count, 1);
+
+        let one = db
+            .list_articles(&ArticleFilter {
+                limit: Some(-5),
+                ..ArticleFilter::default()
+            })
+            .unwrap();
+        assert_eq!(one.len(), 1, "invalid limits are clamped to one row");
+        assert_eq!(db.count_articles(&ArticleFilter::default()).unwrap(), 2);
+
+        db.set_article_starred(rust_id, true).unwrap();
+        db.set_article_read_later(food_id, true).unwrap();
+        assert_eq!(
+            db.article_counts().unwrap(),
+            ArticleCounts {
+                all: 2,
+                unread: 2,
+                starred: 1,
+                read_later: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn article_state_and_extracted_body_update_transactional_projections() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        db.upsert_article(
+            feed_id,
+            &NewArticle {
+                guid: "article".to_string(),
+                url: Some("https://example.com/article".to_string()),
+                title: "Article".to_string(),
+                author: None,
+                summary: None,
+                content_html: Some("<p>Short feed body</p>".to_string()),
+                body_text: "Short feed body".to_string(),
+                image_url: None,
+                published_at: None,
+                enclosures: Vec::new(),
+            },
+        )
+        .unwrap();
+        let article_id = db.list_articles(&ArticleFilter::default()).unwrap()[0].id;
+
+        db.set_article_starred(article_id, true).unwrap();
+        db.set_article_starred(article_id, true).unwrap();
+        let changed = db
+            .mark_all_read(&ArticleFilter {
+                kind: ArticleFilterKind::Starred,
+                ..ArticleFilter::default()
+            })
+            .unwrap();
+        assert_eq!(changed, 1);
+        assert_eq!(
+            db.mark_all_read(&ArticleFilter {
+                kind: ArticleFilterKind::Starred,
+                ..ArticleFilter::default()
+            })
+            .unwrap(),
+            0,
+            "bulk state updates are idempotent"
+        );
+        assert!(db.get_article_detail(article_id).unwrap().is_read);
+        assert_eq!(
+            db.set_article_read(999_999, true).unwrap_err().code(),
+            "articleNotFound"
+        );
+
+        {
+            let writer = db.writer().unwrap();
+            writer
+                .execute(
+                    "UPDATE articles SET translated_html = '<p>old</p>', translated_lang = 'ja' WHERE id = ?1",
+                    [article_id],
+                )
+                .unwrap();
+        }
+        db.set_extracted_html(
+            article_id,
+            "<p>Complete extracted searchable body</p>",
+            Some("https://example.com/lead.jpg"),
+        )
+        .unwrap();
+        let detail = db.get_article_detail(article_id).unwrap();
+        assert_eq!(detail.translated_html, None);
+        assert_eq!(detail.translated_lang, None);
+        assert_eq!(
+            detail.image_url.as_deref(),
+            Some("https://example.com/lead.jpg")
+        );
+        assert_eq!(
+            db.count_articles(&ArticleFilter {
+                search: Some("searchable".to_string()),
+                ..ArticleFilter::default()
+            })
+            .unwrap(),
+            1
+        );
+
+        let reader = db.reader().unwrap();
+        let fields: Vec<String> = reader
+            .prepare("SELECT field FROM change_log WHERE entity = 'article' ORDER BY seq")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(fields, ["starred", "read"]);
     }
 }

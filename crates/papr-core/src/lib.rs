@@ -6,6 +6,7 @@ pub mod db;
 pub mod dto;
 pub use dto::*;
 pub mod error;
+pub mod extraction;
 pub mod ingestion;
 pub mod opml;
 pub mod services;
@@ -65,7 +66,7 @@ impl PaprCore {
         Ok(Self {
             feed_service: FeedService::new(Arc::clone(&db)),
             folder_service: FolderService::new(Arc::clone(&db)),
-            article_service: ArticleService::new(Arc::clone(&db)),
+            article_service: ArticleService::new(Arc::clone(&db), Arc::clone(&http)),
             ingestion_service: IngestionService::new(Arc::clone(&db), Arc::clone(&http)),
             opml_service: OpmlService::new(Arc::clone(&db)),
             settings_service: SettingsService::new(Arc::clone(&db)),

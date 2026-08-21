@@ -150,6 +150,9 @@ pub enum ArticleFilterKind {
 #[derive(Debug, Clone)]
 pub struct ArticleFilter {
     pub kind: ArticleFilterKind,
+    pub search: Option<String>,
+    pub unread_only: bool,
+    pub oldest_first: bool,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
@@ -158,10 +161,31 @@ impl Default for ArticleFilter {
     fn default() -> Self {
         Self {
             kind: ArticleFilterKind::All,
-            limit: None,
-            offset: None,
+            search: None,
+            unread_only: false,
+            oldest_first: false,
+            limit: Some(50),
+            offset: Some(0),
         }
     }
+}
+
+/// Counts shown by the article smart views.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ArticleCounts {
+    pub all: i64,
+    pub unread: i64,
+    pub starred: i64,
+    pub read_later: i64,
+}
+
+/// A tag exposed for read-only article filtering in phase 2.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagSummary {
+    pub id: i64,
+    pub name: String,
+    pub color: String,
+    pub article_count: i64,
 }
 
 /// Options for a feed refresh run.
@@ -202,6 +226,31 @@ pub struct SettingsSnapshot {
     pub theme: String,
     pub language: String,
     pub refresh_interval_min: i64,
+    pub reading: ReadingSettings,
+}
+
+/// Reader appearance and behaviour persisted by the Core settings service.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReadingSettings {
+    pub font: String,
+    pub font_size: f64,
+    pub line_height: f64,
+    pub content_width: f64,
+    pub show_reading_time: bool,
+    pub auto_extract: bool,
+}
+
+impl Default for ReadingSettings {
+    fn default() -> Self {
+        Self {
+            font: "system".to_string(),
+            font_size: 17.0,
+            line_height: 1.65,
+            content_width: 680.0,
+            show_reading_time: true,
+            auto_extract: false,
+        }
+    }
 }
 
 impl Default for SettingsSnapshot {
@@ -210,6 +259,7 @@ impl Default for SettingsSnapshot {
             theme: "system".to_string(),
             language: "en".to_string(),
             refresh_interval_min: 30,
+            reading: ReadingSettings::default(),
         }
     }
 }
