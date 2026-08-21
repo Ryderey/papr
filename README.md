@@ -82,6 +82,72 @@ On Windows you will typically find:
 - `src-tauri/target/release/bundle/msi/Papr_*.msi`
 - `src-tauri/target/release/bundle/nsis/Papr_*-setup.exe`
 
+### Android (Flutter)
+
+The Android client lives in `mobile/` and shares `papr-core` via Flutter Rust Bridge.
+
+#### Prerequisites (one-time)
+
+1. Install the Rust Android targets:
+
+   ```sh
+   rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+   ```
+
+2. Install the Android NDK (`30.0.14904198` is known to work) and point each Rust
+   target at its clang linker in `~/.cargo/config.toml`:
+
+   ```toml
+   [target.aarch64-linux-android]
+   linker = "<ndk>/toolchains/llvm/prebuilt/<host>/bin/aarch64-linux-android21-clang.cmd"
+   [target.armv7-linux-androideabi]
+   linker = "<ndk>/toolchains/llvm/prebuilt/<host>/bin/armv7a-linux-androideabi21-clang.cmd"
+   [target.i686-linux-android]
+   linker = "<ndk>/toolchains/llvm/prebuilt/<host>/bin/i686-linux-android21-clang.cmd"
+   [target.x86_64-linux-android]
+   linker = "<ndk>/toolchains/llvm/prebuilt/<host>/bin/x86_64-linux-android21-clang.cmd"
+   ```
+
+3. If Gradle plugin/dependency downloads are blocked (TLS handshake
+   interruptions to `plugins.gradle.org` etc.), add a Gradle init script that
+   injects a mirror (e.g. Aliyun) into `pluginManagement` and
+   `dependencyResolutionManagement` for every build.
+
+#### Regenerate the Rust↔Dart bindings (only when the bridge API changes)
+
+```sh
+flutter_rust_bridge_codegen generate --config-file rust_frb_codegen.yaml
+```
+
+#### Build the APK
+
+```sh
+cd mobile
+flutter build apk --debug --no-pub
+```
+
+`preBuild` automatically cross-compiles `papr-flutter-bridge` (and `papr-core`)
+for each Android ABI and bundles `libpapr_flutter_bridge.so` into the APK, so a
+plain `flutter build apk` picks up Rust changes with no extra step.
+
+- `--debug` produces a debug-signed APK for real devices. Use `--release` for a
+  shippable build.
+- `--no-pub` skips `flutter pub get` (deps are already locked).
+
+The APK is written to:
+
+```text
+mobile/build/app/outputs/flutter-apk/app-debug.apk
+```
+
+#### Install on a device
+
+Enable USB debugging on the phone, plug it in, then:
+
+```sh
+adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
+```
+
 ### Other useful scripts
 
 ```sh
