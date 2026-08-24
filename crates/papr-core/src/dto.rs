@@ -186,6 +186,73 @@ pub struct TagSummary {
     pub name: String,
     pub color: String,
     pub article_count: i64,
+    pub position: i64,
+}
+
+/// A user-defined filter applied to incoming and existing articles.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rule {
+    pub id: i64,
+    pub name: String,
+    pub enabled: bool,
+    pub feed_id: Option<i64>,
+    pub field: String,
+    pub query: String,
+    pub action: String,
+    pub position: i64,
+}
+
+/// A draft rule submitted by an adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuleInput {
+    pub name: String,
+    pub enabled: bool,
+    pub feed_id: Option<i64>,
+    pub field: String,
+    pub query: String,
+    pub action: String,
+}
+
+/// A dry-run of a rule against the existing article store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RulePreview {
+    pub count: i64,
+    pub samples: Vec<String>,
+}
+
+/// A persisted user annotation anchored to article plain text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Highlight {
+    pub id: i64,
+    pub article_id: i64,
+    pub quote: String,
+    pub prefix: String,
+    pub suffix: String,
+    /// UTF-16 code-unit offset, matching Flutter and the desktop webview.
+    pub text_offset: i64,
+    pub color: String,
+    pub note: String,
+    pub created_at: String,
+}
+
+/// Input for creating a highlight; IDs and timestamps are assigned by Core.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HighlightInput {
+    pub article_id: i64,
+    pub quote: String,
+    pub prefix: String,
+    pub suffix: String,
+    pub text_offset: i64,
+    pub color: String,
+    pub note: String,
+}
+
+/// A stored highlight plus its current location in reader text, if found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedHighlight {
+    pub highlight: Highlight,
+    pub start: Option<i64>,
+    pub end: Option<i64>,
 }
 
 /// Options for a feed refresh run.

@@ -15,7 +15,8 @@ use rusqlite_migration::{Migrations, M};
 
 use crate::dto::{
     ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure,
-    Feed, Folder, NewArticle, SourceType, TagSummary,
+    Feed, Folder, Highlight, HighlightInput, NewArticle, ResolvedHighlight, Rule, RuleInput,
+    RulePreview, SourceType, Tag, TagSummary,
 };
 use crate::error::{CoreError, ErrorCategory};
 
@@ -120,6 +121,157 @@ impl ArticleStateField {
             Self::ReadLater => "read_later",
         }
     }
+}
+
+const TAG_COLORS: &[&str] = &[
+    "clay", "amber", "pine", "teal", "indigo", "violet", "rose", "slate",
+];
+const HIGHLIGHT_COLORS: &[&str] = &["yellow", "green", "blue", "pink", "purple"];
+
+fn ensure_tag_color(color: &str) -> Result<(), CoreError> {
+    if TAG_COLORS.contains(&color) {
+        Ok(())
+    } else {
+        Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "invalidTagColor",
+            None,
+        ))
+    }
+}
+
+fn ensure_highlight_color(color: &str) -> Result<(), CoreError> {
+    if HIGHLIGHT_COLORS.contains(&color) {
+        Ok(())
+    } else {
+        Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "invalidHighlightColor",
+            None,
+        ))
+    }
+}
+
+fn validate_rule(input: &RuleInput) -> Result<(), CoreError> {
+    if input.name.trim().is_empty() {
+        return Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "emptyRuleName",
+            None,
+        ));
+    }
+    if input.query.trim().is_empty() {
+        return Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "emptyRuleQuery",
+            None,
+        ));
+    }
+    if !matches!(input.field.as_str(), "title" | "author" | "content" | "any") {
+        return Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "invalidRuleField",
+            None,
+        ));
+    }
+    if !matches!(input.action.as_str(), "skip" | "read" | "star") {
+        return Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "invalidRuleAction",
+            None,
+        ));
+    }
+    Ok(())
+}
+
+fn row_to_rule(row: &rusqlite::Row<'_>) -> rusqlite::Result<Rule> {
+    Ok(Rule {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        enabled: row.get::<_, i64>(2)? != 0,
+        feed_id: row.get(3)?,
+        field: row.get(4)?,
+        query: row.get(5)?,
+        action: row.get(6)?,
+        position: row.get(7)?,
+    })
+}
+
+fn row_to_highlight(row: &rusqlite::Row<'_>) -> rusqlite::Result<Highlight> {
+    Ok(Highlight {
+        id: row.get(0)?,
+        article_id: row.get(1)?,
+        quote: row.get(2)?,
+        prefix: row.get(3)?,
+        suffix: row.get(4)?,
+        text_offset: row.get(5)?,
+        color: row.get(6)?,
+        note: row.get(7)?,
+        created_at: row.get(8)?,
+    })
+}
+
+fn rule_matches(rule: &Rule, feed_id: i64, article: &NewArticle) -> bool {
+    if rule.feed_id.is_some_and(|id| id != feed_id) {
+        return false;
+    }
+    let author = article.author.as_deref().unwrap_or("").to_lowercase();
+    let fields = match rule.field.as_str() {
+        "author" => vec![author],
+        "content" => vec![article.body_text.to_lowercase()],
+        "any" => vec![
+            article.title.to_lowercase(),
+            author,
+            article.body_text.to_lowercase(),
+        ],
+        _ => vec![article.title.to_lowercase()],
+    };
+    rule.query
+        .split(',')
+        .map(|term| term.trim().to_lowercase())
+        .filter(|term| !term.is_empty())
+        .any(|term| fields.iter().any(|field| field.contains(&term)))
+}
+
+fn rule_match_where(
+    field: &str,
+    query: &str,
+    feed_id: Option<i64>,
+) -> Option<(String, Vec<rusqlite::types::Value>)> {
+    let terms: Vec<_> = query
+        .split(',')
+        .map(|term| term.trim().to_lowercase())
+        .filter(|term| !term.is_empty())
+        .collect();
+    if terms.is_empty() {
+        return None;
+    }
+    let columns: &[&str] = match field {
+        "author" => &["author"],
+        "content" => &["body_text"],
+        "any" => &["title", "author", "body_text"],
+        _ => &["title"],
+    };
+    let mut clauses = Vec::new();
+    let mut values = Vec::new();
+    for term in terms {
+        let escaped = term
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+        for column in columns {
+            clauses.push(format!(
+                "unicode_lower(COALESCE({column}, '')) LIKE ? ESCAPE '\\'"
+            ));
+            values.push(rusqlite::types::Value::Text(format!("%{escaped}%")));
+        }
+    }
+    let mut sql = format!("({})", clauses.join(" OR "));
+    if let Some(feed_id) = feed_id {
+        sql.push_str(" AND feed_id = ?");
+        values.push(feed_id.into());
+    }
+    Some((sql, values))
 }
 
 /// Append-only schema migrations. Never edit a shipped migration — add a new
@@ -1107,7 +1259,7 @@ impl Db {
         let conn = self.reader()?;
         let mut stmt = conn
             .prepare(
-                "SELECT t.id, t.name, t.color, COUNT(at.article_id) \
+                "SELECT t.id, t.name, t.color, COUNT(at.article_id), t.position \
                  FROM tags t LEFT JOIN article_tags at ON at.tag_id = t.id \
                  WHERE t.deleted_at IS NULL \
                  GROUP BY t.id ORDER BY t.position, t.name COLLATE NOCASE",
@@ -1120,6 +1272,173 @@ impl Db {
                     name: row.get(1)?,
                     color: row.get(2)?,
                     article_count: row.get(3)?,
+                    position: row.get(4)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn create_tag(&self, name: &str) -> Result<i64, CoreError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyTagName",
+                None,
+            ));
+        }
+        self.transact(|tx| {
+            if let Some(id) = tx.query_row(
+                "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE AND deleted_at IS NULL",
+                [name], |row| row.get(0),
+            ).optional().map_err(|e| CoreError::Db(e.to_string()))? {
+                return Ok(id);
+            }
+            let position: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM tags", [], |row| row.get(0),
+            ).map_err(|e| CoreError::Db(e.to_string()))?;
+            let color = TAG_COLORS[position as usize % TAG_COLORS.len()];
+            tx.execute(
+                "INSERT INTO tags(name, color, position, updated_at) VALUES (?1, ?2, ?3, datetime('now'))",
+                (name, color, position),
+            ).map_err(|e| CoreError::Db(e.to_string()))?;
+            let id = tx.last_insert_rowid();
+            append_change_log(tx, "tag", id, "upsert", None, None)?;
+            Ok(id)
+        })
+    }
+
+    pub fn rename_tag(&self, id: i64, name: &str) -> Result<(), CoreError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyTagName",
+                None,
+            ));
+        }
+        self.transact(|tx| {
+            let clash: Option<i64> = tx.query_row(
+                "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE AND id != ?2 AND deleted_at IS NULL",
+                (name, id), |row| row.get(0),
+            ).optional().map_err(|e| CoreError::Db(e.to_string()))?;
+            if clash.is_some() {
+                return Err(CoreError::coded(ErrorCategory::InvalidInput, "tagNameExists", None));
+            }
+            ensure_changed(tx.execute(
+                "UPDATE tags SET name = ?2, updated_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                (id, name),
+            ).map_err(|e| CoreError::Db(e.to_string()))?, "tagNotFound", id)?;
+            append_change_log(tx, "tag", id, "upsert", None, None)
+        })
+    }
+
+    pub fn set_tag_color(&self, id: i64, color: &str) -> Result<(), CoreError> {
+        ensure_tag_color(color)?;
+        self.transact(|tx| {
+            ensure_changed(tx.execute(
+                "UPDATE tags SET color = ?2, updated_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                (id, color),
+            ).map_err(|e| CoreError::Db(e.to_string()))?, "tagNotFound", id)?;
+            append_change_log(tx, "tag", id, "upsert", None, None)
+        })
+    }
+
+    pub fn reorder_tags(&self, ids: &[i64]) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            let mut current = tx
+                .prepare("SELECT id FROM tags WHERE deleted_at IS NULL")
+                .map_err(|e| CoreError::Db(e.to_string()))?
+                .query_map([], |row| row.get::<_, i64>(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            let mut supplied = ids.to_vec();
+            current.sort_unstable();
+            supplied.sort_unstable();
+            if current != supplied {
+                return Err(CoreError::coded(
+                    ErrorCategory::InvalidInput,
+                    "invalidTagOrder",
+                    None,
+                ));
+            }
+            for (position, id) in ids.iter().enumerate() {
+                tx.execute(
+                    "UPDATE tags SET position = ?2, updated_at = datetime('now') WHERE id = ?1",
+                    (*id, position as i64),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+                append_change_log(tx, "tag", *id, "upsert", None, None)?;
+            }
+            Ok(())
+        })
+    }
+
+    pub fn delete_tag(&self, id: i64) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            ensure_changed(
+                tx.execute("DELETE FROM tags WHERE id = ?1", [id])
+                    .map_err(|e| CoreError::Db(e.to_string()))?,
+                "tagNotFound",
+                id,
+            )?;
+            append_change_log(tx, "tag", id, "delete", None, None)
+        })
+    }
+
+    pub fn set_article_tag(
+        &self,
+        article_id: i64,
+        tag_id: i64,
+        attached: bool,
+    ) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            let article_exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM articles WHERE id = ?1)", [article_id], |row| row.get(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if !article_exists {
+                return Err(CoreError::coded(ErrorCategory::NotFound, "articleNotFound", Some(article_id.to_string())));
+            }
+            let tag_exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM tags WHERE id = ?1 AND deleted_at IS NULL)", [tag_id], |row| row.get(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if !tag_exists {
+                return Err(CoreError::coded(ErrorCategory::NotFound, "tagNotFound", Some(tag_id.to_string())));
+            }
+            let sql = if attached {
+                "INSERT INTO article_tags(article_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING"
+            } else {
+                "DELETE FROM article_tags WHERE article_id = ?1 AND tag_id = ?2"
+            };
+            let changed = tx
+                .execute(sql, (article_id, tag_id))
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if changed == 0 {
+                return Ok(());
+            }
+            append_change_log(
+                tx,
+                "article",
+                article_id,
+                "upsert",
+                Some("tags"),
+                Some(if attached { "attach" } else { "detach" }),
+            )
+        })
+    }
+
+    fn tags_for_article(conn: &Connection, article_id: i64) -> Result<Vec<Tag>, CoreError> {
+        let mut stmt = conn.prepare(
+            "SELECT t.id, t.name, t.color FROM tags t JOIN article_tags at ON at.tag_id = t.id \
+             WHERE at.article_id = ?1 AND t.deleted_at IS NULL ORDER BY t.position, t.name COLLATE NOCASE",
+        ).map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([article_id], |row| {
+                Ok(Tag {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    color: row.get(2)?,
                 })
             })
             .map_err(|e| CoreError::Db(e.to_string()))?;
@@ -1159,7 +1478,7 @@ impl Db {
                     translated_html: row.get(15)?,
                     translated_lang: row.get(16)?,
                     enclosures: Vec::new(), // loaded below
-                    tags: Vec::new(),       // phase 1: not loaded
+                    tags: Vec::new(),
                 })
             })
             .map_err(|e| match e {
@@ -1172,6 +1491,7 @@ impl Db {
             })?;
 
         row.enclosures = Self::load_enclosures(&conn, article_id)?;
+        row.tags = Self::tags_for_article(&conn, article_id)?;
 
         Ok(row)
     }
@@ -1308,6 +1628,239 @@ impl Db {
         })
     }
 
+    pub fn list_rules(&self) -> Result<Vec<Rule>, CoreError> {
+        let conn = self.reader()?;
+        Self::list_rules_locked(&conn, false)
+    }
+
+    fn list_rules_locked(conn: &Connection, active_only: bool) -> Result<Vec<Rule>, CoreError> {
+        let where_sql = if active_only {
+            "WHERE enabled = 1 AND deleted_at IS NULL"
+        } else {
+            "WHERE deleted_at IS NULL"
+        };
+        let mut stmt = conn.prepare(&format!(
+            "SELECT id, name, enabled, feed_id, field, query, action, position FROM rules {where_sql} ORDER BY position, id"
+        )).map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], row_to_rule)
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn create_rule(&self, input: &RuleInput) -> Result<i64, CoreError> {
+        validate_rule(input)?;
+        self.transact(|tx| {
+            let position: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM rules WHERE deleted_at IS NULL", [], |row| row.get(0),
+            ).map_err(|e| CoreError::Db(e.to_string()))?;
+            tx.execute(
+                "INSERT INTO rules(name, enabled, feed_id, field, query, action, position, updated_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
+                (input.name.trim(), input.enabled, input.feed_id, &input.field, input.query.trim(), &input.action, position),
+            ).map_err(|e| CoreError::Db(e.to_string()))?;
+            let id = tx.last_insert_rowid();
+            append_change_log(tx, "rule", id, "upsert", None, None)?;
+            Ok(id)
+        })
+    }
+
+    pub fn update_rule(&self, id: i64, input: &RuleInput) -> Result<(), CoreError> {
+        validate_rule(input)?;
+        self.transact(|tx| {
+            ensure_changed(tx.execute(
+                "UPDATE rules SET name = ?2, enabled = ?3, feed_id = ?4, field = ?5, query = ?6, action = ?7, \
+                 updated_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                (id, input.name.trim(), input.enabled, input.feed_id, &input.field, input.query.trim(), &input.action),
+            ).map_err(|e| CoreError::Db(e.to_string()))?, "ruleNotFound", id)?;
+            append_change_log(tx, "rule", id, "upsert", None, None)
+        })
+    }
+
+    pub fn delete_rule(&self, id: i64) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            ensure_changed(
+                tx.execute("DELETE FROM rules WHERE id = ?1", [id])
+                    .map_err(|e| CoreError::Db(e.to_string()))?,
+                "ruleNotFound",
+                id,
+            )?;
+            append_change_log(tx, "rule", id, "delete", None, None)
+        })
+    }
+
+    pub fn preview_rule(&self, input: &RuleInput) -> Result<RulePreview, CoreError> {
+        validate_rule(input)?;
+        let Some((where_sql, values)) =
+            rule_match_where(&input.field, input.query.trim(), input.feed_id)
+        else {
+            return Ok(RulePreview {
+                count: 0,
+                samples: Vec::new(),
+            });
+        };
+        let conn = self.reader()?;
+        let count = conn
+            .query_row(
+                &format!("SELECT COUNT(*) FROM articles WHERE {where_sql}"),
+                rusqlite::params_from_iter(values.iter().cloned()),
+                |row| row.get(0),
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT title FROM articles WHERE {where_sql} ORDER BY datetime(COALESCE(published_at, fetched_at)) DESC, id DESC LIMIT 5"
+        )).map_err(|e| CoreError::Db(e.to_string()))?;
+        let samples = stmt
+            .query_map(rusqlite::params_from_iter(values), |row| row.get(0))
+            .map_err(|e| CoreError::Db(e.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(RulePreview { count, samples })
+    }
+
+    pub fn apply_rule_to_existing(&self, input: &RuleInput) -> Result<i64, CoreError> {
+        validate_rule(input)?;
+        self.transact(|tx| {
+            let Some((where_sql, values)) = rule_match_where(&input.field, input.query.trim(), input.feed_id) else {
+                return Ok(0);
+            };
+            let protect = "is_starred = 0 AND read_later = 0 AND NOT EXISTS(SELECT 1 FROM highlights h WHERE h.article_id = articles.id)";
+            let sql = match input.action.as_str() {
+                "skip" => format!("SELECT id FROM articles WHERE ({where_sql}) AND {protect}"),
+                "read" => format!("SELECT id FROM articles WHERE ({where_sql}) AND is_read = 0"),
+                "star" => format!("SELECT id FROM articles WHERE ({where_sql}) AND is_starred = 0"),
+                _ => unreachable!(),
+            };
+            let ids = tx.prepare(&sql).map_err(|e| CoreError::Db(e.to_string()))?
+                .query_map(rusqlite::params_from_iter(values), |row| row.get::<_, i64>(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>().map_err(|e| CoreError::Db(e.to_string()))?;
+            for id in &ids {
+                match input.action.as_str() {
+                    "skip" => { tx.execute("DELETE FROM articles WHERE id = ?1", [id]).map_err(|e| CoreError::Db(e.to_string()))?; append_change_log(tx, "article", *id, "delete", None, None)?; }
+                    "read" => { tx.execute("UPDATE articles SET is_read = 1 WHERE id = ?1", [id]).map_err(|e| CoreError::Db(e.to_string()))?; append_change_log(tx, "article", *id, "upsert", Some("read"), Some("1"))?; }
+                    "star" => { tx.execute("UPDATE articles SET is_starred = 1 WHERE id = ?1", [id]).map_err(|e| CoreError::Db(e.to_string()))?; append_change_log(tx, "article", *id, "upsert", Some("starred"), Some("1"))?; }
+                    _ => unreachable!(),
+                }
+            }
+            Ok(ids.len() as i64)
+        })
+    }
+
+    pub fn create_highlight(&self, input: &HighlightInput) -> Result<i64, CoreError> {
+        let quote = input.quote.trim();
+        if quote.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "emptyHighlight",
+                None,
+            ));
+        }
+        if input.text_offset < 0 {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidHighlightOffset",
+                None,
+            ));
+        }
+        ensure_highlight_color(&input.color)?;
+        self.transact(|tx| {
+            let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM articles WHERE id = ?1)", [input.article_id], |row| row.get(0))
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if !exists {
+                return Err(CoreError::coded(ErrorCategory::NotFound, "articleNotFound", Some(input.article_id.to_string())));
+            }
+            tx.execute(
+                "INSERT INTO highlights(article_id, quote, prefix, suffix, text_offset, color, note, updated_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
+                (input.article_id, quote, &input.prefix, &input.suffix, input.text_offset, &input.color, &input.note),
+            ).map_err(|e| CoreError::Db(e.to_string()))?;
+            let id = tx.last_insert_rowid();
+            append_change_log(tx, "highlight", id, "upsert", None, None)?;
+            Ok(id)
+        })
+    }
+
+    pub fn list_highlights(&self, article_id: i64) -> Result<Vec<Highlight>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, article_id, quote, prefix, suffix, text_offset, color, note, created_at FROM highlights \
+             WHERE article_id = ?1 AND deleted_at IS NULL ORDER BY text_offset, id",
+        ).map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([article_id], row_to_highlight)
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn list_all_highlights(&self) -> Result<Vec<Highlight>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, article_id, quote, prefix, suffix, text_offset, color, note, created_at FROM highlights \
+             WHERE deleted_at IS NULL ORDER BY created_at DESC, id DESC",
+        ).map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map([], row_to_highlight)
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    pub fn update_highlight_note(&self, id: i64, note: &str) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            ensure_changed(tx.execute(
+                "UPDATE highlights SET note = ?2, updated_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                (id, note),
+            ).map_err(|e| CoreError::Db(e.to_string()))?, "highlightNotFound", id)?;
+            append_change_log(tx, "highlight", id, "upsert", Some("note"), Some(note))
+        })
+    }
+
+    pub fn set_highlight_color(&self, id: i64, color: &str) -> Result<(), CoreError> {
+        ensure_highlight_color(color)?;
+        self.transact(|tx| {
+            ensure_changed(tx.execute(
+                "UPDATE highlights SET color = ?2, updated_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                (id, color),
+            ).map_err(|e| CoreError::Db(e.to_string()))?, "highlightNotFound", id)?;
+            append_change_log(tx, "highlight", id, "upsert", Some("color"), Some(color))
+        })
+    }
+
+    pub fn delete_highlight(&self, id: i64) -> Result<(), CoreError> {
+        self.transact(|tx| {
+            ensure_changed(
+                tx.execute("DELETE FROM highlights WHERE id = ?1", [id])
+                    .map_err(|e| CoreError::Db(e.to_string()))?,
+                "highlightNotFound",
+                id,
+            )?;
+            append_change_log(tx, "highlight", id, "delete", None, None)
+        })
+    }
+
+    pub fn resolve_highlights(
+        &self,
+        article_id: i64,
+        text: &str,
+    ) -> Result<Vec<ResolvedHighlight>, CoreError> {
+        self.list_highlights(article_id).map(|highlights| {
+            highlights
+                .into_iter()
+                .map(|highlight| {
+                    let range = resolve_highlight_anchor(text, &highlight);
+                    ResolvedHighlight {
+                        highlight,
+                        start: range.map(|r| r.0),
+                        end: range.map(|r| r.1),
+                    }
+                })
+                .collect()
+        })
+    }
+
     /// Read a single settings value.
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, CoreError> {
         let conn = self.reader()?;
@@ -1382,10 +1935,23 @@ impl Db {
         feed_id: i64,
         article: &NewArticle,
     ) -> Result<bool, CoreError> {
+        let rules = Self::list_rules_locked(&*tx, true)?;
+        let (mut is_read, mut is_starred) = (false, false);
+        for rule in &rules {
+            if !rule_matches(rule, feed_id, article) {
+                continue;
+            }
+            match rule.action.as_str() {
+                "skip" => return Ok(false),
+                "read" => is_read = true,
+                "star" => is_starred = true,
+                _ => unreachable!(),
+            }
+        }
         let inserted = tx.execute(
             "INSERT INTO articles \
-             (feed_id, guid, url, title, author, summary, content_html, body_text, image_url, published_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+             (feed_id, guid, url, title, author, summary, content_html, body_text, image_url, published_at, is_read, is_starred) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
              ON CONFLICT(feed_id, guid) DO NOTHING",
             (
                 feed_id,
@@ -1398,6 +1964,8 @@ impl Db {
                 &article.body_text,
                 &article.image_url,
                 &article.published_at,
+                is_read,
+                is_starred,
             ),
         )
         .map_err(|e| CoreError::Db(e.to_string()))?;
@@ -1419,6 +1987,20 @@ impl Db {
                 (article_id, &enc.url, &enc.mime_type, &enc.length),
             )
             .map_err(|e| CoreError::Db(e.to_string()))?;
+        }
+
+        if is_read {
+            append_change_log(tx, "article", article_id, "upsert", Some("read"), Some("1"))?;
+        }
+        if is_starred {
+            append_change_log(
+                tx,
+                "article",
+                article_id,
+                "upsert",
+                Some("starred"),
+                Some("1"),
+            )?;
         }
 
         Ok(true)
@@ -1518,6 +2100,99 @@ fn is_unique_violation(e: &rusqlite::Error) -> bool {
     )
 }
 
+fn ensure_changed(changed: usize, code: &'static str, id: i64) -> Result<(), CoreError> {
+    if changed == 0 {
+        Err(CoreError::coded(
+            ErrorCategory::NotFound,
+            code,
+            Some(id.to_string()),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+/// Locate a persisted highlight in current reader text. Offsets are UTF-16
+/// code units so the result matches Flutter and the desktop webview.
+pub fn resolve_highlight_anchor(text: &str, highlight: &Highlight) -> Option<(i64, i64)> {
+    if highlight.quote.is_empty() {
+        return None;
+    }
+    if let Some(start) = byte_index_at_utf16_offset(text, highlight.text_offset) {
+        let end = start.checked_add(highlight.quote.len())?;
+        if text.get(start..end) == Some(highlight.quote.as_str()) {
+            return Some((
+                highlight.text_offset,
+                highlight.text_offset + highlight.quote.encode_utf16().count() as i64,
+            ));
+        }
+    }
+
+    let candidates = quote_occurrences(text, &highlight.quote);
+    if candidates.is_empty() {
+        return None;
+    }
+    let start = candidates.into_iter().max_by_key(|start| {
+        let end = *start + highlight.quote.len();
+        let score = common_suffix_len(&text[..*start], &highlight.prefix)
+            + common_prefix_len(&text[end..], &highlight.suffix);
+        let offset = text[..*start].encode_utf16().count() as i64;
+        (
+            score,
+            std::cmp::Reverse((offset - highlight.text_offset).abs()),
+        )
+    })?;
+    let start_utf16 = text[..start].encode_utf16().count() as i64;
+    let end_utf16 = start_utf16 + highlight.quote.encode_utf16().count() as i64;
+    Some((start_utf16, end_utf16))
+}
+
+fn byte_index_at_utf16_offset(text: &str, target: i64) -> Option<usize> {
+    if target < 0 {
+        return None;
+    }
+    let target = target as usize;
+    let mut offset = 0;
+    for (index, ch) in text.char_indices() {
+        if offset == target {
+            return Some(index);
+        }
+        offset += ch.len_utf16();
+    }
+    (offset == target).then_some(text.len())
+}
+
+fn quote_occurrences(text: &str, quote: &str) -> Vec<usize> {
+    let mut results = Vec::new();
+    let mut from = 0;
+    while let Some(relative) = text[from..].find(quote) {
+        let start = from + relative;
+        results.push(start);
+        from = start
+            + text[start..]
+                .chars()
+                .next()
+                .expect("quote is non-empty")
+                .len_utf8();
+    }
+    results
+}
+
+fn common_suffix_len(a: &str, b: &str) -> usize {
+    a.chars()
+        .rev()
+        .zip(b.chars().rev())
+        .take_while(|(left, right)| left == right)
+        .count()
+}
+
+fn common_prefix_len(a: &str, b: &str) -> usize {
+    a.chars()
+        .zip(b.chars())
+        .take_while(|(left, right)| left == right)
+        .count()
+}
+
 /// Append a change-log entry inside an open transaction. Must be called in the
 /// same transaction as the business write so the two commit or roll back
 /// together. `field`/`value` are only meaningful for partial-entity changes
@@ -1554,6 +2229,21 @@ fn next_seq(tx: &rusqlite::Transaction) -> Result<i64, CoreError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_article(guid: &str, title: &str) -> NewArticle {
+        NewArticle {
+            guid: guid.to_string(),
+            url: Some(format!("https://example.com/{guid}")),
+            title: title.to_string(),
+            author: Some("CAFÉ Author".to_string()),
+            summary: None,
+            content_html: None,
+            body_text: "A plain article body".to_string(),
+            image_url: None,
+            published_at: None,
+            enclosures: Vec::new(),
+        }
+    }
 
     #[test]
     fn duplicate_article_is_not_counted_or_given_duplicate_enclosures() {
@@ -2134,5 +2824,171 @@ mod tests {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(fields, ["starred", "read"]);
+    }
+
+    #[test]
+    fn tags_are_normalized_ordered_and_do_not_delete_articles() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        db.upsert_article(feed_id, &test_article("tagged", "Tagged article"))
+            .unwrap();
+        let article_id = db.list_articles(&ArticleFilter::default()).unwrap()[0].id;
+
+        let rust = db.create_tag(" Rust ").unwrap();
+        assert_eq!(db.create_tag("rust").unwrap(), rust);
+        let news = db.create_tag("News").unwrap();
+        db.set_tag_color(rust, "indigo").unwrap();
+        db.reorder_tags(&[news, rust]).unwrap();
+        db.set_article_tag(article_id, rust, true).unwrap();
+
+        let tags = db.list_tag_summaries().unwrap();
+        assert_eq!(
+            tags.iter().map(|tag| tag.id).collect::<Vec<_>>(),
+            [news, rust]
+        );
+        assert_eq!(tags[1].color, "indigo");
+        assert_eq!(tags[1].article_count, 1);
+        assert_eq!(
+            db.get_article_detail(article_id).unwrap().tags[0].name,
+            "Rust"
+        );
+
+        assert_eq!(
+            db.rename_tag(news, "RUST").unwrap_err().code(),
+            "tagNameExists"
+        );
+        db.delete_tag(rust).unwrap();
+        assert!(db.get_article_detail(article_id).is_ok());
+        assert!(db.get_article_detail(article_id).unwrap().tags.is_empty());
+    }
+
+    #[test]
+    fn rules_share_unicode_matching_and_protect_saved_articles_from_skip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        for (guid, title) in [
+            ("ordinary", "CAFÉ %_ ordinary"),
+            ("starred", "café %_ starred"),
+            ("later", "Café %_ later"),
+            ("highlighted", "Café %_ highlighted"),
+        ] {
+            db.upsert_article(feed_id, &test_article(guid, title))
+                .unwrap();
+        }
+        let articles = db.list_articles(&ArticleFilter::default()).unwrap();
+        let find_id = |title: &str| {
+            articles
+                .iter()
+                .find(|article| article.title == title)
+                .unwrap()
+                .id
+        };
+        db.set_article_starred(find_id("café %_ starred"), true)
+            .unwrap();
+        db.set_article_read_later(find_id("Café %_ later"), true)
+            .unwrap();
+        db.create_highlight(&HighlightInput {
+            article_id: find_id("Café %_ highlighted"),
+            quote: "highlighted".to_string(),
+            prefix: "Café %_ ".to_string(),
+            suffix: String::new(),
+            text_offset: 9,
+            color: "yellow".to_string(),
+            note: String::new(),
+        })
+        .unwrap();
+
+        let skip = RuleInput {
+            name: "Discard literal café pattern".to_string(),
+            enabled: true,
+            feed_id: Some(feed_id),
+            field: "title".to_string(),
+            query: "café %_".to_string(),
+            action: "skip".to_string(),
+        };
+        let preview = db.preview_rule(&skip).unwrap();
+        assert_eq!(preview.count, 4);
+        assert_eq!(db.apply_rule_to_existing(&skip).unwrap(), 1);
+        assert_eq!(db.count_articles(&ArticleFilter::default()).unwrap(), 3);
+
+        let incoming = RuleInput {
+            name: "Mark incoming".to_string(),
+            enabled: true,
+            feed_id: Some(feed_id),
+            field: "title".to_string(),
+            query: "incoming".to_string(),
+            action: "star".to_string(),
+        };
+        db.create_rule(&incoming).unwrap();
+        assert!(db
+            .upsert_article(feed_id, &test_article("incoming", "INCOMING story"))
+            .unwrap());
+        assert!(
+            db.list_articles(&ArticleFilter::default())
+                .unwrap()
+                .iter()
+                .find(|article| article.title == "INCOMING story")
+                .unwrap()
+                .is_starred
+        );
+        let starred_logs: i64 = db
+            .reader()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM change_log WHERE entity = 'article' AND field = 'starred'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(
+            starred_logs >= 2,
+            "incoming rule state is logged with the write"
+        );
+    }
+
+    #[test]
+    fn highlights_are_mutable_and_reanchor_by_context_or_utf16_offset() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        db.upsert_article(feed_id, &test_article("highlight", "Highlight article"))
+            .unwrap();
+        let article_id = db.list_articles(&ArticleFilter::default()).unwrap()[0].id;
+        let id = db
+            .create_highlight(&HighlightInput {
+                article_id,
+                quote: "target".to_string(),
+                prefix: "nearby ".to_string(),
+                suffix: " tail".to_string(),
+                text_offset: 0,
+                color: "yellow".to_string(),
+                note: String::new(),
+            })
+            .unwrap();
+        db.update_highlight_note(id, "Keep this").unwrap();
+        db.set_highlight_color(id, "blue").unwrap();
+        let highlight = db.list_highlights(article_id).unwrap().pop().unwrap();
+        assert_eq!(highlight.note, "Keep this");
+        assert_eq!(highlight.color, "blue");
+
+        let text = "begin target finish, nearby target tail";
+        let start = text.find("nearby target").unwrap() + "nearby ".len();
+        let expected = text[..start].encode_utf16().count() as i64;
+        assert_eq!(
+            resolve_highlight_anchor(text, &highlight),
+            Some((expected, expected + 6))
+        );
+
+        let emoji = Highlight {
+            text_offset: 3,
+            prefix: String::new(),
+            suffix: String::new(),
+            ..highlight
+        };
+        assert_eq!(resolve_highlight_anchor("🙂 target", &emoji), Some((3, 9)));
+        db.delete_highlight(id).unwrap();
+        assert!(db.list_all_highlights().unwrap().is_empty());
     }
 }
