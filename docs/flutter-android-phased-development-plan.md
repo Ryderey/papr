@@ -1,6 +1,6 @@
 # Papr Flutter Android 分阶段开发计划
 
-> 状态：已确认，可拆分为 Trellis 子任务执行  
+> 状态：2026-08-24 按移动端适配分析重新收敛，可拆分为 Trellis 子任务执行
 > 目标平台：Android 10+  
 > 最终交付：可进入 Google Play 内测的 Release Candidate  
 > 适用对象：负责 `papr-core`、Flutter Rust Bridge、Flutter UI、Android 平台集成和质量检查的 Agent
@@ -21,17 +21,24 @@
 - `cd mobile && flutter test`：2 项测试通过。
 - `cd mobile && flutter analyze`：无问题。
 
-最终 Flutter 应用需要与桌面端核心业务能力基本一致，包括：
+最终 Flutter 应用以移动端高价值的数据与内容能力为目标，包括：
 
 - 订阅源、文件夹、Feed 发现、OPML、手动与后台刷新。
 - 智能视图、全文搜索、全文提取、阅读设置。
 - 已读、收藏、稍后读、标签、规则、高亮、分享、浏览器打开。
-- 翻译、AI 摘要、追问、文章问答和 Digest。
-- Podcast 音频、Newsletter 来源。
+- 翻译与 AI 摘要。
+- Podcast 音频与 Android 后台播放。
 - FreshRSS/Miniflux 同步，以及未来 Papr 多端同步所需的数据与接口基础。
-- 本地化、通知、存储维护、网络与安全设置。
+- 本地化、后台刷新、通知与凭据安全。
 
-桌面专属能力不移植：托盘、桌面全局快捷键、Tauri 子 WebView、桌面自动更新器。iOS 保持可移植性，但不进入本计划验收矩阵。
+范围以 `docs/desktop-mobile-porting-feature-analysis.md` 为准。桌面专属能力、低价值半成品和依赖鼠标/键盘/窗口的交互不进入移动端 RC；Android 必须提供的后台、媒体、通知与凭据能力按平台机制重新实现，不复用桌面运行时模型。iOS 保持可移植性，但不进入本计划验收矩阵。
+
+### 1.1 明确不做
+
+- 托盘、窗口状态、开机自启、Dock/任务栏角标、应用内自动更新、Tauri 子 WebView。
+- 桌面快捷键、命令面板、hover 预览、右键菜单、桌面拖拽、专注模式、滚到底自动标已读、内嵌 YouTube iframe。
+- Send to Kindle、AI Ask/RAG、AI Digest、Newsletter/IMAP、实验性内容去重。
+- RSSHub 自建实例配置、存储统计/VACUUM、代理/并发度等高级运维设置不进入本轮 RC；已有基础 RSSHub URL 支持不回退。
 
 ## 2. 执行合同
 
@@ -59,7 +66,7 @@
 P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 ```
 
-每个阶段都应作为可独立验证的 Trellis 任务；复杂阶段可按 Rust Core、FRB、Flutter UI 和 Android 集成拆成子任务。下一阶段只能在当前阶段退出条件全部满足后开始。
+每个阶段都应作为可独立验证的 Trellis 任务；复杂阶段可按 Rust Core、FRB、Flutter UI 和 Android 集成拆成子任务。P0–P2 已完成，P3 已实现主体并进入收尾验收；P4–P7 按本次收敛后的范围重新建任务。下一阶段只能在当前阶段退出条件全部满足后开始。
 
 每个实现任务必须：
 
@@ -167,51 +174,46 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 - 高亮重新打开后可根据 quote、上下文和偏移重新定位；定位失败时保留记录并提示。
 - 任一事务失败时不产生业务状态与同步日志的半写入。
 
-## P4：翻译、AI 摘要与问答
+## P4：翻译与 AI 摘要
 
 ### 实施内容
 
 - 将现有 AI、翻译、HTML 分块和 SSE 解析逻辑从 Tauri 下沉到 `papr-core`。
 - 沿用 BYOK：支持 Anthropic Messages 与 OpenAI Chat Completions 兼容端点。
-- 支持多个 AI Profile、模型、Base URL、认证方式，以及按摘要/问答/翻译/Digest 指定默认 Profile。
+- 支持多个 AI Profile、模型、Base URL、认证方式，以及按摘要/翻译指定默认 Profile。
 - Profile 元数据存 SQLite；API Key 仅存 Android Keystore，不进入数据库、日志、备份或同步。
 - 支持现有摘要模板、流式生成、重新生成、重试、取消和本地缓存。
-- 支持摘要追问、当前文章问答和基于本地全文搜索的 Ask/RAG；不增加向量数据库。
-- 支持 AI Digest。
 - 翻译支持 LLM、Google、DeepL、Bing：
   - 按 HTML 块分批处理并保留结构。
   - 跳过代码、脚本和样式内容。
   - 流式报告批次进度。
   - 每篇文章缓存最近一次目标语言；切换语言时覆盖。
-- AI 摘要、翻译和临时问答默认不参与未来多端同步。
+- AI 摘要与翻译结果默认不参与未来多端同步。
 
 ### 退出条件
 
 - 模拟 HTTP/SSE 覆盖正常流、分片边界、中途错误、超时、取消和非法响应。
 - 翻译后链接、图片、代码块和 HTML 层级保持正确。
 - API Key 不出现在 SQLite、崩溃日志和用户错误消息中。
-- 切换文章不会串用摘要、翻译进度或追问上下文。
+- 切换文章不会串用摘要或翻译进度。
 - 无配置、无效密钥、限流和服务端错误均有可操作提示。
 
-## P5：高级来源、音频与移动端业务对齐
+## P5：Podcast 与 Android 原生播放
 
 ### 实施内容
 
 - 完成 Podcast 音频播放器：播放/暂停、进度、快退 15 秒、快进 30 秒、倍速和跨文章持续播放。
 - 使用 Android 媒体会话和通知实现后台播放及锁屏控制。
-- 完成 Newsletter/IMAP 来源添加、列表、删除和手动轮询。
-- Newsletter 密码存 Keystore；附件转换为 enclosure。
-- 补齐 RSS、社交来源、Podcast、Newsletter 的来源图标、显示规则和错误提示。
-- 完成全局高亮浏览和移动端高级设置入口。
+- 补齐 Podcast 来源图标、音频 enclosure 展示规则和错误提示。
+- 音频缓存仅按当前播放需要实现，不建设桌面式全局常驻运行模型。
 
 ### 退出条件
 
 - 播放器在文章切换、锁屏、蓝牙控制和网络恢复后状态一致。
-- IMAP 超时、认证失败、损坏邮件和重复邮件不会阻塞其他 Feed。
-- Newsletter 密码与 AI Key 遵循同一安全存储边界。
-- 所有来源类型使用真实样本完成抓取和展示回归。
+- Podcast 超时、损坏 enclosure 和网络恢复不会阻塞普通 Feed。
+- 使用真实 Podcast 样本完成抓取、展示和播放回归。
 
-## P6：后台刷新、通知、外部同步与运维
+## P6：后台刷新、通知与外部同步
 
 ### 实施内容
 
@@ -224,8 +226,8 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
   - 拉取远端状态时不覆盖未成功推送的本地变化。
   - 显示连接、最近同步、错误和手动重试状态。
 - 定义并用 Fake Provider 验证 provider-neutral `SyncPort`；本阶段不实现 Papr 账号和云服务。
-- 完成存储统计、文章保留周期、数据库整理、重置设置和清除全部数据。
-- 完成代理、超时、并发度等高级网络设置。
+- 第三方同步凭据只存 Android Keystore；数据库仅保存非秘密配置和凭据引用。
+- 提供最小运维动作：手动刷新/同步、错误重试、重置设置和清除全部数据；不建设桌面高级运维面板。
 
 ### 退出条件
 
@@ -239,7 +241,7 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 
 ### 实施内容
 
-- 对照桌面业务功能矩阵，确认订阅、阅读、整理、AI、媒体、同步和设置均有移动实现或明确替代。
+- 对照本计划的移动端范围矩阵，确认订阅、阅读、整理、摘要/翻译、媒体、同步和设置均有实现或明确排除理由；不再以桌面功能数量对齐作为验收目标。
 - 完成中、英、日文案校对、动态字体和窄屏适配。
 - 完成 TalkBack、触控目标、颜色对比、减少动画和深色模式检查。
 - 测试 Android 10、一个中间版本和当前稳定版本，以及至少一种平板尺寸。
@@ -260,17 +262,17 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 
 ### 4.1 Core 服务
 
-- `SubscriptionService`：文件夹 CRUD、Feed CRUD/移动/发现、刷新、OPML、Newsletter。
+- `SubscriptionService`：文件夹 CRUD、Feed CRUD/移动/发现、刷新、OPML。
 - `ArticleService`：分页筛选、搜索、详情、已读/收藏/稍后读、批量已读、全文提取。
 - `LibraryService`：标签、规则、高亮、计数和保留策略。
-- `AiService`：连接测试、摘要、追问、文章问答、Digest、翻译。
-- `SettingsService`：类型化应用、阅读、网络、通知、AI 和同步设置；底层 key/value 仅用于旧数据兼容。
+- `AiService`：连接测试、摘要与翻译。
+- `SettingsService`：类型化应用、阅读、通知、AI 和同步设置；底层 key/value 仅用于旧数据兼容。
 - `ExternalSyncService`：FreshRSS/Miniflux 连接、状态、同步和队列。
 
 ### 4.2 跨桥事件
 
 - `RefreshProgress`：开始、单 Feed 完成、整体完成。
-- `AiEvent`：文本增量、完成、错误。
+- `AiEvent`：摘要文本增量、完成、错误。
 - `TranslateEvent`：总批次、批次进度、完成。
 - 长任务提供取消句柄。页面销毁只取消 UI 订阅，已进入提交阶段的数据库事务必须完成或回滚。
 
@@ -285,7 +287,7 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 
 同步范围默认包含用户意图数据：订阅、文件夹、文章状态、标签关系、规则、高亮和允许同步的设置。
 
-以下数据不进入同步：正文与图片缓存、音频、AI 结果、翻译结果、API Key、IMAP 密码及第三方同步凭据。
+以下数据不进入同步：正文与图片缓存、音频、AI 结果、翻译结果、API Key 及第三方同步凭据。
 
 ## 5. Android 平台边界
 
