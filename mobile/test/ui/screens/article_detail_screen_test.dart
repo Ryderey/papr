@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:papr_mobile/bridge/generated/generated.dart' as bridge;
 import 'package:papr_mobile/l10n/l10n.dart';
+import 'package:papr_mobile/repositories/article_repository.dart';
 import 'package:papr_mobile/ui/screens/article_detail_screen.dart';
 
 void main() {
@@ -58,6 +59,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No content'), findsOneWidget);
+  });
+
+  testWidgets('wraps reader text in a selectable highlight area',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          articleDetailProvider(1).overrideWith(
+            (ref) async => _article(contentHtml: '<p>Select this body</p>'),
+          ),
+          articleTagsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: ArticleDetailScreen(articleId: 1),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SelectionArea), findsOneWidget);
+    expect(find.text('Highlights'), findsOneWidget);
+    expect(find.textContaining('No highlights yet'), findsOneWidget);
   });
 
   testWidgets('disables browser and sharing when source URL is absent',

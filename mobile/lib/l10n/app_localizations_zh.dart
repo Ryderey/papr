@@ -406,4 +406,155 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorInvalidReadingSettings => '阅读设置超出支持范围。';
+
+  @override
+  String get addHighlight => '添加高亮';
+
+  @override
+  String get highlights => '高亮';
+
+  @override
+  String get noHighlights => '暂时没有高亮。选择文章文字即可添加。';
+
+  @override
+  String get highlightColor => '颜色';
+
+  @override
+  String get highlightNote => '笔记';
+
+  @override
+  String get highlightCreated => '已添加高亮。';
+
+  @override
+  String get highlightSelectionUnavailable => '无法在本文中定位该选区，请重新选择。';
+
+  @override
+  String get save => '保存';
+
+  @override
+  String get errorEmptyTagName => '标签名称不能为空。';
+
+  @override
+  String get errorTagNameExists => '已存在同名标签。';
+
+  @override
+  String get errorInvalidTagColor => '请选择支持的标签颜色。';
+
+  @override
+  String get errorInvalidTagOrder => '标签排序已在其他位置变更，请刷新后重试。';
+
+  @override
+  String get errorRuleNotFound => '该规则已不存在。';
+
+  @override
+  String get errorEmptyRuleName => '规则名称不能为空。';
+
+  @override
+  String get errorEmptyRuleQuery => '请至少输入一个规则关键词。';
+
+  @override
+  String get errorInvalidRuleField => '请选择支持的规则字段。';
+
+  @override
+  String get errorInvalidRuleAction => '请选择支持的规则动作。';
+
+  @override
+  String get errorHighlightNotFound => '该高亮已不存在。';
+
+  @override
+  String get errorEmptyHighlight => '请选择文字以创建高亮。';
+
+  @override
+  String get errorInvalidHighlightOffset => '该高亮位置无效。';
+
+  @override
+  String get errorInvalidHighlightColor => '请选择支持的高亮颜色。';
+
+  @override
+  String get manageTags => '管理标签';
+
+  @override
+  String get manageRules => '管理规则';
+
+  @override
+  String get tagName => '标签名称';
+
+  @override
+  String get createTag => '创建标签';
+
+  @override
+  String get newRule => '新建规则';
+
+  @override
+  String get ruleName => '规则名称';
+
+  @override
+  String get ruleKeywords => '关键词（以逗号分隔）';
+
+  @override
+  String get ruleField => '匹配字段';
+
+  @override
+  String get ruleAction => '动作';
+
+  @override
+  String get ruleEnabled => '已启用';
+
+  @override
+  String get rulePreview => '预览';
+
+  @override
+  String rulePreviewResult(int count) {
+    return '匹配 $count 篇文章';
+  }
+
+  @override
+  String get applyRule => '应用到已有文章';
+
+  @override
+  String get applySkipRuleTitle => '应用跳过规则？';
+
+  @override
+  String get applySkipRuleMessage => '将删除匹配的未保存文章；收藏、稍后读和含高亮的文章会保留。';
+
+  @override
+  String applyRuleComplete(Object count) {
+    return '已应用到 $count 篇文章。';
+  }
+
+  @override
+  String get titleField => '标题';
+
+  @override
+  String get authorField => '作者';
+
+  @override
+  String get contentField => '正文';
+
+  @override
+  String get anyField => '任意字段';
+
+  @override
+  String get skipAction => '跳过';
+
+  @override
+  String get readAction => '标为已读';
+
+  @override
+  String get starAction => '收藏';
+
+  @override
+  String get editTags => '编辑标签';
+
+  @override
+  String get newTagHint => '创建新标签';
+
+  @override
+  String get globalHighlights => '全部高亮';
+
+  @override
+  String get noGlobalHighlights => '暂时没有高亮。';
+
+  @override
+  String get allFeeds => '所有订阅';
 }

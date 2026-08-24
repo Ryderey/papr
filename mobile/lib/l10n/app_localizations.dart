@@ -849,6 +849,300 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The reading setting is outside the supported range.'**
   String get errorInvalidReadingSettings;
+
+  /// No description provided for @addHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Add highlight'**
+  String get addHighlight;
+
+  /// No description provided for @highlights.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlights'**
+  String get highlights;
+
+  /// No description provided for @noHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'No highlights yet. Select text in the article to add one.'**
+  String get noHighlights;
+
+  /// No description provided for @highlightColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get highlightColor;
+
+  /// No description provided for @highlightNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get highlightNote;
+
+  /// No description provided for @highlightCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight added.'**
+  String get highlightCreated;
+
+  /// No description provided for @highlightSelectionUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'That selection cannot be anchored in this article. Try selecting it again.'**
+  String get highlightSelectionUnavailable;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @errorEmptyTagName.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag name cannot be empty.'**
+  String get errorEmptyTagName;
+
+  /// No description provided for @errorTagNameExists.
+  ///
+  /// In en, this message translates to:
+  /// **'A tag with that name already exists.'**
+  String get errorTagNameExists;
+
+  /// No description provided for @errorInvalidTagColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a supported tag color.'**
+  String get errorInvalidTagColor;
+
+  /// No description provided for @errorInvalidTagOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag order changed elsewhere. Reload and try again.'**
+  String get errorInvalidTagOrder;
+
+  /// No description provided for @errorRuleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This rule no longer exists.'**
+  String get errorRuleNotFound;
+
+  /// No description provided for @errorEmptyRuleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule name cannot be empty.'**
+  String get errorEmptyRuleName;
+
+  /// No description provided for @errorEmptyRuleQuery.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least one rule keyword.'**
+  String get errorEmptyRuleQuery;
+
+  /// No description provided for @errorInvalidRuleField.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a supported rule field.'**
+  String get errorInvalidRuleField;
+
+  /// No description provided for @errorInvalidRuleAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a supported rule action.'**
+  String get errorInvalidRuleAction;
+
+  /// No description provided for @errorHighlightNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This highlight no longer exists.'**
+  String get errorHighlightNotFound;
+
+  /// No description provided for @errorEmptyHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Select some text to create a highlight.'**
+  String get errorEmptyHighlight;
+
+  /// No description provided for @errorInvalidHighlightOffset.
+  ///
+  /// In en, this message translates to:
+  /// **'That highlight position is invalid.'**
+  String get errorInvalidHighlightOffset;
+
+  /// No description provided for @errorInvalidHighlightColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a supported highlight color.'**
+  String get errorInvalidHighlightColor;
+
+  /// No description provided for @manageTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage tags'**
+  String get manageTags;
+
+  /// No description provided for @manageRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage rules'**
+  String get manageRules;
+
+  /// No description provided for @tagName.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag name'**
+  String get tagName;
+
+  /// No description provided for @createTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Create tag'**
+  String get createTag;
+
+  /// No description provided for @newRule.
+  ///
+  /// In en, this message translates to:
+  /// **'New rule'**
+  String get newRule;
+
+  /// No description provided for @ruleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule name'**
+  String get ruleName;
+
+  /// No description provided for @ruleKeywords.
+  ///
+  /// In en, this message translates to:
+  /// **'Keywords (comma separated)'**
+  String get ruleKeywords;
+
+  /// No description provided for @ruleField.
+  ///
+  /// In en, this message translates to:
+  /// **'Match field'**
+  String get ruleField;
+
+  /// No description provided for @ruleAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get ruleAction;
+
+  /// No description provided for @ruleEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get ruleEnabled;
+
+  /// No description provided for @rulePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get rulePreview;
+
+  /// No description provided for @rulePreviewResult.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches {count} article(s)'**
+  String rulePreviewResult(int count);
+
+  /// No description provided for @applyRule.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to existing articles'**
+  String get applyRule;
+
+  /// No description provided for @applySkipRuleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply skip rule?'**
+  String get applySkipRuleTitle;
+
+  /// No description provided for @applySkipRuleMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching unsaved articles will be removed. Starred, read-later, and highlighted articles are kept.'**
+  String get applySkipRuleMessage;
+
+  /// No description provided for @applyRuleComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied to {count} article(s).'**
+  String applyRuleComplete(Object count);
+
+  /// No description provided for @titleField.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get titleField;
+
+  /// No description provided for @authorField.
+  ///
+  /// In en, this message translates to:
+  /// **'Author'**
+  String get authorField;
+
+  /// No description provided for @contentField.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get contentField;
+
+  /// No description provided for @anyField.
+  ///
+  /// In en, this message translates to:
+  /// **'Any field'**
+  String get anyField;
+
+  /// No description provided for @skipAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skipAction;
+
+  /// No description provided for @readAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark read'**
+  String get readAction;
+
+  /// No description provided for @starAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Star'**
+  String get starAction;
+
+  /// No description provided for @editTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit tags'**
+  String get editTags;
+
+  /// No description provided for @newTagHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a new tag'**
+  String get newTagHint;
+
+  /// No description provided for @globalHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'All highlights'**
+  String get globalHighlights;
+
+  /// No description provided for @noGlobalHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'No highlights yet.'**
+  String get noGlobalHighlights;
+
+  /// No description provided for @allFeeds.
+  ///
+  /// In en, this message translates to:
+  /// **'All subscriptions'**
+  String get allFeeds;
 }
 
 class _AppLocalizationsDelegate

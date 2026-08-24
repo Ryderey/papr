@@ -406,4 +406,157 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errorInvalidReadingSettings => '読書設定が対応範囲外です。';
+
+  @override
+  String get addHighlight => 'ハイライトを追加';
+
+  @override
+  String get highlights => 'ハイライト';
+
+  @override
+  String get noHighlights => 'ハイライトはまだありません。本文を選択して追加できます。';
+
+  @override
+  String get highlightColor => '色';
+
+  @override
+  String get highlightNote => 'メモ';
+
+  @override
+  String get highlightCreated => 'ハイライトを追加しました。';
+
+  @override
+  String get highlightSelectionUnavailable =>
+      'この選択範囲は本文内で固定できません。もう一度選択してください。';
+
+  @override
+  String get save => '保存';
+
+  @override
+  String get errorEmptyTagName => 'タグ名は空にできません。';
+
+  @override
+  String get errorTagNameExists => '同じ名前のタグが既にあります。';
+
+  @override
+  String get errorInvalidTagColor => '対応するタグ色を選択してください。';
+
+  @override
+  String get errorInvalidTagOrder => 'タグ順が別の場所で変更されました。再読み込みしてやり直してください。';
+
+  @override
+  String get errorRuleNotFound => 'このルールは既に存在しません。';
+
+  @override
+  String get errorEmptyRuleName => 'ルール名は空にできません。';
+
+  @override
+  String get errorEmptyRuleQuery => 'ルールのキーワードを少なくとも一つ入力してください。';
+
+  @override
+  String get errorInvalidRuleField => '対応するルール項目を選択してください。';
+
+  @override
+  String get errorInvalidRuleAction => '対応するルール操作を選択してください。';
+
+  @override
+  String get errorHighlightNotFound => 'このハイライトは既に存在しません。';
+
+  @override
+  String get errorEmptyHighlight => 'ハイライトを作成する文字を選択してください。';
+
+  @override
+  String get errorInvalidHighlightOffset => 'このハイライト位置は無効です。';
+
+  @override
+  String get errorInvalidHighlightColor => '対応するハイライト色を選択してください。';
+
+  @override
+  String get manageTags => 'タグを管理';
+
+  @override
+  String get manageRules => 'ルールを管理';
+
+  @override
+  String get tagName => 'タグ名';
+
+  @override
+  String get createTag => 'タグを作成';
+
+  @override
+  String get newRule => '新しいルール';
+
+  @override
+  String get ruleName => 'ルール名';
+
+  @override
+  String get ruleKeywords => 'キーワード（カンマ区切り）';
+
+  @override
+  String get ruleField => '一致項目';
+
+  @override
+  String get ruleAction => '操作';
+
+  @override
+  String get ruleEnabled => '有効';
+
+  @override
+  String get rulePreview => 'プレビュー';
+
+  @override
+  String rulePreviewResult(int count) {
+    return '$count 件の記事に一致';
+  }
+
+  @override
+  String get applyRule => '既存の記事に適用';
+
+  @override
+  String get applySkipRuleTitle => 'スキップルールを適用しますか？';
+
+  @override
+  String get applySkipRuleMessage =>
+      '一致する未保存の記事を削除します。スター、後で読む、ハイライト済みの記事は残ります。';
+
+  @override
+  String applyRuleComplete(Object count) {
+    return '$count 件の記事に適用しました。';
+  }
+
+  @override
+  String get titleField => 'タイトル';
+
+  @override
+  String get authorField => '著者';
+
+  @override
+  String get contentField => '本文';
+
+  @override
+  String get anyField => 'すべての項目';
+
+  @override
+  String get skipAction => 'スキップ';
+
+  @override
+  String get readAction => '既読にする';
+
+  @override
+  String get starAction => 'スター';
+
+  @override
+  String get editTags => 'タグを編集';
+
+  @override
+  String get newTagHint => '新しいタグを作成';
+
+  @override
+  String get globalHighlights => 'すべてのハイライト';
+
+  @override
+  String get noGlobalHighlights => 'ハイライトはまだありません。';
+
+  @override
+  String get allFeeds => 'すべての購読';
 }

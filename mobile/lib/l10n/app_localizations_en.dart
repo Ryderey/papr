@@ -411,4 +411,161 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorInvalidReadingSettings =>
       'The reading setting is outside the supported range.';
+
+  @override
+  String get addHighlight => 'Add highlight';
+
+  @override
+  String get highlights => 'Highlights';
+
+  @override
+  String get noHighlights =>
+      'No highlights yet. Select text in the article to add one.';
+
+  @override
+  String get highlightColor => 'Color';
+
+  @override
+  String get highlightNote => 'Note';
+
+  @override
+  String get highlightCreated => 'Highlight added.';
+
+  @override
+  String get highlightSelectionUnavailable =>
+      'That selection cannot be anchored in this article. Try selecting it again.';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get errorEmptyTagName => 'Tag name cannot be empty.';
+
+  @override
+  String get errorTagNameExists => 'A tag with that name already exists.';
+
+  @override
+  String get errorInvalidTagColor => 'Choose a supported tag color.';
+
+  @override
+  String get errorInvalidTagOrder =>
+      'Tag order changed elsewhere. Reload and try again.';
+
+  @override
+  String get errorRuleNotFound => 'This rule no longer exists.';
+
+  @override
+  String get errorEmptyRuleName => 'Rule name cannot be empty.';
+
+  @override
+  String get errorEmptyRuleQuery => 'Enter at least one rule keyword.';
+
+  @override
+  String get errorInvalidRuleField => 'Choose a supported rule field.';
+
+  @override
+  String get errorInvalidRuleAction => 'Choose a supported rule action.';
+
+  @override
+  String get errorHighlightNotFound => 'This highlight no longer exists.';
+
+  @override
+  String get errorEmptyHighlight => 'Select some text to create a highlight.';
+
+  @override
+  String get errorInvalidHighlightOffset =>
+      'That highlight position is invalid.';
+
+  @override
+  String get errorInvalidHighlightColor =>
+      'Choose a supported highlight color.';
+
+  @override
+  String get manageTags => 'Manage tags';
+
+  @override
+  String get manageRules => 'Manage rules';
+
+  @override
+  String get tagName => 'Tag name';
+
+  @override
+  String get createTag => 'Create tag';
+
+  @override
+  String get newRule => 'New rule';
+
+  @override
+  String get ruleName => 'Rule name';
+
+  @override
+  String get ruleKeywords => 'Keywords (comma separated)';
+
+  @override
+  String get ruleField => 'Match field';
+
+  @override
+  String get ruleAction => 'Action';
+
+  @override
+  String get ruleEnabled => 'Enabled';
+
+  @override
+  String get rulePreview => 'Preview';
+
+  @override
+  String rulePreviewResult(int count) {
+    return 'Matches $count article(s)';
+  }
+
+  @override
+  String get applyRule => 'Apply to existing articles';
+
+  @override
+  String get applySkipRuleTitle => 'Apply skip rule?';
+
+  @override
+  String get applySkipRuleMessage =>
+      'Matching unsaved articles will be removed. Starred, read-later, and highlighted articles are kept.';
+
+  @override
+  String applyRuleComplete(Object count) {
+    return 'Applied to $count article(s).';
+  }
+
+  @override
+  String get titleField => 'Title';
+
+  @override
+  String get authorField => 'Author';
+
+  @override
+  String get contentField => 'Content';
+
+  @override
+  String get anyField => 'Any field';
+
+  @override
+  String get skipAction => 'Skip';
+
+  @override
+  String get readAction => 'Mark read';
+
+  @override
+  String get starAction => 'Star';
+
+  @override
+  String get editTags => 'Edit tags';
+
+  @override
+  String get newTagHint => 'Create a new tag';
+
+  @override
+  String get globalHighlights => 'All highlights';
+
+  @override
+  String get noGlobalHighlights => 'No highlights yet.';
+
+  @override
+  String get allFeeds => 'All subscriptions';
 }

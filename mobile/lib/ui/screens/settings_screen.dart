@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../repositories/settings_repository.dart';
+import 'highlights_screen.dart';
+import 'organization_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -91,6 +93,33 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   title: Text(l10n.refreshInterval),
                   subtitle: Text(l10n.minutes(settings.refreshIntervalMin)),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.label_outline),
+                  title: Text(l10n.manageTags),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TagManagerScreen(),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.rule_outlined),
+                  title: Text(l10n.manageRules),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const RuleManagerScreen(),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.highlight_outlined),
+                  title: Text(l10n.globalHighlights),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const HighlightsScreen(),
+                    ),
+                  ),
                 ),
                 const Divider(),
                 Padding(

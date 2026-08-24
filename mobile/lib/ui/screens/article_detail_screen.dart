@@ -9,6 +9,7 @@ import '../../l10n/l10n.dart';
 import '../../repositories/article_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../services/platform_service.dart';
+import '../highlight_style.dart';
 
 final articleDetailProvider =
     FutureProvider.family<bridge.ArticleDetail, int>((ref, articleId) {
@@ -31,6 +32,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   bool _loading = true;
   bool _extracting = false;
   bool _autoExtractAttempted = false;
+  List<bridge.Highlight> _highlights = const [];
+  String _selectedText = '';
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         _detail = detail;
         _loading = false;
       });
+      await _loadHighlights();
       if (!detail.isRead) {
         await _setState(_ArticleState.read, true);
         detail = _detail ?? detail;
@@ -140,6 +144,11 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                   ),
                   onPressed: () =>
                       _setState(_ArticleState.readLater, !detail.readLater),
+                ),
+                IconButton(
+                  tooltip: context.l10n.editTags,
+                  icon: const Icon(Icons.label_outline),
+                  onPressed: _editTags,
                 ),
                 PopupMenuButton<_ReaderAction>(
                   tooltip: context.l10n.readerActions,
@@ -241,32 +250,84 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                   if (!hasContent)
                     Text(context.l10n.noContent)
                   else
-                    HtmlWidget(
-                      content!,
-                      baseUrl:
-                          detail.url == null ? null : Uri.tryParse(detail.url!),
-                      onTapUrl: platformService.openUrl,
-                      customWidgetBuilder: (element) {
-                        if (element.localName != 'img') return null;
-                        final src = element.attributes['src'];
-                        final uri = src == null ? null : Uri.tryParse(src);
-                        if (uri == null ||
-                            (uri.scheme != 'http' && uri.scheme != 'https')) {
-                          return const _BrokenBodyImage();
+                    SelectionArea(
+                      onSelectionChanged: (selection) {
+                        _selectedText = selection?.plainText.trim() ?? '';
+                      },
+                      contextMenuBuilder: (context, selectableRegionState) {
+                        final actions = [
+                          ...selectableRegionState.contextMenuButtonItems,
+                        ];
+                        if (_selectedText.isNotEmpty) {
+                          actions.add(
+                            ContextMenuButtonItem(
+                              label: context.l10n.addHighlight,
+                              onPressed: () {
+                                selectableRegionState.hideToolbar();
+                                _createHighlight(content);
+                              },
+                            ),
+                          );
                         }
-                        return Image.network(
-                          src!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
-                              const _BrokenBodyImage(),
+                        return AdaptiveTextSelectionToolbar.buttonItems(
+                          anchors: selectableRegionState.contextMenuAnchors,
+                          buttonItems: actions,
                         );
                       },
-                      customStylesBuilder: (element) =>
-                          element.localName == 'img'
-                              ? {'max-width': '100%', 'height': 'auto'}
-                              : null,
-                      textStyle: textStyle,
+                      child: HtmlWidget(
+                        content!,
+                        baseUrl: detail.url == null
+                            ? null
+                            : Uri.tryParse(detail.url!),
+                        onTapUrl: platformService.openUrl,
+                        customWidgetBuilder: (element) {
+                          if (element.localName != 'img') return null;
+                          final src = element.attributes['src'];
+                          final uri = src == null ? null : Uri.tryParse(src);
+                          if (uri == null ||
+                              (uri.scheme != 'http' && uri.scheme != 'https')) {
+                            return const _BrokenBodyImage();
+                          }
+                          return Image.network(
+                            src!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                const _BrokenBodyImage(),
+                          );
+                        },
+                        customStylesBuilder: (element) =>
+                            element.localName == 'img'
+                                ? {'max-width': '100%', 'height': 'auto'}
+                                : null,
+                        textStyle: textStyle,
+                      ),
                     ),
+                  const Divider(height: 28),
+                  Text(
+                    context.l10n.highlights,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (_highlights.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(context.l10n.noHighlights),
+                    )
+                  else
+                    for (final highlight in _highlights)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: _HighlightColor(color: highlight.color),
+                        title: Text(highlight.quote),
+                        subtitle: highlight.note.isEmpty
+                            ? null
+                            : Text(highlight.note),
+                        trailing: IconButton(
+                          tooltip: context.l10n.delete,
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _editHighlight(highlight),
+                        ),
+                        onTap: () => _editHighlight(highlight),
+                      ),
                   if (detail.enclosures.isNotEmpty) ...[
                     const Divider(height: 28),
                     Text(
@@ -361,6 +422,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
           .getArticleDetail(widget.articleId);
       if (mounted) {
         setState(() => _detail = detail);
+        await _loadHighlights();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.fulltextExtracted)),
         );
@@ -380,6 +443,165 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.platformActionFailed)),
     );
+  }
+
+  Future<void> _loadHighlights() async {
+    try {
+      final highlights = await ref
+          .read(articleRepositoryProvider)
+          .listHighlights(widget.articleId);
+      if (mounted) setState(() => _highlights = highlights);
+    } catch (_) {
+      // Highlight loading must not block the existing reader content.
+    }
+  }
+
+  Future<void> _createHighlight(String html) async {
+    final selected = _selectedText;
+    if (selected.isEmpty) return;
+    final text = _plainText(html);
+    final start = text.indexOf(selected);
+    if (start < 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.highlightSelectionUnavailable)),
+        );
+      }
+      return;
+    }
+    final draft = await showModalBottomSheet<_HighlightDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _HighlightEditorSheet(quote: selected),
+    );
+    if (draft == null) return;
+    final end = start + selected.length;
+    final prefix = text.substring(math.max(0, start - 32), start);
+    final suffix = text.substring(end, math.min(text.length, end + 32));
+    try {
+      await ref.read(articleRepositoryProvider).createHighlight(
+            bridge.HighlightInput(
+              articleId: widget.articleId,
+              quote: selected,
+              prefix: prefix,
+              suffix: suffix,
+              textOffset: start,
+              color: draft.color,
+              note: draft.note,
+            ),
+          );
+      _selectedText = '';
+      await _loadHighlights();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.highlightCreated)),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.localizeError(error))),
+        );
+      }
+    }
+  }
+
+  Future<void> _editHighlight(bridge.Highlight highlight) async {
+    final draft = await showModalBottomSheet<_HighlightDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _HighlightEditorSheet(
+        quote: highlight.quote,
+        initialColor: highlight.color,
+        initialNote: highlight.note,
+        allowDelete: true,
+      ),
+    );
+    if (draft == null) return;
+    try {
+      final repository = ref.read(articleRepositoryProvider);
+      if (draft.delete) {
+        await repository.deleteHighlight(highlight.id.toInt());
+      } else {
+        await repository.setHighlightColor(highlight.id.toInt(), draft.color);
+        await repository.updateHighlightNote(highlight.id.toInt(), draft.note);
+      }
+      await _loadHighlights();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.localizeError(error))),
+        );
+      }
+    }
+  }
+
+  Future<void> _editTags() async {
+    final detail = _detail;
+    if (detail == null) return;
+    try {
+      final tags = await ref.read(articleTagsProvider.future);
+      final selected = detail.tags.map((tag) => tag.id.toInt()).toSet();
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setSheetState) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    context.l10n.editTags,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                for (final tag in tags)
+                  CheckboxListTile(
+                    title: Text(tag.name),
+                    value: selected.contains(tag.id.toInt()),
+                    onChanged: (attached) async {
+                      final value = attached ?? false;
+                      try {
+                        await ref.read(articleRepositoryProvider).setArticleTag(
+                              widget.articleId,
+                              tag.id.toInt(),
+                              value,
+                            );
+                        setSheetState(() {
+                          if (value) {
+                            selected.add(tag.id.toInt());
+                          } else {
+                            selected.remove(tag.id.toInt());
+                          }
+                        });
+                        ref.invalidate(articleTagsProvider);
+                        ref.invalidate(articleDetailProvider(widget.articleId));
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.l10n.localizeError(error)),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.localizeError(error))),
+        );
+      }
+    }
   }
 }
 
@@ -549,6 +771,127 @@ class _BrokenBodyImage extends StatelessWidget {
   }
 }
 
+class _HighlightColor extends StatelessWidget {
+  final String color;
+
+  const _HighlightColor({required this.color});
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+        radius: 10,
+        backgroundColor: highlightColor(color),
+      );
+}
+
+class _HighlightEditorSheet extends StatefulWidget {
+  final String quote;
+  final String initialColor;
+  final String initialNote;
+  final bool allowDelete;
+
+  const _HighlightEditorSheet({
+    required this.quote,
+    this.initialColor = 'yellow',
+    this.initialNote = '',
+    this.allowDelete = false,
+  });
+
+  @override
+  State<_HighlightEditorSheet> createState() => _HighlightEditorSheetState();
+}
+
+class _HighlightEditorSheetState extends State<_HighlightEditorSheet> {
+  static const _colors = ['yellow', 'green', 'blue', 'pink', 'purple'];
+  late String _color = widget.initialColor;
+  late final TextEditingController _note =
+      TextEditingController(text: widget.initialNote);
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.quote, maxLines: 3, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 16),
+              Text(context.l10n.highlightColor),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final color in _colors)
+                    ChoiceChip(
+                      label: const SizedBox.shrink(),
+                      avatar: _HighlightColor(color: color),
+                      selected: _color == color,
+                      onSelected: (_) => setState(() => _color = color),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _note,
+                autofocus: !widget.allowDelete,
+                maxLines: 3,
+                decoration:
+                    InputDecoration(labelText: context.l10n.highlightNote),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  if (widget.allowDelete)
+                    TextButton.icon(
+                      onPressed: () => Navigator.pop(
+                        context,
+                        const _HighlightDraft(delete: true),
+                      ),
+                      icon: const Icon(Icons.delete_outline),
+                      label: Text(context.l10n.delete),
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(context.l10n.cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _HighlightDraft(color: _color, note: _note.text),
+                    ),
+                    child: Text(context.l10n.save),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _HighlightDraft {
+  final String color;
+  final String note;
+  final bool delete;
+
+  const _HighlightDraft({
+    this.color = 'yellow',
+    this.note = '',
+    this.delete = false,
+  });
+}
+
 bridge.ArticleDetail _copyDetail(
   bridge.ArticleDetail detail,
   _ArticleState field,
@@ -590,6 +933,12 @@ int _readingMinutes(String html) {
 
 String _shortDate(String value) =>
     value.length >= 10 ? value.substring(0, 10) : value;
+
+String _plainText(String html) => html
+    .replaceAll(RegExp(r'<[^>]+>'), ' ')
+    .replaceAll(RegExp(r'&nbsp;'), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
 
 enum _ArticleState { read, starred, readLater }
 
