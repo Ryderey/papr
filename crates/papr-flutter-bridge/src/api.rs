@@ -12,9 +12,9 @@ use papr_core::PaprCore;
 
 use crate::dto::{
     AddFeedInput, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary,
-    DiscoveryResult, Enclosure, Feed, Folder, OpmlImportReport, PaprCoreConfig, Platform,
-    ReadingSettings, RefreshError, RefreshOptions, RefreshReport, SettingsSnapshot, SourceType,
-    Tag, TagSummary,
+    DiscoveryResult, Enclosure, Feed, Folder, Highlight, HighlightInput, OpmlImportReport,
+    PaprCoreConfig, Platform, ReadingSettings, RefreshError, RefreshOptions, RefreshReport,
+    ResolvedHighlight, Rule, RuleInput, RulePreview, SettingsSnapshot, SourceType, Tag, TagSummary,
 };
 use crate::error::PaprBridgeError;
 
@@ -194,6 +194,188 @@ pub async fn list_article_tags(core: &PaprCoreBridge) -> Result<Vec<TagSummary>,
         .inner
         .article_service()
         .list_tags()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+pub async fn create_tag(core: &PaprCoreBridge, name: String) -> Result<i64, PaprBridgeError> {
+    Ok(core.inner.article_service().create_tag(name).await?)
+}
+
+pub async fn rename_tag(
+    core: &PaprCoreBridge,
+    id: i64,
+    name: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.article_service().rename_tag(id, name).await?)
+}
+
+pub async fn set_tag_color(
+    core: &PaprCoreBridge,
+    id: i64,
+    color: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_tag_color(id, color)
+        .await?)
+}
+
+pub async fn reorder_tags(core: &PaprCoreBridge, tag_ids: Vec<i64>) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.article_service().reorder_tags(tag_ids).await?)
+}
+
+pub async fn delete_tag(core: &PaprCoreBridge, id: i64) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.article_service().delete_tag(id).await?)
+}
+
+pub async fn set_article_tag(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    tag_id: i64,
+    attached: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_article_tag(article_id, tag_id, attached)
+        .await?)
+}
+
+pub async fn list_rules(core: &PaprCoreBridge) -> Result<Vec<Rule>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .list_rules()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+pub async fn create_rule(core: &PaprCoreBridge, input: RuleInput) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .create_rule(input.into())
+        .await?)
+}
+
+pub async fn update_rule(
+    core: &PaprCoreBridge,
+    id: i64,
+    input: RuleInput,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .update_rule(id, input.into())
+        .await?)
+}
+
+pub async fn delete_rule(core: &PaprCoreBridge, id: i64) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.article_service().delete_rule(id).await?)
+}
+
+pub async fn preview_rule(
+    core: &PaprCoreBridge,
+    input: RuleInput,
+) -> Result<RulePreview, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .preview_rule(input.into())
+        .await?
+        .into())
+}
+
+pub async fn apply_rule_to_existing(
+    core: &PaprCoreBridge,
+    input: RuleInput,
+) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .apply_rule_to_existing(input.into())
+        .await?)
+}
+
+pub async fn list_highlights(
+    core: &PaprCoreBridge,
+    article_id: i64,
+) -> Result<Vec<Highlight>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .list_highlights(article_id)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+pub async fn list_all_highlights(core: &PaprCoreBridge) -> Result<Vec<Highlight>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .list_all_highlights()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+pub async fn create_highlight(
+    core: &PaprCoreBridge,
+    input: HighlightInput,
+) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .create_highlight(input.into())
+        .await?)
+}
+
+pub async fn update_highlight_note(
+    core: &PaprCoreBridge,
+    id: i64,
+    note: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .update_highlight_note(id, note)
+        .await?)
+}
+
+pub async fn set_highlight_color(
+    core: &PaprCoreBridge,
+    id: i64,
+    color: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .set_highlight_color(id, color)
+        .await?)
+}
+
+pub async fn delete_highlight(core: &PaprCoreBridge, id: i64) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.article_service().delete_highlight(id).await?)
+}
+
+pub async fn resolve_highlights(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    text: String,
+) -> Result<Vec<ResolvedHighlight>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .article_service()
+        .resolve_highlights(article_id, text)
         .await?
         .into_iter()
         .map(Into::into)
@@ -498,6 +680,84 @@ impl From<papr_core::TagSummary> for TagSummary {
             name: t.name,
             color: t.color,
             article_count: t.article_count,
+            position: t.position,
+        }
+    }
+}
+
+impl From<papr_core::Rule> for Rule {
+    fn from(rule: papr_core::Rule) -> Self {
+        Self {
+            id: rule.id,
+            name: rule.name,
+            enabled: rule.enabled,
+            feed_id: rule.feed_id,
+            field: rule.field,
+            query: rule.query,
+            action: rule.action,
+            position: rule.position,
+        }
+    }
+}
+
+impl From<RuleInput> for papr_core::RuleInput {
+    fn from(input: RuleInput) -> Self {
+        Self {
+            name: input.name,
+            enabled: input.enabled,
+            feed_id: input.feed_id,
+            field: input.field,
+            query: input.query,
+            action: input.action,
+        }
+    }
+}
+
+impl From<papr_core::RulePreview> for RulePreview {
+    fn from(preview: papr_core::RulePreview) -> Self {
+        Self {
+            count: preview.count,
+            samples: preview.samples,
+        }
+    }
+}
+
+impl From<papr_core::Highlight> for Highlight {
+    fn from(highlight: papr_core::Highlight) -> Self {
+        Self {
+            id: highlight.id,
+            article_id: highlight.article_id,
+            quote: highlight.quote,
+            prefix: highlight.prefix,
+            suffix: highlight.suffix,
+            text_offset: highlight.text_offset,
+            color: highlight.color,
+            note: highlight.note,
+            created_at: highlight.created_at,
+        }
+    }
+}
+
+impl From<HighlightInput> for papr_core::HighlightInput {
+    fn from(input: HighlightInput) -> Self {
+        Self {
+            article_id: input.article_id,
+            quote: input.quote,
+            prefix: input.prefix,
+            suffix: input.suffix,
+            text_offset: input.text_offset,
+            color: input.color,
+            note: input.note,
+        }
+    }
+}
+
+impl From<papr_core::ResolvedHighlight> for ResolvedHighlight {
+    fn from(resolved: papr_core::ResolvedHighlight) -> Self {
+        Self {
+            highlight: resolved.highlight.into(),
+            start: resolved.start,
+            end: resolved.end,
         }
     }
 }

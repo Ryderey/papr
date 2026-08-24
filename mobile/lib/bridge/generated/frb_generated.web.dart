@@ -72,6 +72,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ArticleFilter dco_decode_box_autoadd_article_filter(dynamic raw);
 
   @protected
+  HighlightInput dco_decode_box_autoadd_highlight_input(dynamic raw);
+
+  @protected
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
@@ -82,6 +85,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RefreshOptions dco_decode_box_autoadd_refresh_options(dynamic raw);
+
+  @protected
+  RuleInput dco_decode_box_autoadd_rule_input(dynamic raw);
 
   @protected
   DiscoveryResult dco_decode_discovery_result(dynamic raw);
@@ -100,6 +106,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Folder dco_decode_folder(dynamic raw);
+
+  @protected
+  Highlight dco_decode_highlight(dynamic raw);
+
+  @protected
+  HighlightInput dco_decode_highlight_input(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -126,6 +138,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Folder> dco_decode_list_folder(dynamic raw);
 
   @protected
+  List<Highlight> dco_decode_list_highlight(dynamic raw);
+
+  @protected
   Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
 
   @protected
@@ -133,6 +148,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<RefreshError> dco_decode_list_refresh_error(dynamic raw);
+
+  @protected
+  List<ResolvedHighlight> dco_decode_list_resolved_highlight(dynamic raw);
+
+  @protected
+  List<Rule> dco_decode_list_rule(dynamic raw);
 
   @protected
   List<Tag> dco_decode_list_tag(dynamic raw);
@@ -172,6 +193,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RefreshReport dco_decode_refresh_report(dynamic raw);
+
+  @protected
+  ResolvedHighlight dco_decode_resolved_highlight(dynamic raw);
+
+  @protected
+  Rule dco_decode_rule(dynamic raw);
+
+  @protected
+  RuleInput dco_decode_rule_input(dynamic raw);
+
+  @protected
+  RulePreview dco_decode_rule_preview(dynamic raw);
 
   @protected
   SettingsSnapshot dco_decode_settings_snapshot(dynamic raw);
@@ -243,6 +276,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  HighlightInput sse_decode_box_autoadd_highlight_input(
+      SseDeserializer deserializer);
+
+  @protected
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
@@ -256,6 +293,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   RefreshOptions sse_decode_box_autoadd_refresh_options(
       SseDeserializer deserializer);
+
+  @protected
+  RuleInput sse_decode_box_autoadd_rule_input(SseDeserializer deserializer);
 
   @protected
   DiscoveryResult sse_decode_discovery_result(SseDeserializer deserializer);
@@ -274,6 +314,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Folder sse_decode_folder(SseDeserializer deserializer);
+
+  @protected
+  Highlight sse_decode_highlight(SseDeserializer deserializer);
+
+  @protected
+  HighlightInput sse_decode_highlight_input(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -302,6 +348,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Folder> sse_decode_list_folder(SseDeserializer deserializer);
 
   @protected
+  List<Highlight> sse_decode_list_highlight(SseDeserializer deserializer);
+
+  @protected
   Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
 
   @protected
@@ -310,6 +359,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   List<RefreshError> sse_decode_list_refresh_error(
       SseDeserializer deserializer);
+
+  @protected
+  List<ResolvedHighlight> sse_decode_list_resolved_highlight(
+      SseDeserializer deserializer);
+
+  @protected
+  List<Rule> sse_decode_list_rule(SseDeserializer deserializer);
 
   @protected
   List<Tag> sse_decode_list_tag(SseDeserializer deserializer);
@@ -349,6 +405,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RefreshReport sse_decode_refresh_report(SseDeserializer deserializer);
+
+  @protected
+  ResolvedHighlight sse_decode_resolved_highlight(SseDeserializer deserializer);
+
+  @protected
+  Rule sse_decode_rule(SseDeserializer deserializer);
+
+  @protected
+  RuleInput sse_decode_rule_input(SseDeserializer deserializer);
+
+  @protected
+  RulePreview sse_decode_rule_preview(SseDeserializer deserializer);
 
   @protected
   SettingsSnapshot sse_decode_settings_snapshot(SseDeserializer deserializer);
@@ -421,6 +489,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       ArticleFilter self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_highlight_input(
+      HighlightInput self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_i_64(
       PlatformInt64 self, SseSerializer serializer);
 
@@ -435,6 +507,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_refresh_options(
       RefreshOptions self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_rule_input(
+      RuleInput self, SseSerializer serializer);
 
   @protected
   void sse_encode_discovery_result(
@@ -454,6 +530,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_folder(Folder self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_highlight(Highlight self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_highlight_input(
+      HighlightInput self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -483,6 +566,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_folder(List<Folder> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_highlight(
+      List<Highlight> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_i_64_strict(
       Int64List self, SseSerializer serializer);
 
@@ -493,6 +580,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_refresh_error(
       List<RefreshError> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_resolved_highlight(
+      List<ResolvedHighlight> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_rule(List<Rule> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_tag(List<Tag> self, SseSerializer serializer);
@@ -540,6 +634,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_refresh_report(RefreshReport self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_resolved_highlight(
+      ResolvedHighlight self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rule(Rule self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rule_input(RuleInput self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rule_preview(RulePreview self, SseSerializer serializer);
 
   @protected
   void sse_encode_settings_snapshot(

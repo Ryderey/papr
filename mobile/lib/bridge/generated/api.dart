@@ -8,7 +8,7 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -109,6 +109,100 @@ Future<ArticleCounts> getArticleCounts({required PaprCoreBridge core}) =>
 /// List existing tags for read-only article filtering.
 Future<List<TagSummary>> listArticleTags({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiListArticleTags(core: core);
+
+Future<PlatformInt64> createTag(
+        {required PaprCoreBridge core, required String name}) =>
+    RustLib.instance.api.crateApiCreateTag(core: core, name: name);
+
+Future<void> renameTag(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String name}) =>
+    RustLib.instance.api.crateApiRenameTag(core: core, id: id, name: name);
+
+Future<void> setTagColor(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String color}) =>
+    RustLib.instance.api.crateApiSetTagColor(core: core, id: id, color: color);
+
+Future<void> reorderTags(
+        {required PaprCoreBridge core, required Int64List tagIds}) =>
+    RustLib.instance.api.crateApiReorderTags(core: core, tagIds: tagIds);
+
+Future<void> deleteTag(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiDeleteTag(core: core, id: id);
+
+Future<void> setArticleTag(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required PlatformInt64 tagId,
+        required bool attached}) =>
+    RustLib.instance.api.crateApiSetArticleTag(
+        core: core, articleId: articleId, tagId: tagId, attached: attached);
+
+Future<List<Rule>> listRules({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiListRules(core: core);
+
+Future<PlatformInt64> createRule(
+        {required PaprCoreBridge core, required RuleInput input}) =>
+    RustLib.instance.api.crateApiCreateRule(core: core, input: input);
+
+Future<void> updateRule(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required RuleInput input}) =>
+    RustLib.instance.api.crateApiUpdateRule(core: core, id: id, input: input);
+
+Future<void> deleteRule(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiDeleteRule(core: core, id: id);
+
+Future<RulePreview> previewRule(
+        {required PaprCoreBridge core, required RuleInput input}) =>
+    RustLib.instance.api.crateApiPreviewRule(core: core, input: input);
+
+Future<PlatformInt64> applyRuleToExisting(
+        {required PaprCoreBridge core, required RuleInput input}) =>
+    RustLib.instance.api.crateApiApplyRuleToExisting(core: core, input: input);
+
+Future<List<Highlight>> listHighlights(
+        {required PaprCoreBridge core, required PlatformInt64 articleId}) =>
+    RustLib.instance.api
+        .crateApiListHighlights(core: core, articleId: articleId);
+
+Future<List<Highlight>> listAllHighlights({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiListAllHighlights(core: core);
+
+Future<PlatformInt64> createHighlight(
+        {required PaprCoreBridge core, required HighlightInput input}) =>
+    RustLib.instance.api.crateApiCreateHighlight(core: core, input: input);
+
+Future<void> updateHighlightNote(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String note}) =>
+    RustLib.instance.api
+        .crateApiUpdateHighlightNote(core: core, id: id, note: note);
+
+Future<void> setHighlightColor(
+        {required PaprCoreBridge core,
+        required PlatformInt64 id,
+        required String color}) =>
+    RustLib.instance.api
+        .crateApiSetHighlightColor(core: core, id: id, color: color);
+
+Future<void> deleteHighlight(
+        {required PaprCoreBridge core, required PlatformInt64 id}) =>
+    RustLib.instance.api.crateApiDeleteHighlight(core: core, id: id);
+
+Future<List<ResolvedHighlight>> resolveHighlights(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required String text}) =>
+    RustLib.instance.api.crateApiResolveHighlights(
+        core: core, articleId: articleId, text: text);
 
 /// Fetch the full detail for one article.
 Future<ArticleDetail> getArticleDetail(

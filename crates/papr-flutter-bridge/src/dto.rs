@@ -166,6 +166,78 @@ pub struct TagSummary {
     pub name: String,
     pub color: String,
     pub article_count: i64,
+    pub position: i64,
+}
+
+/// A user-defined filter applied to incoming and existing articles.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct Rule {
+    pub id: i64,
+    pub name: String,
+    pub enabled: bool,
+    pub feed_id: Option<i64>,
+    pub field: String,
+    pub query: String,
+    pub action: String,
+    pub position: i64,
+}
+
+/// Rule form data accepted by Core validation.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct RuleInput {
+    pub name: String,
+    pub enabled: bool,
+    pub feed_id: Option<i64>,
+    pub field: String,
+    pub query: String,
+    pub action: String,
+}
+
+/// A rule preview against already persisted articles.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct RulePreview {
+    pub count: i64,
+    pub samples: Vec<String>,
+}
+
+/// A persisted reader annotation anchored to plain article text.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct Highlight {
+    pub id: i64,
+    pub article_id: i64,
+    pub quote: String,
+    pub prefix: String,
+    pub suffix: String,
+    pub text_offset: i64,
+    pub color: String,
+    pub note: String,
+    pub created_at: String,
+}
+
+/// Input used to persist a new highlight from a reader selection.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct HighlightInput {
+    pub article_id: i64,
+    pub quote: String,
+    pub prefix: String,
+    pub suffix: String,
+    pub text_offset: i64,
+    pub color: String,
+    pub note: String,
+}
+
+/// A highlight plus its current UTF-16 range, or unresolved coordinates.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct ResolvedHighlight {
+    pub highlight: Highlight,
+    pub start: Option<i64>,
+    pub end: Option<i64>,
 }
 
 /// The full article shown in the reader.

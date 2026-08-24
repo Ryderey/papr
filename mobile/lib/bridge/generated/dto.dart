@@ -433,6 +433,102 @@ class Folder {
           position == other.position;
 }
 
+/// A persisted reader annotation anchored to plain article text.
+class Highlight {
+  final PlatformInt64 id;
+  final PlatformInt64 articleId;
+  final String quote;
+  final String prefix;
+  final String suffix;
+  final PlatformInt64 textOffset;
+  final String color;
+  final String note;
+  final String createdAt;
+
+  const Highlight({
+    required this.id,
+    required this.articleId,
+    required this.quote,
+    required this.prefix,
+    required this.suffix,
+    required this.textOffset,
+    required this.color,
+    required this.note,
+    required this.createdAt,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      articleId.hashCode ^
+      quote.hashCode ^
+      prefix.hashCode ^
+      suffix.hashCode ^
+      textOffset.hashCode ^
+      color.hashCode ^
+      note.hashCode ^
+      createdAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Highlight &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          articleId == other.articleId &&
+          quote == other.quote &&
+          prefix == other.prefix &&
+          suffix == other.suffix &&
+          textOffset == other.textOffset &&
+          color == other.color &&
+          note == other.note &&
+          createdAt == other.createdAt;
+}
+
+/// Input used to persist a new highlight from a reader selection.
+class HighlightInput {
+  final PlatformInt64 articleId;
+  final String quote;
+  final String prefix;
+  final String suffix;
+  final PlatformInt64 textOffset;
+  final String color;
+  final String note;
+
+  const HighlightInput({
+    required this.articleId,
+    required this.quote,
+    required this.prefix,
+    required this.suffix,
+    required this.textOffset,
+    required this.color,
+    required this.note,
+  });
+
+  @override
+  int get hashCode =>
+      articleId.hashCode ^
+      quote.hashCode ^
+      prefix.hashCode ^
+      suffix.hashCode ^
+      textOffset.hashCode ^
+      color.hashCode ^
+      note.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HighlightInput &&
+          runtimeType == other.runtimeType &&
+          articleId == other.articleId &&
+          quote == other.quote &&
+          prefix == other.prefix &&
+          suffix == other.suffix &&
+          textOffset == other.textOffset &&
+          color == other.color &&
+          note == other.note;
+}
+
 /// Result of an OPML text import.
 class OpmlImportReport {
   final PlatformInt64 importedFeeds;
@@ -617,6 +713,141 @@ class RefreshReport {
           errors == other.errors;
 }
 
+/// A highlight plus its current UTF-16 range, or unresolved coordinates.
+class ResolvedHighlight {
+  final Highlight highlight;
+  final PlatformInt64? start;
+  final PlatformInt64? end;
+
+  const ResolvedHighlight({
+    required this.highlight,
+    this.start,
+    this.end,
+  });
+
+  @override
+  int get hashCode => highlight.hashCode ^ start.hashCode ^ end.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResolvedHighlight &&
+          runtimeType == other.runtimeType &&
+          highlight == other.highlight &&
+          start == other.start &&
+          end == other.end;
+}
+
+/// A user-defined filter applied to incoming and existing articles.
+class Rule {
+  final PlatformInt64 id;
+  final String name;
+  final bool enabled;
+  final PlatformInt64? feedId;
+  final String field;
+  final String query;
+  final String action;
+  final PlatformInt64 position;
+
+  const Rule({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    this.feedId,
+    required this.field,
+    required this.query,
+    required this.action,
+    required this.position,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      enabled.hashCode ^
+      feedId.hashCode ^
+      field.hashCode ^
+      query.hashCode ^
+      action.hashCode ^
+      position.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Rule &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          enabled == other.enabled &&
+          feedId == other.feedId &&
+          field == other.field &&
+          query == other.query &&
+          action == other.action &&
+          position == other.position;
+}
+
+/// Rule form data accepted by Core validation.
+class RuleInput {
+  final String name;
+  final bool enabled;
+  final PlatformInt64? feedId;
+  final String field;
+  final String query;
+  final String action;
+
+  const RuleInput({
+    required this.name,
+    required this.enabled,
+    this.feedId,
+    required this.field,
+    required this.query,
+    required this.action,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^
+      enabled.hashCode ^
+      feedId.hashCode ^
+      field.hashCode ^
+      query.hashCode ^
+      action.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RuleInput &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          enabled == other.enabled &&
+          feedId == other.feedId &&
+          field == other.field &&
+          query == other.query &&
+          action == other.action;
+}
+
+/// A rule preview against already persisted articles.
+class RulePreview {
+  final PlatformInt64 count;
+  final List<String> samples;
+
+  const RulePreview({
+    required this.count,
+    required this.samples,
+  });
+
+  @override
+  int get hashCode => count.hashCode ^ samples.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RulePreview &&
+          runtimeType == other.runtimeType &&
+          count == other.count &&
+          samples == other.samples;
+}
+
 /// A snapshot of user-facing settings.
 class SettingsSnapshot {
   final String theme;
@@ -692,17 +923,23 @@ class TagSummary {
   final String name;
   final String color;
   final PlatformInt64 articleCount;
+  final PlatformInt64 position;
 
   const TagSummary({
     required this.id,
     required this.name,
     required this.color,
     required this.articleCount,
+    required this.position,
   });
 
   @override
   int get hashCode =>
-      id.hashCode ^ name.hashCode ^ color.hashCode ^ articleCount.hashCode;
+      id.hashCode ^
+      name.hashCode ^
+      color.hashCode ^
+      articleCount.hashCode ^
+      position.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -712,5 +949,6 @@ class TagSummary {
           id == other.id &&
           name == other.name &&
           color == other.color &&
-          articleCount == other.articleCount;
+          articleCount == other.articleCount &&
+          position == other.position;
 }
