@@ -39,6 +39,27 @@ extract_article_fulltext(core, id) -> Result<ArticleDetail, PaprBridgeError>
 set_reading_settings(core, ReadingSettings) -> Result<(), PaprBridgeError>
 ```
 
+P3 organization APIs are:
+
+```rust
+list_article_tags(core) -> Result<Vec<TagSummary>, PaprBridgeError>
+create_tag(core, name) -> Result<i64, PaprBridgeError>
+rename_tag(core, id, name) -> Result<(), PaprBridgeError>
+set_tag_color(core, id, color) -> Result<(), PaprBridgeError>
+reorder_tags(core, tag_ids) -> Result<(), PaprBridgeError>
+delete_tag(core, id) -> Result<(), PaprBridgeError>
+set_article_tag(core, article_id, tag_id, attached) -> Result<(), PaprBridgeError>
+list_rules(core) -> Result<Vec<Rule>, PaprBridgeError>
+create_rule/core, update_rule(core, RuleInput) -> Result<_, PaprBridgeError>
+delete_rule(core, id) -> Result<(), PaprBridgeError>
+preview_rule(core, RuleInput) -> Result<RulePreview, PaprBridgeError>
+apply_rule_to_existing(core, RuleInput) -> Result<i64, PaprBridgeError>
+list_highlights/core, list_all_highlights(core) -> Result<Vec<Highlight>, PaprBridgeError>
+create_highlight(core, HighlightInput) -> Result<i64, PaprBridgeError>
+update_highlight_note/core, set_highlight_color/core, delete_highlight(core, ...) -> Result<(), PaprBridgeError>
+resolve_highlights(core, article_id, text) -> Result<Vec<ResolvedHighlight>, PaprBridgeError>
+```
+
 Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `openOpmlDocument`, `saveOpmlDocument`, `openUrl`, `shareArticle`, and the pushed `deepLink` event.
 
 ## 3. Contracts
@@ -56,6 +77,10 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Fulltext extraction fetches and sanitizes in Core. Persisting extracted HTML updates the FTS row and lead image and clears stale translation fields atomically; a failed extraction preserves existing cached content.
 - Reading settings are validated and persisted as one Core settings update. Flutter may preview controls locally, but Core remains authoritative after save or failure.
 - Android `openUrl` and `shareArticle` accept only HTTP(S) article URLs. Flutter disables these actions when no usable URL exists.
+- Tag positions are authoritative and a reorder submits the complete tag ID set. Tag, article-tag, rule, and highlight mutations append their change-log rows in the same Core transaction; repeating the same article-tag association is idempotent.
+- Rule matching is centralized in Core and shared by ingestion, preview, and apply-to-existing. Matching is Unicode case-insensitive, comma-separated terms are ORed, SQL wildcard characters remain literal, and enabled rules run in position order.
+- A `skip` rule may remove only disposable existing articles. Starred, read-later, or highlighted articles are retained; `read` and `star` actions use the same article-state/change-log transaction contract as direct writes.
+- Highlight offsets use UTF-16 code units so Flutter selections and Core anchors agree. Resolution tries the stored offset first, then quote plus prefix/suffix context, and finally the first quote match. An unresolved anchor remains a valid editable record.
 
 ## 4. Validation & Error Matrix
 
@@ -76,6 +101,13 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 | Invalid reading setting or article URL | category/code `validation` |
 | Fulltext fetch failure | category/code `network` |
 | Fulltext parse/extraction failure | category/code `parse` |
+| Empty tag name / duplicate rename | `emptyTagName` / `tagNameExists` |
+| Invalid tag color / incomplete order | `invalidTagColor` / `invalidTagOrder` |
+| Missing tag / rule / highlight | `tagNotFound` / `ruleNotFound` / `highlightNotFound` |
+| Empty rule name / query | `emptyRuleName` / `emptyRuleQuery` |
+| Unsupported rule field / action | `invalidRuleField` / `invalidRuleAction` |
+| Empty quote / negative highlight offset | `emptyHighlight` / `invalidHighlightOffset` |
+| Invalid highlight color | `invalidHighlightColor` |
 
 Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse human-readable `detail` text.
 
@@ -88,6 +120,9 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Good: the same article filter drives a 50-row page, its count, and mark-all-read; rows and count stay consistent after optimistic refresh.
 - Base: extraction is unavailable offline; the reader keeps showing cached extracted/content HTML and local state writes continue to work.
 - Bad: a punctuation-only search string becomes an empty safe query, not raw FTS syntax or an unbounded SQL fragment.
+- Good: preview and apply receive the same `RuleInput`; their match counts agree and later ingestion evaluates the same matcher.
+- Base: article text changed after a highlight was created; Core relocates the quote using its surrounding context and reports the new UTF-16 range.
+- Bad: a skip rule matches a starred or highlighted article; Core retains it instead of deleting user-curated state.
 
 ## 6. Tests Required
 
@@ -98,6 +133,9 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Reading Core: safe FTS terms, tag/feed/folder/smart filters, bounded paging and deterministic order, count parity, idempotent state/change-log writes, extraction cache invalidation, and reading-setting validation/persistence.
 - Reading Flutter: smart-view counts, 50-row next-page offset, metadata/placeholder rendering, optimistic rollback, safe HTML/link behavior, and URL-dependent browser/share actions.
 - Reading Android acceptance: browser/share intents, back navigation, rotation, process restore, and large-list scrolling.
+- Organization Core: tag validation/order/association, rule matcher parity and protected skip, highlight CRUD and UTF-16/context anchor fallback, plus change-log transaction behavior.
+- Organization Flutter: selection-menu highlight creation, tag/rule management, preview/apply confirmation, stable-code localization, route behavior, and failed mutation rollback.
+- Organization Android acceptance: long-press selection, tag/rule flows, highlight reopen/edit/delete, unresolved-anchor presentation, rotation, process restore, and large-body behavior.
 - Full gate: `cargo test -p papr-core`, `cargo test -p papr-flutter-bridge`, `cargo test -p papr`, `flutter analyze`, `flutter test`, and `flutter build apk --debug`.
 
 ## 7. Wrong vs Correct
@@ -119,3 +157,5 @@ await repository.addFeed(input);
 Keep validation at the Core boundary, transport typed DTOs through FRB, and limit Flutter to presentation and orchestration.
 
 For optimistic article state, update the visible row immediately, call the repository, and on failure restore the old row before invalidating list/count/detail providers. Never hide a failed write behind a refresh-only fallback.
+
+Do not implement a second rule matcher in Dart or use Dart string offsets as Rust byte offsets. Send the typed rule input unchanged and persist selection offsets as UTF-16 code units; Core owns both matching and anchor recovery.
