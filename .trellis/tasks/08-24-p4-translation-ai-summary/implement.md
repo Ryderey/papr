@@ -1,6 +1,6 @@
 # Implement: P4 翻译与 AI 摘要
 
-1. [ ] 盘点并测试桌面 AI/SSE/翻译语义，冻结 DTO、事件和错误码。
+1. [ ] 盘点并测试桌面 AI/SSE/翻译语义，冻结 DTO、事件和错误码（已冻结移动端无密钥持久化、按请求临时凭据、request-id 流事件和 success-only 缓存契约；待将桌面语义测试迁入 Core）。
 2. [ ] 将 Profile、摘要、翻译、分块与缓存事务下沉 `papr-core`。
 3. [ ] 增加 Keystore 凭据适配与密钥泄漏回归。
 4. [ ] 暴露 FRB 流式/取消 API 并验证二次生成幂等。

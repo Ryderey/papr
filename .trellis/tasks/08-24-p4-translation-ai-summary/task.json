@@ -3,7 +3,7 @@
   "name": "p4-translation-ai-summary",
   "title": "P4 翻译与 AI 摘要",
   "description": "下沉翻译与摘要能力，使用 Android Keystore 保存 AI 密钥；明确排除 Ask/RAG/Digest。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

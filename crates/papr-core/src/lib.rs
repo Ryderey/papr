@@ -10,6 +10,7 @@ pub mod extraction;
 pub mod ingestion;
 pub mod opml;
 pub mod services;
+pub mod translate;
 
 use std::sync::Arc;
 

@@ -3489,6 +3489,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dom_smoothie",
+ "ego-tree",
  "encoding_rs",
  "feed-rs",
  "log",
