@@ -37,6 +37,6 @@
 ## 6. Verification and Rollback
 
 - Core tests cover validation, matching parity, protected skip, change-log atomicity, tag ordering/association, and anchor resolution.
-- Widget tests cover context-menu availability, management forms, preview/apply confirmation, and failed optimistic mutations.
+- Widget tests cover selection setup, management forms, preview/apply confirmation, and failed optimistic mutations. The installed HTML renderer cannot receive a fully synthetic long-press selection in the standard Widget-test binding, so real selection-menu behavior is an Android hardware acceptance gate.
 - Regenerate FRB deterministically, then run the project-wide gate and Debug APK build.
 - Commit Core, FRB, Flutter, and docs separately. The feature can roll back at any layer without schema rollback.
