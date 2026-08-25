@@ -81,6 +81,7 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Rule matching is centralized in Core and shared by ingestion, preview, and apply-to-existing. Matching is Unicode case-insensitive, comma-separated terms are ORed, SQL wildcard characters remain literal, and enabled rules run in position order.
 - A `skip` rule may remove only disposable existing articles. Starred, read-later, or highlighted articles are retained; `read` and `star` actions use the same article-state/change-log transaction contract as direct writes.
 - Highlight offsets use UTF-16 code units so Flutter selections and Core anchors agree. Resolution tries the stored offset first, then quote plus prefix/suffix context, and finally the first quote match. An unresolved anchor remains a valid editable record.
+- Flutter must pass the reader's DOM text-node sequence to `resolve_highlights`, then render each returned resolved range by safely inserting `<mark class="papr-highlight" data-highlight-color="…">` into parsed HTML text nodes. Never use a regular expression to alter raw article HTML. Unresolved records stay in the highlight list and display a localized notice.
 
 ## 4. Validation & Error Matrix
 
@@ -123,6 +124,9 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Good: preview and apply receive the same `RuleInput`; their match counts agree and later ingestion evaluates the same matcher.
 - Base: article text changed after a highlight was created; Core relocates the quote using its surrounding context and reports the new UTF-16 range.
 - Bad: a skip rule matches a starred or highlighted article; Core retains it instead of deleting user-curated state.
+- Good: reopening an article resolves a persisted quote and paints its mark in the original paragraph while keeping the same record in the list below.
+- Base: a quote crosses an inline element such as `<strong>`; each intersected text node receives a mark while the original element structure is preserved.
+- Bad: article text changed and Core returns null coordinates; do not inject a guessed mark or discard the note.
 
 ## 6. Tests Required
 
@@ -135,6 +139,7 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Reading Android acceptance: browser/share intents, back navigation, rotation, process restore, and large-list scrolling.
 - Organization Core: tag validation/order/association, rule matcher parity and protected skip, highlight CRUD and UTF-16/context anchor fallback, plus change-log transaction behavior.
 - Organization Flutter: selection-menu highlight creation, tag/rule management, preview/apply confirmation, stable-code localization, route behavior, and failed mutation rollback.
+- Organization reader regression: resolved ranges render a color-coded `<mark>`, inline-element boundary selections retain valid HTML, and unresolved ranges render no guessed mark but do show the localized notice.
 - Organization Android acceptance: long-press selection, tag/rule flows, highlight reopen/edit/delete, unresolved-anchor presentation, rotation, process restore, and large-body behavior.
 - Full gate: `cargo test -p papr-core`, `cargo test -p papr-flutter-bridge`, `cargo test -p papr`, `flutter analyze`, `flutter test`, and `flutter build apk --debug`.
 
@@ -159,3 +164,5 @@ Keep validation at the Core boundary, transport typed DTOs through FRB, and limi
 For optimistic article state, update the visible row immediately, call the repository, and on failure restore the old row before invalidating list/count/detail providers. Never hide a failed write behind a refresh-only fallback.
 
 Do not implement a second rule matcher in Dart or use Dart string offsets as Rust byte offsets. Send the typed rule input unchanged and persist selection offsets as UTF-16 code units; Core owns both matching and anchor recovery.
+
+For persisted highlights, resolve in Core and use a DOM parser to split only affected text nodes. Do not use `String.replaceAll` or raw-HTML regular expressions: they can match markup, damage entities, and paint the wrong occurrence.

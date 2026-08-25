@@ -16,7 +16,7 @@
 
 7. [x] Extend repositories/providers for tags, rules, highlights, preview/apply, and local state refresh.
 8. [x] Add tag manager, article tag editor, and rule manager with reorder, preview samples, and protected destructive-action confirmation.
-9. [ ] Add `SelectionArea` reader integration, create-highlight context action, color/note editor, per-article/global browsers, and unresolved-anchor notice.
+9. [x] Add `SelectionArea` reader integration, create-highlight context action, color/note editor, per-article/global browsers, resolved inline marks, and unresolved-anchor notice.
 10. [ ] Add localized strings and Widget tests for selection action, management flows, error rollback, and route behavior.
 
 ## D. Quality and Device Gate
@@ -24,7 +24,7 @@
 11. [x] Run Core/Bridge/desktop tests, FRB idempotence, `flutter analyze`, `flutter test`, and Debug APK build.
 12. [ ] Verify tags, rules, selections/highlights, rotation, process restore, and large-body behavior on Android hardware.
 
-Current partial status: item 9 includes selection creation, editing, article/global lists, but unresolved-anchor presentation is not wired into Flutter. Item 10 includes localization and the existing selection regression test, but not the full management/error/route matrix. Hardware acceptance remains pending.
+Current partial status: item 10 includes localization, selection regression, resolved inline-mark and unresolved-anchor tests, but not the full management/error/route matrix. Hardware acceptance remains pending.
 
 ## Rollback Points
 
