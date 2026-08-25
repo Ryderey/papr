@@ -129,11 +129,19 @@ Future<void> _editTag(
   }
 }
 
-class RuleManagerScreen extends ConsumerWidget {
+class RuleManagerScreen extends ConsumerStatefulWidget {
   const RuleManagerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RuleManagerScreen> createState() =>
+      _RuleManagerScreenState();
+}
+
+class _RuleManagerScreenState extends ConsumerState<RuleManagerScreen> {
+  final Map<int, bool> _enabledOverrides = {};
+
+  @override
+  Widget build(BuildContext context) {
     final rules = ref.watch(rulesProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.manageRules)),
@@ -151,22 +159,16 @@ class RuleManagerScreen extends ConsumerWidget {
           itemCount: items.length,
           itemBuilder: (context, index) {
             final rule = items[index];
+            final ruleId = rule.id.toInt();
+            final enabled = _enabledOverrides[ruleId] ?? rule.enabled;
             return ListTile(
               title: Text(rule.name),
               subtitle: Text('${rule.field}: ${rule.query} → ${rule.action}'),
               trailing: Switch(
-                value: rule.enabled,
-                onChanged: (enabled) async {
-                  try {
-                    await ref.read(articleRepositoryProvider).updateRule(
-                          rule.id.toInt(),
-                          _ruleInput(rule, enabled: enabled),
-                        );
-                    ref.invalidate(rulesProvider);
-                  } catch (error) {
-                    if (context.mounted) _showError(context, error);
-                  }
-                },
+                value: enabled,
+                onChanged: _enabledOverrides.containsKey(ruleId)
+                    ? null
+                    : (value) => _setRuleEnabled(rule, value),
               ),
               onTap: () => _editRule(context, ref, rule: rule),
             );
@@ -174,6 +176,22 @@ class RuleManagerScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _setRuleEnabled(bridge.Rule rule, bool enabled) async {
+    final ruleId = rule.id.toInt();
+    setState(() => _enabledOverrides[ruleId] = enabled);
+    try {
+      await ref
+          .read(articleRepositoryProvider)
+          .updateRule(ruleId, _ruleInput(rule, enabled: enabled));
+      ref.invalidate(rulesProvider);
+      await ref.read(rulesProvider.future);
+    } catch (error) {
+      if (mounted) _showError(context, error);
+    } finally {
+      if (mounted) setState(() => _enabledOverrides.remove(ruleId));
+    }
   }
 }
 
@@ -196,6 +214,11 @@ Future<void> _editRule(
       repository: ref.read(articleRepositoryProvider),
       rule: rule,
       feeds: feeds,
+      onArticleStateChanged: () {
+        ref.invalidate(articlePageProvider);
+        ref.invalidate(articleCountsProvider);
+        ref.invalidate(articleCountProvider);
+      },
     ),
   );
   if (draft == null) return;
@@ -218,9 +241,11 @@ class _RuleEditorSheet extends StatefulWidget {
   final ArticleRepository repository;
   final bridge.Rule? rule;
   final List<bridge.Feed> feeds;
+  final VoidCallback onArticleStateChanged;
   const _RuleEditorSheet({
     required this.repository,
     required this.feeds,
+    required this.onArticleStateChanged,
     this.rule,
   });
 
@@ -328,18 +353,19 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
                   for (final sample in _preview!.samples)
                     Align(alignment: Alignment.centerLeft, child: Text(sample)),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     OutlinedButton(
                       onPressed: _previewRule,
                       child: Text(context.l10n.rulePreview),
                     ),
-                    const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: _applyRule,
                       child: Text(context.l10n.applyRule),
                     ),
-                    const Spacer(),
                     if (widget.rule != null)
                       TextButton(
                         onPressed: () => Navigator.pop(
@@ -390,6 +416,7 @@ class _RuleEditorSheetState extends State<_RuleEditorSheet> {
     try {
       final count = await widget.repository.applyRuleToExisting(_input);
       if (mounted) {
+        widget.onArticleStateChanged();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.applyRuleComplete(count))),
         );

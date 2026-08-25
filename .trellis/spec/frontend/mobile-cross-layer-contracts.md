@@ -78,6 +78,8 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Reading settings are validated and persisted as one Core settings update. Flutter may preview controls locally, but Core remains authoritative after save or failure.
 - Android `openUrl` and `shareArticle` accept only HTTP(S) article URLs. Flutter disables these actions when no usable URL exists.
 - Tag positions are authoritative and a reorder submits the complete tag ID set. Tag, article-tag, rule, and highlight mutations append their change-log rows in the same Core transaction; repeating the same article-tag association is idempotent.
+- Rule enable/disable keeps an in-screen optimistic override keyed by rule ID and disables that switch while its write is in flight. On success, invalidate and await `rulesProvider` reload; on failure, remove the override and show the localized stable error so no stale toggle remains visible.
+- `apply_rule_to_existing` returns the number of articles whose state actually changed, while `preview_rule` returns all matches. A zero apply result can therefore mean every matching article already had the target state. Regardless of that count, a successful apply invalidates every `articlePageProvider` family instance plus `articleCountsProvider` and `articleCountProvider`, so Starred/Read Later lists cannot retain stale projections.
 - The reader exposes no per-article tag editor. Its star icon maps to `isStarred` / the Starred smart view, and its bookmark icon maps to `readLater` / the Read Later smart view. After a successful state write, invalidate `articleDetailProvider(articleId)`, every `articlePageProvider` family instance, and the article count providers so reopening the article or subscription cannot reuse stale flags.
 - Rule matching is centralized in Core and shared by ingestion, preview, and apply-to-existing. Matching is Unicode case-insensitive, comma-separated terms are ORed, SQL wildcard characters remain literal, and enabled rules run in position order.
 - A `skip` rule may remove only disposable existing articles. Starred, read-later, or highlighted articles are retained; `read` and `star` actions use the same article-state/change-log transaction contract as direct writes.
@@ -123,6 +125,7 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Base: extraction is unavailable offline; the reader keeps showing cached extracted/content HTML and local state writes continue to work.
 - Bad: a punctuation-only search string becomes an empty safe query, not raw FTS syntax or an unbounded SQL fragment.
 - Good: preview and apply receive the same `RuleInput`; their match counts agree and later ingestion evaluates the same matcher.
+- Base: a star rule previews two matching articles after both are already starred; applying it returns zero changes, but the client still refreshes Starred/count projections from Core.
 - Base: article text changed after a highlight was created; Core relocates the quote using its surrounding context and reports the new UTF-16 range.
 - Bad: a skip rule matches a starred or highlighted article; Core retains it instead of deleting user-curated state.
 - Good: reopening an article resolves a persisted quote and paints its mark in the original paragraph while keeping the same record in the list below.
@@ -140,6 +143,8 @@ Flutter localizes stable codes in `mobile/lib/l10n/l10n.dart`; it must not parse
 - Reading Android acceptance: browser/share intents, back navigation, rotation, process restore, and large-list scrolling.
 - Organization Core: tag validation/order/association, rule matcher parity and protected skip, highlight CRUD and UTF-16/context anchor fallback, plus change-log transaction behavior.
 - Organization Flutter: selection-menu highlight creation, tag/rule management, preview/apply confirmation, stable-code localization, route behavior, and failed mutation rollback.
+- Rule manager Flutter: preview displays the Core match count and samples; `skip` application requires confirmation; an in-flight enable/disable change is visible immediately and reverts after a rejected write.
+- Rule apply Flutter: applying an existing-article rule refreshes article pages and both count-provider families even when Core reports zero changed rows; regressions assert that the refreshed Starred projection is observed.
 - Reader state Flutter: star and read-later writes survive closing and reopening the article, and the reader contains no per-article tag-edit action.
 - Organization reader regression: resolved ranges render a color-coded `<mark>`, inline-element boundary selections retain valid HTML, and unresolved ranges render no guessed mark but do show the localized notice.
 - Organization Android acceptance: long-press selection, tag/rule flows, highlight reopen/edit/delete, unresolved-anchor presentation, rotation, process restore, and large-body behavior.

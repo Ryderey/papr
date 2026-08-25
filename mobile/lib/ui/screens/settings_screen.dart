@@ -95,15 +95,6 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: Text(l10n.minutes(settings.refreshIntervalMin)),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.label_outline),
-                  title: Text(l10n.manageTags),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const TagManagerScreen(),
-                    ),
-                  ),
-                ),
-                ListTile(
                   leading: const Icon(Icons.rule_outlined),
                   title: Text(l10n.manageRules),
                   onTap: () => Navigator.of(context).push(

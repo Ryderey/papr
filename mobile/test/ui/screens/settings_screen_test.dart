@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:papr_mobile/l10n/l10n.dart';
+import 'package:papr_mobile/repositories/settings_repository.dart';
+import 'package:papr_mobile/ui/screens/settings_screen.dart';
+
+void main() {
+  testWidgets('does not expose tag management in settings', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appearanceProvider.overrideWith(_TestAppearanceController.new),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Manage tags'), findsNothing);
+    expect(find.text('Manage rules'), findsOneWidget);
+  });
+}
+
+class _TestAppearanceController extends AppearanceController {
+  @override
+  Future<AppearanceState> build() async => const AppearanceState.defaults();
+}

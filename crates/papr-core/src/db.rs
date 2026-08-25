@@ -2913,6 +2913,22 @@ mod tests {
         assert_eq!(db.apply_rule_to_existing(&skip).unwrap(), 1);
         assert_eq!(db.count_articles(&ArticleFilter::default()).unwrap(), 3);
 
+        let star_existing = RuleInput {
+            name: "Star saved article".to_string(),
+            enabled: true,
+            feed_id: Some(feed_id),
+            field: "title".to_string(),
+            query: "later".to_string(),
+            action: "star".to_string(),
+        };
+        assert_eq!(db.preview_rule(&star_existing).unwrap().count, 1);
+        assert_eq!(db.apply_rule_to_existing(&star_existing).unwrap(), 1);
+        assert!(
+            db.get_article_detail(find_id("Café %_ later"))
+                .unwrap()
+                .is_starred
+        );
+
         let incoming = RuleInput {
             name: "Mark incoming".to_string(),
             enabled: true,

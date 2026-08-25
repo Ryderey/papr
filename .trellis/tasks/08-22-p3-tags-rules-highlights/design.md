@@ -30,7 +30,7 @@
 ## 5. Flutter Surfaces
 
 - Article detail: persistent star/read-later actions, selection context menu, highlight edit/delete sheet, and resolved/unresolved list. Per-article tag editing is deferred and has no reader UI.
-- Settings/organization: tag manager and rule manager with reorder, validation, preview sample list, and an explicit confirmation before applying a destructive skip rule to existing articles.
+- Settings/organization: rule manager with validation, preview sample list, and an explicit confirmation before applying a destructive skip rule to existing articles. Tag management is not exposed on mobile in this phase.
 - Global highlight browser: route/sheet grouped by article, opening the associated reader.
 - All mutations update the relevant tag/article/detail/rule/highlight providers optimistically and restore prior state on failure.
 

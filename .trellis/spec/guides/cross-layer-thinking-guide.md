@@ -100,6 +100,23 @@ create one owner for:
 
 Rendering code may format fields, but it must not redefine the payload contract.
 
+### Mistake 5: Persisted Write, Stale Derived View
+
+**Symptom**: A command reports success, but a filtered list or badge still shows
+the state from before the write.
+
+**Cause**: The write path refreshes its own form/provider but omits a cached
+projection owned by another screen, such as a Starred article page or count.
+
+**Prevention**: For every write, list all derived providers and filtered views
+affected by the changed field. A rule apply that changes `is_starred` must
+invalidate article pages and article counts, not just the rules provider. Test
+the visible destination view, not only the command result.
+
+**Note**: An apply command may report changed rows while preview reports all
+matches. A result of zero can be a successful idempotent write; refresh the
+derived views after every successful command.
+
 ---
 
 ## Checklist for Cross-Layer Features
