@@ -436,6 +436,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'That selection cannot be anchored in this article. Try selecting it again.';
 
   @override
+  String get highlightUnableToLocate =>
+      'Some highlights could not be located in the current article text.';
+
+  @override
   String get save => 'Save';
 
   @override

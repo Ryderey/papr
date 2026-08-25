@@ -892,6 +892,12 @@ abstract class AppLocalizations {
   /// **'That selection cannot be anchored in this article. Try selecting it again.'**
   String get highlightSelectionUnavailable;
 
+  /// No description provided for @highlightUnableToLocate.
+  ///
+  /// In en, this message translates to:
+  /// **'Some highlights could not be located in the current article text.'**
+  String get highlightUnableToLocate;
+
   /// No description provided for @save.
   ///
   /// In en, this message translates to:

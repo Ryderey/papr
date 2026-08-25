@@ -429,6 +429,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get highlightSelectionUnavailable => '无法在本文中定位该选区，请重新选择。';
 
   @override
+  String get highlightUnableToLocate => '部分高亮无法在当前正文中定位。';
+
+  @override
   String get save => '保存';
 
   @override

@@ -430,6 +430,9 @@ class AppLocalizationsJa extends AppLocalizations {
       'この選択範囲は本文内で固定できません。もう一度選択してください。';
 
   @override
+  String get highlightUnableToLocate => '一部のハイライトを現在の本文で見つけられません。';
+
+  @override
   String get save => '保存';
 
   @override

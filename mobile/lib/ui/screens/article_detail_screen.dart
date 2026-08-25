@@ -9,6 +9,7 @@ import '../../l10n/l10n.dart';
 import '../../repositories/article_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../services/platform_service.dart';
+import '../highlight_html.dart';
 import '../highlight_style.dart';
 
 final articleDetailProvider =
@@ -33,6 +34,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   bool _extracting = false;
   bool _autoExtractAttempted = false;
   List<bridge.Highlight> _highlights = const [];
+  List<bridge.ResolvedHighlight> _resolvedHighlights = const [];
+  String? _highlightedHtml;
   String _selectedText = '';
 
   @override
@@ -206,6 +209,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     }
     if (detail == null) return const SizedBox.shrink();
     final content = detail.extractedHtml ?? detail.contentHtml;
+    final renderedContent = _highlightedHtml ?? content;
     final hasContent = content?.trim().isNotEmpty ?? false;
     final textStyle = TextStyle(
       fontSize: reading.fontSize,
@@ -264,7 +268,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                               label: context.l10n.addHighlight,
                               onPressed: () {
                                 selectableRegionState.hideToolbar();
-                                _createHighlight(content);
+                                _createHighlight(content!);
                               },
                             ),
                           );
@@ -275,7 +279,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                         );
                       },
                       child: HtmlWidget(
-                        content!,
+                        renderedContent!,
                         baseUrl: detail.url == null
                             ? null
                             : Uri.tryParse(detail.url!),
@@ -295,10 +299,21 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                                 const _BrokenBodyImage(),
                           );
                         },
-                        customStylesBuilder: (element) =>
-                            element.localName == 'img'
-                                ? {'max-width': '100%', 'height': 'auto'}
-                                : null,
+                        customStylesBuilder: (element) {
+                          if (element.localName == 'img') {
+                            return {'max-width': '100%', 'height': 'auto'};
+                          }
+                          if (element.localName == 'mark' &&
+                              element.classes.contains('papr-highlight')) {
+                            return {
+                              'background-color': highlightCssColor(
+                                element.attributes['data-highlight-color'] ??
+                                    'yellow',
+                              ),
+                            };
+                          }
+                          return null;
+                        },
                         textStyle: textStyle,
                       ),
                     ),
@@ -307,6 +322,14 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                     context.l10n.highlights,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  if (_resolvedHighlights.any(
+                    (highlight) =>
+                        highlight.start == null || highlight.end == null,
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(context.l10n.highlightUnableToLocate),
+                    ),
                   if (_highlights.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -421,7 +444,11 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
           .read(articleRepositoryProvider)
           .getArticleDetail(widget.articleId);
       if (mounted) {
-        setState(() => _detail = detail);
+        setState(() {
+          _detail = detail;
+          _highlightedHtml = null;
+          _resolvedHighlights = const [];
+        });
         await _loadHighlights();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -447,10 +474,23 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
 
   Future<void> _loadHighlights() async {
     try {
-      final highlights = await ref
-          .read(articleRepositoryProvider)
-          .listHighlights(widget.articleId);
-      if (mounted) setState(() => _highlights = highlights);
+      final repository = ref.read(articleRepositoryProvider);
+      final highlights = await repository.listHighlights(widget.articleId);
+      final content = _detail?.extractedHtml ?? _detail?.contentHtml;
+      final resolved = content == null
+          ? const <bridge.ResolvedHighlight>[]
+          : await repository.resolveHighlights(
+              widget.articleId,
+              highlightPlainText(content),
+            );
+      if (mounted) {
+        setState(() {
+          _highlights = highlights;
+          _resolvedHighlights = resolved;
+          _highlightedHtml =
+              content == null ? null : renderHighlightHtml(content, resolved);
+        });
+      }
     } catch (_) {
       // Highlight loading must not block the existing reader content.
     }
@@ -459,7 +499,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   Future<void> _createHighlight(String html) async {
     final selected = _selectedText;
     if (selected.isEmpty) return;
-    final text = _plainText(html);
+    final text = highlightPlainText(html);
     final start = text.indexOf(selected);
     if (start < 0) {
       if (mounted) {
@@ -933,12 +973,6 @@ int _readingMinutes(String html) {
 
 String _shortDate(String value) =>
     value.length >= 10 ? value.substring(0, 10) : value;
-
-String _plainText(String html) => html
-    .replaceAll(RegExp(r'<[^>]+>'), ' ')
-    .replaceAll(RegExp(r'&nbsp;'), ' ')
-    .replaceAll(RegExp(r'\s+'), ' ')
-    .trim();
 
 enum _ArticleState { read, starred, readLater }
 

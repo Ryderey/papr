@@ -134,6 +134,7 @@
   "highlightNote": "メモ",
   "highlightCreated": "ハイライトを追加しました。",
   "highlightSelectionUnavailable": "この選択範囲は本文内で固定できません。もう一度選択してください。",
+  "highlightUnableToLocate": "一部のハイライトを現在の本文で見つけられません。",
   "save": "保存",
   "errorEmptyTagName": "タグ名は空にできません。",
   "errorTagNameExists": "同じ名前のタグが既にあります。",
