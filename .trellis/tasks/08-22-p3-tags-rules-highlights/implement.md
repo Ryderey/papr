@@ -24,7 +24,7 @@
 11. [x] Run Core/Bridge/desktop tests, FRB idempotence, `flutter analyze`, `flutter test`, and Debug APK build.
 12. [ ] Verify tags, rules, selections/highlights, rotation, process restore, and large-body behavior on Android hardware.
 
-Current partial status: item 10 includes localization, selection regression, resolved inline-mark and unresolved-anchor tests, but not the full management/error/route matrix. Hardware acceptance remains pending.
+Current partial status: item 10 includes localization, selection regression, resolved inline-mark and unresolved-anchor tests, tag creation, rule list, and global-highlight-to-reader route tests; failed mutation rollback and preview/apply confirmation coverage remain. Hardware acceptance remains pending.
 
 ## Rollback Points
 
