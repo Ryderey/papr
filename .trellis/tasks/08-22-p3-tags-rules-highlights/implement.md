@@ -15,16 +15,16 @@
 ## C. Flutter
 
 7. [x] Extend repositories/providers for tags, rules, highlights, preview/apply, and local state refresh.
-8. [x] Add tag manager, article tag editor, and rule manager with reorder, preview samples, and protected destructive-action confirmation.
+8. [x] Add tag manager and rule manager with reorder, preview samples, and protected destructive-action confirmation; remove the reader's per-article tag editor per the mobile scope decision.
 9. [x] Add `SelectionArea` reader integration, create-highlight context action, color/note editor, per-article/global browsers, resolved inline marks, and unresolved-anchor notice.
 10. [ ] Add localized strings and Widget tests for selection action, management flows, error rollback, and route behavior.
 
 ## D. Quality and Device Gate
 
 11. [x] Run Core/Bridge/desktop tests, FRB idempotence, `flutter analyze`, `flutter test`, and Debug APK build.
-12. [ ] Verify tags, rules, selections/highlights, rotation, process restore, and large-body behavior on Android hardware.
+12. [ ] Verify star/read-later persistence, rules, selections/highlights, rotation, process restore, and large-body behavior on Android hardware.
 
-Current partial status: item 10 includes localization, selection regression, resolved inline-mark and unresolved-anchor tests, tag creation, rule list, and global-highlight-to-reader route tests; failed mutation rollback and preview/apply confirmation coverage remain. Hardware acceptance remains pending.
+Current partial status: item 10 includes localization, selection regression, resolved inline-mark and unresolved-anchor tests, tag creation, star/read-later reopen persistence, rule list, and global-highlight-to-reader route tests; failed mutation rollback and preview/apply confirmation coverage remain. Device verification has passed for inline highlights, rotation, process restore, and large-body highlighting; star/read-later and rule flow acceptance remain pending.
 
 ## Rollback Points
 

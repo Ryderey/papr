@@ -148,11 +148,6 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                   onPressed: () =>
                       _setState(_ArticleState.readLater, !detail.readLater),
                 ),
-                IconButton(
-                  tooltip: context.l10n.editTags,
-                  icon: const Icon(Icons.label_outline),
-                  onPressed: _editTags,
-                ),
                 PopupMenuButton<_ReaderAction>(
                   tooltip: context.l10n.readerActions,
                   onSelected: _readerAction,
@@ -396,6 +391,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         case _ArticleState.readLater:
           await repo.setReadLater(widget.articleId, value);
       }
+      ref.invalidate(articleDetailProvider(widget.articleId));
+      ref.invalidate(articlePageProvider);
       ref.invalidate(articleCountsProvider);
       ref.invalidate(articleCountProvider);
     } catch (error) {
@@ -567,74 +564,6 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         await repository.updateHighlightNote(highlight.id.toInt(), draft.note);
       }
       await _loadHighlights();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.localizeError(error))),
-        );
-      }
-    }
-  }
-
-  Future<void> _editTags() async {
-    final detail = _detail;
-    if (detail == null) return;
-    try {
-      final tags = await ref.read(articleTagsProvider.future);
-      final selected = detail.tags.map((tag) => tag.id.toInt()).toSet();
-      if (!mounted) return;
-      await showModalBottomSheet<void>(
-        context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, setSheetState) => SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    context.l10n.editTags,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                for (final tag in tags)
-                  CheckboxListTile(
-                    title: Text(tag.name),
-                    value: selected.contains(tag.id.toInt()),
-                    onChanged: (attached) async {
-                      final value = attached ?? false;
-                      try {
-                        await ref.read(articleRepositoryProvider).setArticleTag(
-                              widget.articleId,
-                              tag.id.toInt(),
-                              value,
-                            );
-                        setSheetState(() {
-                          if (value) {
-                            selected.add(tag.id.toInt());
-                          } else {
-                            selected.remove(tag.id.toInt());
-                          }
-                        });
-                        ref.invalidate(articleTagsProvider);
-                        ref.invalidate(articleDetailProvider(widget.articleId));
-                      } catch (error) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.l10n.localizeError(error)),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await _load();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

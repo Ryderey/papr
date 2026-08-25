@@ -121,11 +121,54 @@ void main() {
     expect((browser as dynamic).enabled, isFalse);
     expect((share as dynamic).enabled, isFalse);
   });
+
+  testWidgets('keeps starred and read-later state after reopening the article',
+      (tester) async {
+    final flags = _ArticleFlags();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          articleRepositoryProvider.overrideWith(
+            (ref) => _MemoryArticleRepository(ref, flags),
+          ),
+          articleDetailProvider(1).overrideWith(
+            (ref) async => _article(
+              contentHtml: '<p>Body</p>',
+              isStarred: flags.isStarred,
+              readLater: flags.readLater,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: _ArticleRouteHarness(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open article'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Star'));
+    await tester.tap(find.byTooltip('Read later'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open article'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Unstar'), findsOneWidget);
+    expect(find.byTooltip('Remove from read later'), findsOneWidget);
+    expect(find.byTooltip('Edit tags'), findsNothing);
+  });
 }
 
 bridge.ArticleDetail _article({
   String? contentHtml,
   String? url = 'https://example.com/articles/1',
+  bool isStarred = false,
+  bool readLater = false,
 }) {
   return bridge.ArticleDetail(
     id: 1,
@@ -136,9 +179,59 @@ bridge.ArticleDetail _article({
     url: url,
     contentHtml: contentHtml,
     isRead: true,
-    isStarred: false,
-    readLater: false,
+    isStarred: isStarred,
+    readLater: readLater,
     enclosures: const [],
     tags: const [],
   );
+}
+
+class _ArticleRouteHarness extends StatelessWidget {
+  const _ArticleRouteHarness();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: FilledButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ArticleDetailScreen(articleId: 1),
+              ),
+            ),
+            child: const Text('Open article'),
+          ),
+        ),
+      );
+}
+
+class _ArticleFlags {
+  bool isStarred = false;
+  bool readLater = false;
+}
+
+class _MemoryArticleRepository extends ArticleRepository {
+  final _ArticleFlags flags;
+
+  _MemoryArticleRepository(super.ref, this.flags);
+
+  @override
+  Future<void> setStarred(int articleId, bool value) async {
+    flags.isStarred = value;
+  }
+
+  @override
+  Future<void> setReadLater(int articleId, bool value) async {
+    flags.readLater = value;
+  }
+
+  @override
+  Future<List<bridge.Highlight>> listHighlights(int articleId) async =>
+      const [];
+
+  @override
+  Future<List<bridge.ResolvedHighlight>> resolveHighlights(
+    int articleId,
+    String text,
+  ) async =>
+      const [];
 }
