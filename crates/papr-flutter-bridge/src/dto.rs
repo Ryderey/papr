@@ -5,6 +5,106 @@
 
 use flutter_rust_bridge::frb;
 
+/// Provider protocol used for a portable AI profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum AiProtocol {
+    AnthropicMessages,
+    OpenaiChatCompletions,
+}
+
+/// Authentication header applied by Core for an AI request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum AiAuthMode {
+    Bearer,
+    XApiKey,
+    None,
+}
+
+/// Mobile-supported purpose assigned to an AI profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum AiPurpose {
+    Summary,
+    Translate,
+}
+
+/// A non-sensitive custom HTTP header attached to an AI profile.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct AiHeader {
+    pub name: String,
+    pub value: String,
+}
+
+/// Persistable AI provider metadata. Credentials are passed separately.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct AiProfile {
+    pub id: String,
+    pub name: String,
+    pub protocol: AiProtocol,
+    pub model: String,
+    pub base_url: String,
+    pub auth: AiAuthMode,
+    pub headers: Vec<AiHeader>,
+    pub credential_ref: Option<String>,
+    pub enabled: bool,
+    pub default_for: Vec<AiPurpose>,
+}
+
+/// Supported formats for an AI-generated article summary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum SummaryTemplate {
+    Classic,
+    News5w1h,
+    Decision,
+    Funnel,
+    Argument,
+    Minimal,
+}
+
+/// The most recent fully generated summary for one article.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct AiSummaryCache {
+    pub summary: String,
+    pub template: Option<String>,
+    pub language: Option<String>,
+}
+
+/// One completed, in-memory follow-up exchange.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct AiFollowUpTurn {
+    pub question: String,
+    pub answer: String,
+}
+
+/// Provider-neutral events emitted by a long-running AI request.
+#[derive(Debug, Clone)]
+#[frb]
+pub enum AiStreamEvent {
+    Delta {
+        request_id: String,
+        text: String,
+    },
+    Progress {
+        request_id: String,
+        completed: u32,
+        total: u32,
+    },
+    Completed {
+        request_id: String,
+    },
+    Error {
+        request_id: String,
+        code: String,
+    },
+}
+
 /// Supported target platforms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[frb]

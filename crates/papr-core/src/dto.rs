@@ -126,6 +126,40 @@ pub struct ArticleDetail {
     pub tags: Vec<Tag>,
 }
 
+/// Supported formats for an AI-generated article summary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SummaryTemplate {
+    Classic,
+    News5w1h,
+    Decision,
+    Funnel,
+    Argument,
+    Minimal,
+}
+
+impl SummaryTemplate {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Classic => "classic",
+            Self::News5w1h => "news5w1h",
+            Self::Decision => "decision",
+            Self::Funnel => "funnel",
+            Self::Argument => "argument",
+            Self::Minimal => "minimal",
+        }
+    }
+}
+
+/// The most recent fully generated summary for one article.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiSummaryCache {
+    pub summary: String,
+    /// `None` identifies a summary written before template metadata existed.
+    pub template: Option<String>,
+    /// `None` identifies a summary written before language metadata existed.
+    pub language: Option<String>,
+}
+
 /// A lightweight tag representation.
 #[derive(Debug, Clone)]
 pub struct Tag {

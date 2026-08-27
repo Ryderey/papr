@@ -572,4 +572,135 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get allFeeds => 'All subscriptions';
+
+  @override
+  String get aiProfiles => 'AI profiles';
+
+  @override
+  String get noAiProfiles => 'No AI profile yet. Add one to use summaries.';
+
+  @override
+  String get addAiProfile => 'Add AI profile';
+
+  @override
+  String get editAiProfile => 'Edit AI profile';
+
+  @override
+  String get deleteAiProfileTitle => 'Delete AI profile?';
+
+  @override
+  String get profileName => 'Profile name';
+
+  @override
+  String get aiProtocol => 'Protocol';
+
+  @override
+  String get aiModel => 'Model';
+
+  @override
+  String get aiBaseUrl => 'Base URL';
+
+  @override
+  String get aiAuth => 'Authentication';
+
+  @override
+  String get aiApiKey => 'API key';
+
+  @override
+  String get aiApiKeyKeep => 'Leave empty to keep the current key.';
+
+  @override
+  String get openaiCompatible => 'OpenAI compatible';
+
+  @override
+  String get anthropic => 'Anthropic Messages';
+
+  @override
+  String get bearerAuth => 'Bearer token';
+
+  @override
+  String get xApiKeyAuth => 'x-api-key';
+
+  @override
+  String get noAuth => 'No authentication';
+
+  @override
+  String get useForSummary => 'Use for summaries';
+
+  @override
+  String get testAiConnection => 'Test connection';
+
+  @override
+  String get aiConnectionSucceeded => 'AI service connection succeeded.';
+
+  @override
+  String get errorInvalidAiProfile =>
+      'Complete the required AI profile fields.';
+
+  @override
+  String get errorNoAiCredential => 'Enter an API key for this profile.';
+
+  @override
+  String get errorAiCredentialStore =>
+      'The API key could not be accessed securely.';
+
+  @override
+  String get errorAiAuth => 'The AI service rejected the current credentials.';
+
+  @override
+  String get aiSummary => 'AI summary';
+
+  @override
+  String get summaryNoProfile =>
+      'Configure an enabled AI profile before generating a summary.';
+
+  @override
+  String get configureAiProfile => 'Configure AI profile';
+
+  @override
+  String get summaryTemplate => 'Summary template';
+
+  @override
+  String get summaryTemplateClassic => 'Classic';
+
+  @override
+  String get summaryTemplateNews => '5W1H news';
+
+  @override
+  String get summaryTemplateDecision => 'Reading decision';
+
+  @override
+  String get summaryTemplateFunnel => 'Progressive funnel';
+
+  @override
+  String get summaryTemplateArgument => 'Argument analysis';
+
+  @override
+  String get summaryTemplateMinimal => 'One sentence';
+
+  @override
+  String get summaryTemplateLegacy => 'Legacy';
+
+  @override
+  String summaryCacheInfo(String template, String language) {
+    return 'Cached template: $template · Language: $language';
+  }
+
+  @override
+  String get regenerate => 'Regenerate';
+
+  @override
+  String get stop => 'Stop';
+
+  @override
+  String get noSummaryYet => 'No complete summary yet.';
+
+  @override
+  String get askAboutSummary => 'Ask about this summary';
+
+  @override
+  String get summaryQuestionHint => 'Ask using only the summary above';
+
+  @override
+  String get send => 'Send';
 }

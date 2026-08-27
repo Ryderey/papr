@@ -8,7 +8,9 @@ import 'error.dart';
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These functions are ignored because they are not marked as `pub`: `cancel`, `emit_ai_stream_error`, `finish`, `invalid_ai_request`, `new`, `register`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AiRequestLease`, `AiRequestRegistry`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -273,6 +275,88 @@ Future<void> setReadingSettings(
         {required PaprCoreBridge core, required ReadingSettings settings}) =>
     RustLib.instance.api
         .crateApiSetReadingSettings(core: core, settings: settings);
+
+/// List persistable AI profile metadata. This API never returns credentials.
+Future<List<AiProfile>> listAiProfiles({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiListAiProfiles(core: core);
+
+/// Insert or replace non-sensitive AI profile metadata.
+Future<void> saveAiProfile(
+        {required PaprCoreBridge core, required AiProfile profile}) =>
+    RustLib.instance.api.crateApiSaveAiProfile(core: core, profile: profile);
+
+/// Set the sole active AI profile, or disable the selected profile.
+Future<void> setAiProfileEnabled(
+        {required PaprCoreBridge core,
+        required String profileId,
+        required bool enabled}) =>
+    RustLib.instance.api.crateApiSetAiProfileEnabled(
+        core: core, profileId: profileId, enabled: enabled);
+
+/// Delete profile metadata and return its credential alias for platform cleanup.
+Future<String?> deleteAiProfile(
+        {required PaprCoreBridge core, required String profileId}) =>
+    RustLib.instance.api
+        .crateApiDeleteAiProfile(core: core, profileId: profileId);
+
+/// Verify a saved profile through the same streaming provider path as summaries.
+/// Credentials are transient and this does not create or replace any cache.
+Future<void> testAiConnection(
+        {required PaprCoreBridge core,
+        required AiProfile profile,
+        String? credential}) =>
+    RustLib.instance.api.crateApiTestAiConnection(
+        core: core, profile: profile, credential: credential);
+
+/// Read the most recent complete summary without starting a network request.
+Future<AiSummaryCache?> getAiSummaryCache(
+        {required PaprCoreBridge core, required PlatformInt64 articleId}) =>
+    RustLib.instance.api
+        .crateApiGetAiSummaryCache(core: core, articleId: articleId);
+
+/// Stream a summary and atomically cache it only after complete success.
+Stream<AiStreamEvent> streamAiSummary(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required AiProfile profile,
+        String? credential,
+        required SummaryTemplate template,
+        required String language,
+        required String requestId}) =>
+    RustLib.instance.api.crateApiStreamAiSummary(
+        core: core,
+        articleId: articleId,
+        profile: profile,
+        credential: credential,
+        template: template,
+        language: language,
+        requestId: requestId);
+
+/// Stream a follow-up answer using only the supplied summary and Q&A history.
+Stream<AiStreamEvent> streamAiFollowUp(
+        {required PaprCoreBridge core,
+        required AiProfile profile,
+        String? credential,
+        required String summary,
+        required List<AiFollowUpTurn> history,
+        required String question,
+        required String language,
+        required String requestId}) =>
+    RustLib.instance.api.crateApiStreamAiFollowUp(
+        core: core,
+        profile: profile,
+        credential: credential,
+        summary: summary,
+        history: history,
+        question: question,
+        language: language,
+        requestId: requestId);
+
+/// Cooperatively cancel an active AI request. Missing IDs are already cancelled.
+Future<bool> cancelAiRequest(
+        {required PaprCoreBridge core, required String requestId}) =>
+    RustLib.instance.api
+        .crateApiCancelAiRequest(core: core, requestId: requestId);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>>
 abstract class PaprCoreBridge implements RustOpaqueInterface {}

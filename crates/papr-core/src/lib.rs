@@ -2,6 +2,7 @@
 
 pub mod config;
 pub use config::{PaprCoreConfig, Platform};
+pub mod ai;
 pub mod db;
 pub mod dto;
 pub use dto::*;
@@ -17,7 +18,8 @@ use std::sync::Arc;
 use db::Db;
 use error::CoreError;
 use services::{
-    ArticleService, FeedService, FolderService, IngestionService, OpmlService, SettingsService,
+    AiService, ArticleService, FeedService, FolderService, IngestionService, OpmlService,
+    SettingsService,
 };
 
 /// The root handle for all Papr business operations.
@@ -29,6 +31,7 @@ pub struct PaprCore {
     _db: Arc<Db>,
     http: Arc<reqwest::Client>,
     config: PaprCoreConfig,
+    ai_service: AiService,
     feed_service: FeedService,
     folder_service: FolderService,
     article_service: ArticleService,
@@ -65,6 +68,7 @@ impl PaprCore {
         )?);
 
         Ok(Self {
+            ai_service: AiService::new(Arc::clone(&db), Arc::clone(&http)),
             feed_service: FeedService::new(Arc::clone(&db)),
             folder_service: FolderService::new(Arc::clone(&db)),
             article_service: ArticleService::new(Arc::clone(&db), Arc::clone(&http)),
@@ -88,6 +92,10 @@ impl PaprCore {
 
     pub fn platform(&self) -> Platform {
         self.config.platform
+    }
+
+    pub fn ai_service(&self) -> &AiService {
+        &self.ai_service
     }
 
     pub fn feed_service(&self) -> &FeedService {

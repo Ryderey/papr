@@ -562,4 +562,132 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get allFeeds => 'すべての購読';
+
+  @override
+  String get aiProfiles => 'AI プロファイル';
+
+  @override
+  String get noAiProfiles => 'AI プロファイルがありません。要約を使うには追加してください。';
+
+  @override
+  String get addAiProfile => 'AI プロファイルを追加';
+
+  @override
+  String get editAiProfile => 'AI プロファイルを編集';
+
+  @override
+  String get deleteAiProfileTitle => 'AI プロファイルを削除しますか？';
+
+  @override
+  String get profileName => 'プロファイル名';
+
+  @override
+  String get aiProtocol => 'プロトコル';
+
+  @override
+  String get aiModel => 'モデル';
+
+  @override
+  String get aiBaseUrl => 'Base URL';
+
+  @override
+  String get aiAuth => '認証';
+
+  @override
+  String get aiApiKey => 'API キー';
+
+  @override
+  String get aiApiKeyKeep => '空欄の場合は現在のキーを保持します。';
+
+  @override
+  String get openaiCompatible => 'OpenAI 互換';
+
+  @override
+  String get anthropic => 'Anthropic Messages';
+
+  @override
+  String get bearerAuth => 'Bearer トークン';
+
+  @override
+  String get xApiKeyAuth => 'x-api-key';
+
+  @override
+  String get noAuth => '認証なし';
+
+  @override
+  String get useForSummary => '要約に使用';
+
+  @override
+  String get testAiConnection => '接続をテスト';
+
+  @override
+  String get aiConnectionSucceeded => 'AI サービスへの接続に成功しました。';
+
+  @override
+  String get errorInvalidAiProfile => 'AI プロファイルの必須項目を入力してください。';
+
+  @override
+  String get errorNoAiCredential => 'このプロファイルの API キーを入力してください。';
+
+  @override
+  String get errorAiCredentialStore => 'API キーに安全にアクセスできません。';
+
+  @override
+  String get errorAiAuth => 'AI サービスが現在の認証情報を拒否しました。';
+
+  @override
+  String get aiSummary => 'AI 要約';
+
+  @override
+  String get summaryNoProfile => '要約を生成する前に、有効な AI プロファイルを設定してください。';
+
+  @override
+  String get configureAiProfile => 'AI プロファイルを設定';
+
+  @override
+  String get summaryTemplate => '要約テンプレート';
+
+  @override
+  String get summaryTemplateClassic => 'クラシック';
+
+  @override
+  String get summaryTemplateNews => 'ニュース 5W1H';
+
+  @override
+  String get summaryTemplateDecision => '読むか判断';
+
+  @override
+  String get summaryTemplateFunnel => '段階的要約';
+
+  @override
+  String get summaryTemplateArgument => '論点分析';
+
+  @override
+  String get summaryTemplateMinimal => '一文';
+
+  @override
+  String get summaryTemplateLegacy => '旧版';
+
+  @override
+  String summaryCacheInfo(String template, String language) {
+    return 'キャッシュテンプレート：$template · 言語：$language';
+  }
+
+  @override
+  String get regenerate => '再生成';
+
+  @override
+  String get stop => '停止';
+
+  @override
+  String get noSummaryYet => '完了した要約はまだありません。';
+
+  @override
+  String get askAboutSummary => 'この要約について質問';
+
+  @override
+  String get summaryQuestionHint => '上の要約だけを使って質問';
+
+  @override
+  String get send => '送信';
 }

@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 
 class PlatformService {
   static const _channel = MethodChannel('com.papr.papr_mobile/platform');
+  static final _aiCredentialRefPattern = RegExp(
+    r'^papr\.ai\.[A-Za-z0-9_-]{1,80}$',
+  );
 
   final _deepLinks = StreamController<String>.broadcast();
 
@@ -67,6 +70,52 @@ class PlatformService {
       return await _channel.invokeMethod<bool>(
             'shareArticle',
             {'title': title, 'url': url},
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  static bool isValidAiCredentialRef(String value) {
+    return _aiCredentialRefPattern.hasMatch(value);
+  }
+
+  Future<bool> setAiCredential(String credentialRef, String secret) async {
+    if (!isValidAiCredentialRef(credentialRef) ||
+        secret.trim().isEmpty ||
+        secret.length > 8192) {
+      return false;
+    }
+    try {
+      return await _channel.invokeMethod<bool>(
+            'setAiCredential',
+            {'credentialRef': credentialRef, 'secret': secret},
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<String?> getAiCredential(String credentialRef) async {
+    if (!isValidAiCredentialRef(credentialRef)) return null;
+    try {
+      return await _channel.invokeMethod<String>(
+        'getAiCredential',
+        {'credentialRef': credentialRef},
+      );
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<bool> deleteAiCredential(String credentialRef) async {
+    if (!isValidAiCredentialRef(credentialRef)) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            'deleteAiCredential',
+            {'credentialRef': credentialRef},
           ) ??
           false;
     } on MissingPluginException {

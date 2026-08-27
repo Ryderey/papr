@@ -4,19 +4,114 @@
 //! logic lives in `papr-core`; this crate is only a thin wrapper plus DTO
 //! conversion.
 
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use flutter_rust_bridge::frb;
 use papr_core::PaprCore;
 
 use crate::dto::{
-    AddFeedInput, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary,
-    DiscoveryResult, Enclosure, Feed, Folder, Highlight, HighlightInput, OpmlImportReport,
-    PaprCoreConfig, Platform, ReadingSettings, RefreshError, RefreshOptions, RefreshReport,
-    ResolvedHighlight, Rule, RuleInput, RulePreview, SettingsSnapshot, SourceType, Tag, TagSummary,
+    AddFeedInput, AiAuthMode, AiFollowUpTurn, AiHeader, AiProfile, AiProtocol, AiPurpose,
+    AiStreamEvent, AiSummaryCache, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind,
+    ArticleSummary, DiscoveryResult, Enclosure, Feed, Folder, Highlight, HighlightInput,
+    OpmlImportReport, PaprCoreConfig, Platform, ReadingSettings, RefreshError, RefreshOptions,
+    RefreshReport, ResolvedHighlight, Rule, RuleInput, RulePreview, SettingsSnapshot, SourceType,
+    SummaryTemplate, Tag, TagSummary,
 };
 use crate::error::PaprBridgeError;
+use crate::frb_generated::StreamSink;
+
+pub(crate) struct AiRequestRegistry {
+    active: Mutex<HashMap<String, papr_core::ai::AiCancellation>>,
+}
+
+impl AiRequestRegistry {
+    fn new() -> Self {
+        Self {
+            active: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn register(self: &Arc<Self>, request_id: &str) -> Result<AiRequestLease, PaprBridgeError> {
+        if request_id.trim().is_empty() {
+            return Err(invalid_ai_request());
+        }
+
+        let cancellation = papr_core::ai::AiCancellation::default();
+        let mut active = self
+            .active
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if active.contains_key(request_id) {
+            return Err(invalid_ai_request());
+        }
+        active.insert(request_id.to_string(), cancellation.clone());
+        drop(active);
+
+        Ok(AiRequestLease {
+            registry: Arc::clone(self),
+            request_id: request_id.to_string(),
+            cancellation,
+        })
+    }
+
+    fn cancel(&self, request_id: &str) -> bool {
+        let cancellation = self
+            .active
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(request_id)
+            .cloned();
+        if let Some(cancellation) = cancellation {
+            cancellation.cancel();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn finish(&self, request_id: &str) {
+        self.active
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(request_id);
+    }
+}
+
+struct AiRequestLease {
+    registry: Arc<AiRequestRegistry>,
+    request_id: String,
+    cancellation: papr_core::ai::AiCancellation,
+}
+
+impl Drop for AiRequestLease {
+    fn drop(&mut self) {
+        self.registry.finish(&self.request_id);
+    }
+}
+
+fn invalid_ai_request() -> PaprBridgeError {
+    PaprBridgeError {
+        category: crate::error::ErrorCategory::InvalidInput,
+        code: "invalidInput".to_string(),
+        detail: None,
+    }
+}
+
+/// Streaming APIs report expected operational failures through their typed event
+/// channel. Returning such a failure from the FRB task would create an
+/// unobserved Future error because Flutter Rust Bridge starts that task eagerly.
+fn emit_ai_stream_error(
+    sink: &StreamSink<AiStreamEvent>,
+    request_id: &str,
+    code: impl Into<String>,
+) {
+    let _ = sink.add(AiStreamEvent::Error {
+        request_id: request_id.to_string(),
+        code: code.into(),
+    });
+}
 
 /// Opaque handle to a `PaprCore` instance.
 ///
@@ -25,6 +120,7 @@ use crate::error::PaprBridgeError;
 #[frb(opaque)]
 pub struct PaprCoreBridge {
     inner: Arc<PaprCore>,
+    ai_requests: Arc<AiRequestRegistry>,
 }
 
 /// Optional initialisation hook called by FRB before the first API use.
@@ -38,6 +134,7 @@ pub async fn init_papr_core(config: PaprCoreConfig) -> Result<PaprCoreBridge, Pa
     let core = PaprCore::new(config.into()).await?;
     Ok(PaprCoreBridge {
         inner: Arc::new(core),
+        ai_requests: Arc::new(AiRequestRegistry::new()),
     })
 }
 
@@ -508,9 +605,348 @@ pub async fn set_reading_settings(
         .await?)
 }
 
+/// List persistable AI profile metadata. This API never returns credentials.
+pub async fn list_ai_profiles(core: &PaprCoreBridge) -> Result<Vec<AiProfile>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .list_ai_profiles()
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect())
+}
+
+/// Insert or replace non-sensitive AI profile metadata.
+pub async fn save_ai_profile(
+    core: &PaprCoreBridge,
+    profile: AiProfile,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .save_ai_profile(profile.into())
+        .await?)
+}
+
+/// Set the sole active AI profile, or disable the selected profile.
+pub async fn set_ai_profile_enabled(
+    core: &PaprCoreBridge,
+    profile_id: String,
+    enabled: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .set_ai_profile_enabled(profile_id, enabled)
+        .await?)
+}
+
+/// Delete profile metadata and return its credential alias for platform cleanup.
+pub async fn delete_ai_profile(
+    core: &PaprCoreBridge,
+    profile_id: String,
+) -> Result<Option<String>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .delete_ai_profile(profile_id)
+        .await?)
+}
+
+/// Verify a saved profile through the same streaming provider path as summaries.
+/// Credentials are transient and this does not create or replace any cache.
+pub async fn test_ai_connection(
+    core: &PaprCoreBridge,
+    profile: AiProfile,
+    credential: Option<String>,
+) -> Result<(), PaprBridgeError> {
+    let profile = papr_core::ai::AiProfile::from(profile);
+    let credential = credential
+        .map(papr_core::ai::ResolvedAiCredential::new)
+        .transpose()?;
+    Ok(core
+        .inner
+        .ai_service()
+        .test_connection(&profile, credential.as_ref())
+        .await?)
+}
+
+/// Read the most recent complete summary without starting a network request.
+pub async fn get_ai_summary_cache(
+    core: &PaprCoreBridge,
+    article_id: i64,
+) -> Result<Option<AiSummaryCache>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .ai_service()
+        .summary_cache(article_id)
+        .await?
+        .map(Into::into))
+}
+
+/// Stream a summary and atomically cache it only after complete success.
+#[allow(clippy::too_many_arguments)]
+pub async fn stream_ai_summary(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    profile: AiProfile,
+    credential: Option<String>,
+    template: SummaryTemplate,
+    language: String,
+    request_id: String,
+    sink: StreamSink<AiStreamEvent>,
+) -> Result<(), PaprBridgeError> {
+    let lease = match core.ai_requests.register(&request_id) {
+        Ok(lease) => lease,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code.clone());
+            return Ok(());
+        }
+    };
+    let profile = papr_core::ai::AiProfile::from(profile);
+    let credential = match credential
+        .map(papr_core::ai::ResolvedAiCredential::new)
+        .transpose()
+    {
+        Ok(credential) => credential,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code().to_string());
+            return Ok(());
+        }
+    };
+
+    // `AiService::summarize` emits one terminal Error event for every service
+    // failure. Keep the FRB task successful so the generated eager task does
+    // not surface that same expected error as an unhandled Dart Future.
+    let _ = core
+        .inner
+        .ai_service()
+        .summarize(
+            article_id,
+            &profile,
+            credential.as_ref(),
+            template.into(),
+            &language,
+            &request_id,
+            &lease.cancellation,
+            |event| sink.add(event.into()).is_ok(),
+        )
+        .await;
+    Ok(())
+}
+
+/// Stream a follow-up answer using only the supplied summary and Q&A history.
+#[allow(clippy::too_many_arguments)]
+pub async fn stream_ai_follow_up(
+    core: &PaprCoreBridge,
+    profile: AiProfile,
+    credential: Option<String>,
+    summary: String,
+    history: Vec<AiFollowUpTurn>,
+    question: String,
+    language: String,
+    request_id: String,
+    sink: StreamSink<AiStreamEvent>,
+) -> Result<(), PaprBridgeError> {
+    let lease = match core.ai_requests.register(&request_id) {
+        Ok(lease) => lease,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code.clone());
+            return Ok(());
+        }
+    };
+    let profile = papr_core::ai::AiProfile::from(profile);
+    let credential = match credential
+        .map(papr_core::ai::ResolvedAiCredential::new)
+        .transpose()
+    {
+        Ok(credential) => credential,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code().to_string());
+            return Ok(());
+        }
+    };
+    let history = history
+        .into_iter()
+        .map(|turn| (turn.question, turn.answer))
+        .collect::<Vec<_>>();
+
+    // `AiService::follow_up` emits one terminal Error event for every service
+    // failure; do not return it through FRB's eagerly-started task as well.
+    let _ = core
+        .inner
+        .ai_service()
+        .follow_up(
+            &profile,
+            credential.as_ref(),
+            &summary,
+            &history,
+            &question,
+            &language,
+            &request_id,
+            &lease.cancellation,
+            |event| sink.add(event.into()).is_ok(),
+        )
+        .await;
+    Ok(())
+}
+
+/// Cooperatively cancel an active AI request. Missing IDs are already cancelled.
+pub fn cancel_ai_request(core: &PaprCoreBridge, request_id: String) -> bool {
+    core.ai_requests.cancel(&request_id)
+}
+
 // ---------------------------------------------------------------------------
 // DTO conversions: bridge DTOs ↔ papr-core DTOs
 // ---------------------------------------------------------------------------
+
+impl From<AiProtocol> for papr_core::ai::AiProtocol {
+    fn from(protocol: AiProtocol) -> Self {
+        match protocol {
+            AiProtocol::AnthropicMessages => Self::AnthropicMessages,
+            AiProtocol::OpenaiChatCompletions => Self::OpenaiChatCompletions,
+        }
+    }
+}
+
+impl From<papr_core::ai::AiProtocol> for AiProtocol {
+    fn from(protocol: papr_core::ai::AiProtocol) -> Self {
+        match protocol {
+            papr_core::ai::AiProtocol::AnthropicMessages => Self::AnthropicMessages,
+            papr_core::ai::AiProtocol::OpenaiChatCompletions => Self::OpenaiChatCompletions,
+        }
+    }
+}
+
+impl From<AiAuthMode> for papr_core::ai::AiAuthMode {
+    fn from(auth: AiAuthMode) -> Self {
+        match auth {
+            AiAuthMode::Bearer => Self::Bearer,
+            AiAuthMode::XApiKey => Self::XApiKey,
+            AiAuthMode::None => Self::None,
+        }
+    }
+}
+
+impl From<papr_core::ai::AiAuthMode> for AiAuthMode {
+    fn from(auth: papr_core::ai::AiAuthMode) -> Self {
+        match auth {
+            papr_core::ai::AiAuthMode::Bearer => Self::Bearer,
+            papr_core::ai::AiAuthMode::XApiKey => Self::XApiKey,
+            papr_core::ai::AiAuthMode::None => Self::None,
+        }
+    }
+}
+
+impl From<AiPurpose> for papr_core::ai::AiPurpose {
+    fn from(purpose: AiPurpose) -> Self {
+        match purpose {
+            AiPurpose::Summary => Self::Summary,
+            AiPurpose::Translate => Self::Translate,
+        }
+    }
+}
+
+impl From<papr_core::ai::AiPurpose> for AiPurpose {
+    fn from(purpose: papr_core::ai::AiPurpose) -> Self {
+        match purpose {
+            papr_core::ai::AiPurpose::Summary => Self::Summary,
+            papr_core::ai::AiPurpose::Translate => Self::Translate,
+        }
+    }
+}
+
+impl From<AiProfile> for papr_core::ai::AiProfile {
+    fn from(profile: AiProfile) -> Self {
+        let headers = profile
+            .headers
+            .into_iter()
+            .map(|header| (header.name, header.value))
+            .collect::<BTreeMap<_, _>>();
+        Self {
+            id: profile.id,
+            name: profile.name,
+            protocol: profile.protocol.into(),
+            model: profile.model,
+            base_url: profile.base_url,
+            auth: profile.auth.into(),
+            headers,
+            credential_ref: profile.credential_ref,
+            enabled: profile.enabled,
+            default_for: profile.default_for.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<papr_core::ai::AiProfile> for AiProfile {
+    fn from(profile: papr_core::ai::AiProfile) -> Self {
+        Self {
+            id: profile.id,
+            name: profile.name,
+            protocol: profile.protocol.into(),
+            model: profile.model,
+            base_url: profile.base_url,
+            auth: profile.auth.into(),
+            headers: profile
+                .headers
+                .into_iter()
+                .map(|(name, value)| AiHeader { name, value })
+                .collect(),
+            credential_ref: profile.credential_ref,
+            enabled: profile.enabled,
+            default_for: profile.default_for.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<SummaryTemplate> for papr_core::SummaryTemplate {
+    fn from(template: SummaryTemplate) -> Self {
+        match template {
+            SummaryTemplate::Classic => Self::Classic,
+            SummaryTemplate::News5w1h => Self::News5w1h,
+            SummaryTemplate::Decision => Self::Decision,
+            SummaryTemplate::Funnel => Self::Funnel,
+            SummaryTemplate::Argument => Self::Argument,
+            SummaryTemplate::Minimal => Self::Minimal,
+        }
+    }
+}
+
+impl From<papr_core::AiSummaryCache> for AiSummaryCache {
+    fn from(cache: papr_core::AiSummaryCache) -> Self {
+        Self {
+            summary: cache.summary,
+            template: cache.template,
+            language: cache.language,
+        }
+    }
+}
+
+impl From<papr_core::ai::AiStreamEvent> for AiStreamEvent {
+    fn from(event: papr_core::ai::AiStreamEvent) -> Self {
+        match event {
+            papr_core::ai::AiStreamEvent::Delta { request_id, text } => {
+                Self::Delta { request_id, text }
+            }
+            papr_core::ai::AiStreamEvent::Progress {
+                request_id,
+                completed,
+                total,
+            } => Self::Progress {
+                request_id,
+                completed,
+                total,
+            },
+            papr_core::ai::AiStreamEvent::Completed { request_id } => {
+                Self::Completed { request_id }
+            }
+            papr_core::ai::AiStreamEvent::Error { request_id, code } => {
+                Self::Error { request_id, code }
+            }
+        }
+    }
+}
 
 impl From<PaprCoreConfig> for papr_core::PaprCoreConfig {
     fn from(c: PaprCoreConfig) -> Self {
@@ -865,7 +1301,9 @@ impl From<ReadingSettings> for papr_core::ReadingSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_deep_link;
+    use std::sync::Arc;
+
+    use super::{parse_deep_link, AiRequestRegistry};
 
     #[test]
     fn deep_link_api_returns_only_valid_subscription_targets() {
@@ -876,5 +1314,32 @@ mod tests {
             Some("https://example.com/feed.xml".to_string())
         );
         assert_eq!(parse_deep_link("https://example.com".to_string()), None);
+    }
+
+    #[test]
+    fn ai_request_cancellation_is_idempotent_and_lease_cleans_up() {
+        let registry = Arc::new(AiRequestRegistry::new());
+        let lease = registry.register("request-1").unwrap();
+
+        assert!(registry.cancel("request-1"));
+        assert!(registry.cancel("request-1"));
+        assert!(lease.cancellation.is_cancelled());
+
+        drop(lease);
+        assert!(!registry.cancel("request-1"));
+    }
+
+    #[test]
+    fn duplicate_ai_request_id_does_not_replace_active_cancellation() {
+        let registry = Arc::new(AiRequestRegistry::new());
+        let lease = registry.register("request-1").unwrap();
+
+        let error = match registry.register("request-1") {
+            Ok(_) => panic!("duplicate request should fail"),
+            Err(error) => error,
+        };
+        assert_eq!(error.code, "invalidInput");
+        assert!(registry.cancel("request-1"));
+        assert!(lease.cancellation.is_cancelled());
     }
 }

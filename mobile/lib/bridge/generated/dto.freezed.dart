@@ -15,6 +15,796 @@ final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
+mixin _$AiStreamEvent {
+  String get requestId => throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String requestId, String text) delta,
+    required TResult Function(String requestId, int completed, int total)
+        progress,
+    required TResult Function(String requestId) completed,
+    required TResult Function(String requestId, String code) error,
+  }) =>
+      throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String requestId, String text)? delta,
+    TResult? Function(String requestId, int completed, int total)? progress,
+    TResult? Function(String requestId)? completed,
+    TResult? Function(String requestId, String code)? error,
+  }) =>
+      throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String requestId, String text)? delta,
+    TResult Function(String requestId, int completed, int total)? progress,
+    TResult Function(String requestId)? completed,
+    TResult Function(String requestId, String code)? error,
+    required TResult orElse(),
+  }) =>
+      throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(AiStreamEvent_Delta value) delta,
+    required TResult Function(AiStreamEvent_Progress value) progress,
+    required TResult Function(AiStreamEvent_Completed value) completed,
+    required TResult Function(AiStreamEvent_Error value) error,
+  }) =>
+      throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(AiStreamEvent_Delta value)? delta,
+    TResult? Function(AiStreamEvent_Progress value)? progress,
+    TResult? Function(AiStreamEvent_Completed value)? completed,
+    TResult? Function(AiStreamEvent_Error value)? error,
+  }) =>
+      throw _privateConstructorUsedError;
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(AiStreamEvent_Delta value)? delta,
+    TResult Function(AiStreamEvent_Progress value)? progress,
+    TResult Function(AiStreamEvent_Completed value)? completed,
+    TResult Function(AiStreamEvent_Error value)? error,
+    required TResult orElse(),
+  }) =>
+      throw _privateConstructorUsedError;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $AiStreamEventCopyWith<AiStreamEvent> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $AiStreamEventCopyWith<$Res> {
+  factory $AiStreamEventCopyWith(
+          AiStreamEvent value, $Res Function(AiStreamEvent) then) =
+      _$AiStreamEventCopyWithImpl<$Res, AiStreamEvent>;
+  @useResult
+  $Res call({String requestId});
+}
+
+/// @nodoc
+class _$AiStreamEventCopyWithImpl<$Res, $Val extends AiStreamEvent>
+    implements $AiStreamEventCopyWith<$Res> {
+  _$AiStreamEventCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? requestId = null,
+  }) {
+    return _then(_value.copyWith(
+      requestId: null == requestId
+          ? _value.requestId
+          : requestId // ignore: cast_nullable_to_non_nullable
+              as String,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$AiStreamEvent_DeltaImplCopyWith<$Res>
+    implements $AiStreamEventCopyWith<$Res> {
+  factory _$$AiStreamEvent_DeltaImplCopyWith(_$AiStreamEvent_DeltaImpl value,
+          $Res Function(_$AiStreamEvent_DeltaImpl) then) =
+      __$$AiStreamEvent_DeltaImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String requestId, String text});
+}
+
+/// @nodoc
+class __$$AiStreamEvent_DeltaImplCopyWithImpl<$Res>
+    extends _$AiStreamEventCopyWithImpl<$Res, _$AiStreamEvent_DeltaImpl>
+    implements _$$AiStreamEvent_DeltaImplCopyWith<$Res> {
+  __$$AiStreamEvent_DeltaImplCopyWithImpl(_$AiStreamEvent_DeltaImpl _value,
+      $Res Function(_$AiStreamEvent_DeltaImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? requestId = null,
+    Object? text = null,
+  }) {
+    return _then(_$AiStreamEvent_DeltaImpl(
+      requestId: null == requestId
+          ? _value.requestId
+          : requestId // ignore: cast_nullable_to_non_nullable
+              as String,
+      text: null == text
+          ? _value.text
+          : text // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$AiStreamEvent_DeltaImpl extends AiStreamEvent_Delta {
+  const _$AiStreamEvent_DeltaImpl({required this.requestId, required this.text})
+      : super._();
+
+  @override
+  final String requestId;
+  @override
+  final String text;
+
+  @override
+  String toString() {
+    return 'AiStreamEvent.delta(requestId: $requestId, text: $text)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AiStreamEvent_DeltaImpl &&
+            (identical(other.requestId, requestId) ||
+                other.requestId == requestId) &&
+            (identical(other.text, text) || other.text == text));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, requestId, text);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AiStreamEvent_DeltaImplCopyWith<_$AiStreamEvent_DeltaImpl> get copyWith =>
+      __$$AiStreamEvent_DeltaImplCopyWithImpl<_$AiStreamEvent_DeltaImpl>(
+          this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String requestId, String text) delta,
+    required TResult Function(String requestId, int completed, int total)
+        progress,
+    required TResult Function(String requestId) completed,
+    required TResult Function(String requestId, String code) error,
+  }) {
+    return delta(requestId, text);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String requestId, String text)? delta,
+    TResult? Function(String requestId, int completed, int total)? progress,
+    TResult? Function(String requestId)? completed,
+    TResult? Function(String requestId, String code)? error,
+  }) {
+    return delta?.call(requestId, text);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String requestId, String text)? delta,
+    TResult Function(String requestId, int completed, int total)? progress,
+    TResult Function(String requestId)? completed,
+    TResult Function(String requestId, String code)? error,
+    required TResult orElse(),
+  }) {
+    if (delta != null) {
+      return delta(requestId, text);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(AiStreamEvent_Delta value) delta,
+    required TResult Function(AiStreamEvent_Progress value) progress,
+    required TResult Function(AiStreamEvent_Completed value) completed,
+    required TResult Function(AiStreamEvent_Error value) error,
+  }) {
+    return delta(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(AiStreamEvent_Delta value)? delta,
+    TResult? Function(AiStreamEvent_Progress value)? progress,
+    TResult? Function(AiStreamEvent_Completed value)? completed,
+    TResult? Function(AiStreamEvent_Error value)? error,
+  }) {
+    return delta?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(AiStreamEvent_Delta value)? delta,
+    TResult Function(AiStreamEvent_Progress value)? progress,
+    TResult Function(AiStreamEvent_Completed value)? completed,
+    TResult Function(AiStreamEvent_Error value)? error,
+    required TResult orElse(),
+  }) {
+    if (delta != null) {
+      return delta(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class AiStreamEvent_Delta extends AiStreamEvent {
+  const factory AiStreamEvent_Delta(
+      {required final String requestId,
+      required final String text}) = _$AiStreamEvent_DeltaImpl;
+  const AiStreamEvent_Delta._() : super._();
+
+  @override
+  String get requestId;
+  String get text;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AiStreamEvent_DeltaImplCopyWith<_$AiStreamEvent_DeltaImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$AiStreamEvent_ProgressImplCopyWith<$Res>
+    implements $AiStreamEventCopyWith<$Res> {
+  factory _$$AiStreamEvent_ProgressImplCopyWith(
+          _$AiStreamEvent_ProgressImpl value,
+          $Res Function(_$AiStreamEvent_ProgressImpl) then) =
+      __$$AiStreamEvent_ProgressImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String requestId, int completed, int total});
+}
+
+/// @nodoc
+class __$$AiStreamEvent_ProgressImplCopyWithImpl<$Res>
+    extends _$AiStreamEventCopyWithImpl<$Res, _$AiStreamEvent_ProgressImpl>
+    implements _$$AiStreamEvent_ProgressImplCopyWith<$Res> {
+  __$$AiStreamEvent_ProgressImplCopyWithImpl(
+      _$AiStreamEvent_ProgressImpl _value,
+      $Res Function(_$AiStreamEvent_ProgressImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? requestId = null,
+    Object? completed = null,
+    Object? total = null,
+  }) {
+    return _then(_$AiStreamEvent_ProgressImpl(
+      requestId: null == requestId
+          ? _value.requestId
+          : requestId // ignore: cast_nullable_to_non_nullable
+              as String,
+      completed: null == completed
+          ? _value.completed
+          : completed // ignore: cast_nullable_to_non_nullable
+              as int,
+      total: null == total
+          ? _value.total
+          : total // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$AiStreamEvent_ProgressImpl extends AiStreamEvent_Progress {
+  const _$AiStreamEvent_ProgressImpl(
+      {required this.requestId, required this.completed, required this.total})
+      : super._();
+
+  @override
+  final String requestId;
+  @override
+  final int completed;
+  @override
+  final int total;
+
+  @override
+  String toString() {
+    return 'AiStreamEvent.progress(requestId: $requestId, completed: $completed, total: $total)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AiStreamEvent_ProgressImpl &&
+            (identical(other.requestId, requestId) ||
+                other.requestId == requestId) &&
+            (identical(other.completed, completed) ||
+                other.completed == completed) &&
+            (identical(other.total, total) || other.total == total));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, requestId, completed, total);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AiStreamEvent_ProgressImplCopyWith<_$AiStreamEvent_ProgressImpl>
+      get copyWith => __$$AiStreamEvent_ProgressImplCopyWithImpl<
+          _$AiStreamEvent_ProgressImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String requestId, String text) delta,
+    required TResult Function(String requestId, int completed, int total)
+        progress,
+    required TResult Function(String requestId) completed,
+    required TResult Function(String requestId, String code) error,
+  }) {
+    return progress(requestId, this.completed, total);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String requestId, String text)? delta,
+    TResult? Function(String requestId, int completed, int total)? progress,
+    TResult? Function(String requestId)? completed,
+    TResult? Function(String requestId, String code)? error,
+  }) {
+    return progress?.call(requestId, this.completed, total);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String requestId, String text)? delta,
+    TResult Function(String requestId, int completed, int total)? progress,
+    TResult Function(String requestId)? completed,
+    TResult Function(String requestId, String code)? error,
+    required TResult orElse(),
+  }) {
+    if (progress != null) {
+      return progress(requestId, this.completed, total);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(AiStreamEvent_Delta value) delta,
+    required TResult Function(AiStreamEvent_Progress value) progress,
+    required TResult Function(AiStreamEvent_Completed value) completed,
+    required TResult Function(AiStreamEvent_Error value) error,
+  }) {
+    return progress(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(AiStreamEvent_Delta value)? delta,
+    TResult? Function(AiStreamEvent_Progress value)? progress,
+    TResult? Function(AiStreamEvent_Completed value)? completed,
+    TResult? Function(AiStreamEvent_Error value)? error,
+  }) {
+    return progress?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(AiStreamEvent_Delta value)? delta,
+    TResult Function(AiStreamEvent_Progress value)? progress,
+    TResult Function(AiStreamEvent_Completed value)? completed,
+    TResult Function(AiStreamEvent_Error value)? error,
+    required TResult orElse(),
+  }) {
+    if (progress != null) {
+      return progress(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class AiStreamEvent_Progress extends AiStreamEvent {
+  const factory AiStreamEvent_Progress(
+      {required final String requestId,
+      required final int completed,
+      required final int total}) = _$AiStreamEvent_ProgressImpl;
+  const AiStreamEvent_Progress._() : super._();
+
+  @override
+  String get requestId;
+  int get completed;
+  int get total;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AiStreamEvent_ProgressImplCopyWith<_$AiStreamEvent_ProgressImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$AiStreamEvent_CompletedImplCopyWith<$Res>
+    implements $AiStreamEventCopyWith<$Res> {
+  factory _$$AiStreamEvent_CompletedImplCopyWith(
+          _$AiStreamEvent_CompletedImpl value,
+          $Res Function(_$AiStreamEvent_CompletedImpl) then) =
+      __$$AiStreamEvent_CompletedImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String requestId});
+}
+
+/// @nodoc
+class __$$AiStreamEvent_CompletedImplCopyWithImpl<$Res>
+    extends _$AiStreamEventCopyWithImpl<$Res, _$AiStreamEvent_CompletedImpl>
+    implements _$$AiStreamEvent_CompletedImplCopyWith<$Res> {
+  __$$AiStreamEvent_CompletedImplCopyWithImpl(
+      _$AiStreamEvent_CompletedImpl _value,
+      $Res Function(_$AiStreamEvent_CompletedImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? requestId = null,
+  }) {
+    return _then(_$AiStreamEvent_CompletedImpl(
+      requestId: null == requestId
+          ? _value.requestId
+          : requestId // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$AiStreamEvent_CompletedImpl extends AiStreamEvent_Completed {
+  const _$AiStreamEvent_CompletedImpl({required this.requestId}) : super._();
+
+  @override
+  final String requestId;
+
+  @override
+  String toString() {
+    return 'AiStreamEvent.completed(requestId: $requestId)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AiStreamEvent_CompletedImpl &&
+            (identical(other.requestId, requestId) ||
+                other.requestId == requestId));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, requestId);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AiStreamEvent_CompletedImplCopyWith<_$AiStreamEvent_CompletedImpl>
+      get copyWith => __$$AiStreamEvent_CompletedImplCopyWithImpl<
+          _$AiStreamEvent_CompletedImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String requestId, String text) delta,
+    required TResult Function(String requestId, int completed, int total)
+        progress,
+    required TResult Function(String requestId) completed,
+    required TResult Function(String requestId, String code) error,
+  }) {
+    return completed(requestId);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String requestId, String text)? delta,
+    TResult? Function(String requestId, int completed, int total)? progress,
+    TResult? Function(String requestId)? completed,
+    TResult? Function(String requestId, String code)? error,
+  }) {
+    return completed?.call(requestId);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String requestId, String text)? delta,
+    TResult Function(String requestId, int completed, int total)? progress,
+    TResult Function(String requestId)? completed,
+    TResult Function(String requestId, String code)? error,
+    required TResult orElse(),
+  }) {
+    if (completed != null) {
+      return completed(requestId);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(AiStreamEvent_Delta value) delta,
+    required TResult Function(AiStreamEvent_Progress value) progress,
+    required TResult Function(AiStreamEvent_Completed value) completed,
+    required TResult Function(AiStreamEvent_Error value) error,
+  }) {
+    return completed(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(AiStreamEvent_Delta value)? delta,
+    TResult? Function(AiStreamEvent_Progress value)? progress,
+    TResult? Function(AiStreamEvent_Completed value)? completed,
+    TResult? Function(AiStreamEvent_Error value)? error,
+  }) {
+    return completed?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(AiStreamEvent_Delta value)? delta,
+    TResult Function(AiStreamEvent_Progress value)? progress,
+    TResult Function(AiStreamEvent_Completed value)? completed,
+    TResult Function(AiStreamEvent_Error value)? error,
+    required TResult orElse(),
+  }) {
+    if (completed != null) {
+      return completed(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class AiStreamEvent_Completed extends AiStreamEvent {
+  const factory AiStreamEvent_Completed({required final String requestId}) =
+      _$AiStreamEvent_CompletedImpl;
+  const AiStreamEvent_Completed._() : super._();
+
+  @override
+  String get requestId;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AiStreamEvent_CompletedImplCopyWith<_$AiStreamEvent_CompletedImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$AiStreamEvent_ErrorImplCopyWith<$Res>
+    implements $AiStreamEventCopyWith<$Res> {
+  factory _$$AiStreamEvent_ErrorImplCopyWith(_$AiStreamEvent_ErrorImpl value,
+          $Res Function(_$AiStreamEvent_ErrorImpl) then) =
+      __$$AiStreamEvent_ErrorImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String requestId, String code});
+}
+
+/// @nodoc
+class __$$AiStreamEvent_ErrorImplCopyWithImpl<$Res>
+    extends _$AiStreamEventCopyWithImpl<$Res, _$AiStreamEvent_ErrorImpl>
+    implements _$$AiStreamEvent_ErrorImplCopyWith<$Res> {
+  __$$AiStreamEvent_ErrorImplCopyWithImpl(_$AiStreamEvent_ErrorImpl _value,
+      $Res Function(_$AiStreamEvent_ErrorImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? requestId = null,
+    Object? code = null,
+  }) {
+    return _then(_$AiStreamEvent_ErrorImpl(
+      requestId: null == requestId
+          ? _value.requestId
+          : requestId // ignore: cast_nullable_to_non_nullable
+              as String,
+      code: null == code
+          ? _value.code
+          : code // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$AiStreamEvent_ErrorImpl extends AiStreamEvent_Error {
+  const _$AiStreamEvent_ErrorImpl({required this.requestId, required this.code})
+      : super._();
+
+  @override
+  final String requestId;
+  @override
+  final String code;
+
+  @override
+  String toString() {
+    return 'AiStreamEvent.error(requestId: $requestId, code: $code)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AiStreamEvent_ErrorImpl &&
+            (identical(other.requestId, requestId) ||
+                other.requestId == requestId) &&
+            (identical(other.code, code) || other.code == code));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, requestId, code);
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AiStreamEvent_ErrorImplCopyWith<_$AiStreamEvent_ErrorImpl> get copyWith =>
+      __$$AiStreamEvent_ErrorImplCopyWithImpl<_$AiStreamEvent_ErrorImpl>(
+          this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(String requestId, String text) delta,
+    required TResult Function(String requestId, int completed, int total)
+        progress,
+    required TResult Function(String requestId) completed,
+    required TResult Function(String requestId, String code) error,
+  }) {
+    return error(requestId, code);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(String requestId, String text)? delta,
+    TResult? Function(String requestId, int completed, int total)? progress,
+    TResult? Function(String requestId)? completed,
+    TResult? Function(String requestId, String code)? error,
+  }) {
+    return error?.call(requestId, code);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(String requestId, String text)? delta,
+    TResult Function(String requestId, int completed, int total)? progress,
+    TResult Function(String requestId)? completed,
+    TResult Function(String requestId, String code)? error,
+    required TResult orElse(),
+  }) {
+    if (error != null) {
+      return error(requestId, code);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(AiStreamEvent_Delta value) delta,
+    required TResult Function(AiStreamEvent_Progress value) progress,
+    required TResult Function(AiStreamEvent_Completed value) completed,
+    required TResult Function(AiStreamEvent_Error value) error,
+  }) {
+    return error(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(AiStreamEvent_Delta value)? delta,
+    TResult? Function(AiStreamEvent_Progress value)? progress,
+    TResult? Function(AiStreamEvent_Completed value)? completed,
+    TResult? Function(AiStreamEvent_Error value)? error,
+  }) {
+    return error?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(AiStreamEvent_Delta value)? delta,
+    TResult Function(AiStreamEvent_Progress value)? progress,
+    TResult Function(AiStreamEvent_Completed value)? completed,
+    TResult Function(AiStreamEvent_Error value)? error,
+    required TResult orElse(),
+  }) {
+    if (error != null) {
+      return error(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class AiStreamEvent_Error extends AiStreamEvent {
+  const factory AiStreamEvent_Error(
+      {required final String requestId,
+      required final String code}) = _$AiStreamEvent_ErrorImpl;
+  const AiStreamEvent_Error._() : super._();
+
+  @override
+  String get requestId;
+  String get code;
+
+  /// Create a copy of AiStreamEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AiStreamEvent_ErrorImplCopyWith<_$AiStreamEvent_ErrorImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$ArticleFilterKind {
   @optionalTypeArgs
   TResult when<TResult extends Object?>({

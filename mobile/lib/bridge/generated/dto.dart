@@ -27,6 +27,175 @@ class AddFeedInput {
           input == other.input;
 }
 
+/// Authentication header applied by Core for an AI request.
+enum AiAuthMode {
+  bearer,
+  xApiKey,
+  none,
+  ;
+}
+
+/// One completed, in-memory follow-up exchange.
+class AiFollowUpTurn {
+  final String question;
+  final String answer;
+
+  const AiFollowUpTurn({
+    required this.question,
+    required this.answer,
+  });
+
+  @override
+  int get hashCode => question.hashCode ^ answer.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiFollowUpTurn &&
+          runtimeType == other.runtimeType &&
+          question == other.question &&
+          answer == other.answer;
+}
+
+/// A non-sensitive custom HTTP header attached to an AI profile.
+class AiHeader {
+  final String name;
+  final String value;
+
+  const AiHeader({
+    required this.name,
+    required this.value,
+  });
+
+  @override
+  int get hashCode => name.hashCode ^ value.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiHeader &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          value == other.value;
+}
+
+/// Persistable AI provider metadata. Credentials are passed separately.
+class AiProfile {
+  final String id;
+  final String name;
+  final AiProtocol protocol;
+  final String model;
+  final String baseUrl;
+  final AiAuthMode auth;
+  final List<AiHeader> headers;
+  final String? credentialRef;
+  final bool enabled;
+  final List<AiPurpose> defaultFor;
+
+  const AiProfile({
+    required this.id,
+    required this.name,
+    required this.protocol,
+    required this.model,
+    required this.baseUrl,
+    required this.auth,
+    required this.headers,
+    this.credentialRef,
+    required this.enabled,
+    required this.defaultFor,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      protocol.hashCode ^
+      model.hashCode ^
+      baseUrl.hashCode ^
+      auth.hashCode ^
+      headers.hashCode ^
+      credentialRef.hashCode ^
+      enabled.hashCode ^
+      defaultFor.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiProfile &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          protocol == other.protocol &&
+          model == other.model &&
+          baseUrl == other.baseUrl &&
+          auth == other.auth &&
+          headers == other.headers &&
+          credentialRef == other.credentialRef &&
+          enabled == other.enabled &&
+          defaultFor == other.defaultFor;
+}
+
+/// Provider protocol used for a portable AI profile.
+enum AiProtocol {
+  anthropicMessages,
+  openaiChatCompletions,
+  ;
+}
+
+/// Mobile-supported purpose assigned to an AI profile.
+enum AiPurpose {
+  summary,
+  translate,
+  ;
+}
+
+@freezed
+sealed class AiStreamEvent with _$AiStreamEvent {
+  const AiStreamEvent._();
+
+  const factory AiStreamEvent.delta({
+    required String requestId,
+    required String text,
+  }) = AiStreamEvent_Delta;
+  const factory AiStreamEvent.progress({
+    required String requestId,
+    required int completed,
+    required int total,
+  }) = AiStreamEvent_Progress;
+  const factory AiStreamEvent.completed({
+    required String requestId,
+  }) = AiStreamEvent_Completed;
+  const factory AiStreamEvent.error({
+    required String requestId,
+    required String code,
+  }) = AiStreamEvent_Error;
+}
+
+/// The most recent fully generated summary for one article.
+class AiSummaryCache {
+  final String summary;
+  final String? template;
+  final String? language;
+
+  const AiSummaryCache({
+    required this.summary,
+    this.template,
+    this.language,
+  });
+
+  @override
+  int get hashCode => summary.hashCode ^ template.hashCode ^ language.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiSummaryCache &&
+          runtimeType == other.runtimeType &&
+          summary == other.summary &&
+          template == other.template &&
+          language == other.language;
+}
+
 /// Counts shown beside the built-in article smart views.
 class ArticleCounts {
   final PlatformInt64 all;
@@ -889,6 +1058,17 @@ enum SourceType {
   bluesky,
   reddit,
   newsletter,
+  ;
+}
+
+/// Supported formats for an AI-generated article summary.
+enum SummaryTemplate {
+  classic,
+  news5W1H,
+  decision,
+  funnel,
+  argument,
+  minimal,
   ;
 }
 

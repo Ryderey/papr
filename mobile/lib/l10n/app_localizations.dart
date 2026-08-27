@@ -1149,6 +1149,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All subscriptions'**
   String get allFeeds;
+
+  /// No description provided for @aiProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'AI profiles'**
+  String get aiProfiles;
+
+  /// No description provided for @noAiProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI profile yet. Add one to use summaries.'**
+  String get noAiProfiles;
+
+  /// No description provided for @addAiProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Add AI profile'**
+  String get addAiProfile;
+
+  /// No description provided for @editAiProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit AI profile'**
+  String get editAiProfile;
+
+  /// No description provided for @deleteAiProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete AI profile?'**
+  String get deleteAiProfileTitle;
+
+  /// No description provided for @profileName.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile name'**
+  String get profileName;
+
+  /// No description provided for @aiProtocol.
+  ///
+  /// In en, this message translates to:
+  /// **'Protocol'**
+  String get aiProtocol;
+
+  /// No description provided for @aiModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get aiModel;
+
+  /// No description provided for @aiBaseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get aiBaseUrl;
+
+  /// No description provided for @aiAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication'**
+  String get aiAuth;
+
+  /// No description provided for @aiApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get aiApiKey;
+
+  /// No description provided for @aiApiKeyKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to keep the current key.'**
+  String get aiApiKeyKeep;
+
+  /// No description provided for @openaiCompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI compatible'**
+  String get openaiCompatible;
+
+  /// No description provided for @anthropic.
+  ///
+  /// In en, this message translates to:
+  /// **'Anthropic Messages'**
+  String get anthropic;
+
+  /// No description provided for @bearerAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Bearer token'**
+  String get bearerAuth;
+
+  /// No description provided for @xApiKeyAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'x-api-key'**
+  String get xApiKeyAuth;
+
+  /// No description provided for @noAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'No authentication'**
+  String get noAuth;
+
+  /// No description provided for @useForSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Use for summaries'**
+  String get useForSummary;
+
+  /// No description provided for @testAiConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get testAiConnection;
+
+  /// No description provided for @aiConnectionSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'AI service connection succeeded.'**
+  String get aiConnectionSucceeded;
+
+  /// No description provided for @errorInvalidAiProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete the required AI profile fields.'**
+  String get errorInvalidAiProfile;
+
+  /// No description provided for @errorNoAiCredential.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an API key for this profile.'**
+  String get errorNoAiCredential;
+
+  /// No description provided for @errorAiCredentialStore.
+  ///
+  /// In en, this message translates to:
+  /// **'The API key could not be accessed securely.'**
+  String get errorAiCredentialStore;
+
+  /// No description provided for @errorAiAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'The AI service rejected the current credentials.'**
+  String get errorAiAuth;
+
+  /// No description provided for @aiSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'AI summary'**
+  String get aiSummary;
+
+  /// No description provided for @summaryNoProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure an enabled AI profile before generating a summary.'**
+  String get summaryNoProfile;
+
+  /// No description provided for @configureAiProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure AI profile'**
+  String get configureAiProfile;
+
+  /// No description provided for @summaryTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary template'**
+  String get summaryTemplate;
+
+  /// No description provided for @summaryTemplateClassic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get summaryTemplateClassic;
+
+  /// No description provided for @summaryTemplateNews.
+  ///
+  /// In en, this message translates to:
+  /// **'5W1H news'**
+  String get summaryTemplateNews;
+
+  /// No description provided for @summaryTemplateDecision.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading decision'**
+  String get summaryTemplateDecision;
+
+  /// No description provided for @summaryTemplateFunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'Progressive funnel'**
+  String get summaryTemplateFunnel;
+
+  /// No description provided for @summaryTemplateArgument.
+  ///
+  /// In en, this message translates to:
+  /// **'Argument analysis'**
+  String get summaryTemplateArgument;
+
+  /// No description provided for @summaryTemplateMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'One sentence'**
+  String get summaryTemplateMinimal;
+
+  /// No description provided for @summaryTemplateLegacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Legacy'**
+  String get summaryTemplateLegacy;
+
+  /// No description provided for @summaryCacheInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cached template: {template} · Language: {language}'**
+  String summaryCacheInfo(String template, String language);
+
+  /// No description provided for @regenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate'**
+  String get regenerate;
+
+  /// No description provided for @stop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get stop;
+
+  /// No description provided for @noSummaryYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No complete summary yet.'**
+  String get noSummaryYet;
+
+  /// No description provided for @askAboutSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask about this summary'**
+  String get askAboutSummary;
+
+  /// No description provided for @summaryQuestionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask using only the summary above'**
+  String get summaryQuestionHint;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
 }
 
 class _AppLocalizationsDelegate

@@ -20,7 +20,16 @@ pub fn sanitize(html: &str, base: Option<&str>) -> String {
         .add_tags(["video", "source"])
         .add_tag_attributes(
             "video",
-            ["src", "poster", "width", "height", "preload", "loop", "muted", "playsinline"],
+            [
+                "src",
+                "poster",
+                "width",
+                "height",
+                "preload",
+                "loop",
+                "muted",
+                "playsinline",
+            ],
         )
         .add_tag_attributes("source", ["src", "type", "media"])
         .set_tag_attribute_value("video", "controls", "")
@@ -81,10 +90,39 @@ const SKIP_TAGS: &[&str] = &["script", "style", "template", "noscript"];
 
 /// Block-level tags: their edges are word boundaries.
 const BLOCK_TAGS: &[&str] = &[
-    "address", "article", "aside", "blockquote", "br", "caption", "dd", "div",
-    "dl", "dt", "figcaption", "figure", "footer", "h1", "h2", "h3", "h4", "h5",
-    "h6", "header", "hr", "li", "main", "nav", "ol", "p", "pre", "section",
-    "table", "td", "th", "tr", "ul",
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "br",
+    "caption",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "figcaption",
+    "figure",
+    "footer",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "li",
+    "main",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "table",
+    "td",
+    "th",
+    "tr",
+    "ul",
 ];
 
 /// Strip all markup from HTML, yielding collapsed plain text.

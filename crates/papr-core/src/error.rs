@@ -231,6 +231,9 @@ mod tests {
         assert_eq!(redact("password: hunter2"), "password: [REDACTED]");
         assert_eq!(redact("Bearer abc123"), "Bearer [REDACTED]");
         // Unrelated text passes through untouched.
-        assert_eq!(redact("network timeout after 30s"), "network timeout after 30s");
+        assert_eq!(
+            redact("network timeout after 30s"),
+            "network timeout after 30s"
+        );
     }
 }

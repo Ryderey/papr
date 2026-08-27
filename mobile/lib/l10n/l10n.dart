@@ -42,6 +42,17 @@ extension AppErrorLocalizations on AppLocalizations {
       'invalidReadingLineHeight' ||
       'invalidReadingWidth' =>
         errorInvalidReadingSettings,
+      'invalidAiProfile' || 'tooManyAiProfiles' => errorInvalidAiProfile,
+      'noAiCredential' => errorNoAiCredential,
+      'invalidAiCredential' ||
+      'credentialWriteFailed' ||
+      'credentialReadFailed' ||
+      'credentialDeleteFailed' =>
+        errorAiCredentialStore,
+      'aiAuth' => errorAiAuth,
+      'aiRateLimited' => errorNetwork,
+      'aiNetwork' => errorNetwork,
+      'aiParse' => errorParse,
       _ => switch (error.kind) {
           AppErrorKind.network => errorNetwork,
           AppErrorKind.parse => errorParse,

@@ -25,6 +25,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
           ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPaprCoreBridgePtr;
 
   @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
   PaprCoreBridge
       dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPaprCoreBridge(
           dynamic raw);
@@ -40,10 +43,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
           dynamic raw);
 
   @protected
+  RustStreamSink<AiStreamEvent> dco_decode_StreamSink_ai_stream_event_Sse(
+      dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
   AddFeedInput dco_decode_add_feed_input(dynamic raw);
+
+  @protected
+  AiAuthMode dco_decode_ai_auth_mode(dynamic raw);
+
+  @protected
+  AiFollowUpTurn dco_decode_ai_follow_up_turn(dynamic raw);
+
+  @protected
+  AiHeader dco_decode_ai_header(dynamic raw);
+
+  @protected
+  AiProfile dco_decode_ai_profile(dynamic raw);
+
+  @protected
+  AiProtocol dco_decode_ai_protocol(dynamic raw);
+
+  @protected
+  AiPurpose dco_decode_ai_purpose(dynamic raw);
+
+  @protected
+  AiStreamEvent dco_decode_ai_stream_event(dynamic raw);
+
+  @protected
+  AiSummaryCache dco_decode_ai_summary_cache(dynamic raw);
 
   @protected
   ArticleCounts dco_decode_article_counts(dynamic raw);
@@ -65,6 +96,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AddFeedInput dco_decode_box_autoadd_add_feed_input(dynamic raw);
+
+  @protected
+  AiProfile dco_decode_box_autoadd_ai_profile(dynamic raw);
+
+  @protected
+  AiSummaryCache dco_decode_box_autoadd_ai_summary_cache(dynamic raw);
 
   @protected
   ArticleFilter dco_decode_box_autoadd_article_filter(dynamic raw);
@@ -121,6 +158,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<AiFollowUpTurn> dco_decode_list_ai_follow_up_turn(dynamic raw);
+
+  @protected
+  List<AiHeader> dco_decode_list_ai_header(dynamic raw);
+
+  @protected
+  List<AiProfile> dco_decode_list_ai_profile(dynamic raw);
+
+  @protected
+  List<AiPurpose> dco_decode_list_ai_purpose(dynamic raw);
+
+  @protected
   List<ArticleSummary> dco_decode_list_article_summary(dynamic raw);
 
   @protected
@@ -164,6 +213,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  AiSummaryCache? dco_decode_opt_box_autoadd_ai_summary_cache(dynamic raw);
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
@@ -211,10 +263,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SourceType dco_decode_source_type(dynamic raw);
 
   @protected
+  SummaryTemplate dco_decode_summary_template(dynamic raw);
+
+  @protected
   Tag dco_decode_tag(dynamic raw);
 
   @protected
   TagSummary dco_decode_tag_summary(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -224,6 +282,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
   PaprCoreBridge
@@ -241,10 +302,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
           SseDeserializer deserializer);
 
   @protected
+  RustStreamSink<AiStreamEvent> sse_decode_StreamSink_ai_stream_event_Sse(
+      SseDeserializer deserializer);
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
   AddFeedInput sse_decode_add_feed_input(SseDeserializer deserializer);
+
+  @protected
+  AiAuthMode sse_decode_ai_auth_mode(SseDeserializer deserializer);
+
+  @protected
+  AiFollowUpTurn sse_decode_ai_follow_up_turn(SseDeserializer deserializer);
+
+  @protected
+  AiHeader sse_decode_ai_header(SseDeserializer deserializer);
+
+  @protected
+  AiProfile sse_decode_ai_profile(SseDeserializer deserializer);
+
+  @protected
+  AiProtocol sse_decode_ai_protocol(SseDeserializer deserializer);
+
+  @protected
+  AiPurpose sse_decode_ai_purpose(SseDeserializer deserializer);
+
+  @protected
+  AiStreamEvent sse_decode_ai_stream_event(SseDeserializer deserializer);
+
+  @protected
+  AiSummaryCache sse_decode_ai_summary_cache(SseDeserializer deserializer);
 
   @protected
   ArticleCounts sse_decode_article_counts(SseDeserializer deserializer);
@@ -267,6 +356,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AddFeedInput sse_decode_box_autoadd_add_feed_input(
+      SseDeserializer deserializer);
+
+  @protected
+  AiProfile sse_decode_box_autoadd_ai_profile(SseDeserializer deserializer);
+
+  @protected
+  AiSummaryCache sse_decode_box_autoadd_ai_summary_cache(
       SseDeserializer deserializer);
 
   @protected
@@ -329,6 +425,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<AiFollowUpTurn> sse_decode_list_ai_follow_up_turn(
+      SseDeserializer deserializer);
+
+  @protected
+  List<AiHeader> sse_decode_list_ai_header(SseDeserializer deserializer);
+
+  @protected
+  List<AiProfile> sse_decode_list_ai_profile(SseDeserializer deserializer);
+
+  @protected
+  List<AiPurpose> sse_decode_list_ai_purpose(SseDeserializer deserializer);
+
+  @protected
   List<ArticleSummary> sse_decode_list_article_summary(
       SseDeserializer deserializer);
 
@@ -378,6 +487,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  AiSummaryCache? sse_decode_opt_box_autoadd_ai_summary_cache(
+      SseDeserializer deserializer);
+
+  @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
@@ -423,10 +536,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SourceType sse_decode_source_type(SseDeserializer deserializer);
 
   @protected
+  SummaryTemplate sse_decode_summary_template(SseDeserializer deserializer);
+
+  @protected
   Tag sse_decode_tag(SseDeserializer deserializer);
 
   @protected
   TagSummary sse_decode_tag_summary(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -436,6 +555,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  void sse_encode_AnyhowException(
+      AnyhowException self, SseSerializer serializer);
 
   @protected
   void
@@ -453,10 +576,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
           PaprCoreBridge self, SseSerializer serializer);
 
   @protected
+  void sse_encode_StreamSink_ai_stream_event_Sse(
+      RustStreamSink<AiStreamEvent> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
   void sse_encode_add_feed_input(AddFeedInput self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_auth_mode(AiAuthMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_follow_up_turn(
+      AiFollowUpTurn self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_header(AiHeader self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_profile(AiProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_protocol(AiProtocol self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_purpose(AiPurpose self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_stream_event(AiStreamEvent self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ai_summary_cache(
+      AiSummaryCache self, SseSerializer serializer);
 
   @protected
   void sse_encode_article_counts(ArticleCounts self, SseSerializer serializer);
@@ -481,6 +634,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_add_feed_input(
       AddFeedInput self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_ai_profile(
+      AiProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_ai_summary_cache(
+      AiSummaryCache self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_article_filter(
@@ -546,6 +707,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_ai_follow_up_turn(
+      List<AiFollowUpTurn> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_ai_header(List<AiHeader> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_ai_profile(
+      List<AiProfile> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_ai_purpose(
+      List<AiPurpose> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_article_summary(
       List<ArticleSummary> self, SseSerializer serializer);
 
@@ -601,6 +777,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_ai_summary_cache(
+      AiSummaryCache? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_i_64(
       PlatformInt64? self, SseSerializer serializer);
 
@@ -654,10 +834,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_source_type(SourceType self, SseSerializer serializer);
 
   @protected
+  void sse_encode_summary_template(
+      SummaryTemplate self, SseSerializer serializer);
+
+  @protected
   void sse_encode_tag(Tag self, SseSerializer serializer);
 
   @protected
   void sse_encode_tag_summary(TagSummary self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

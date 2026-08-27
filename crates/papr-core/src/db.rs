@@ -3,7 +3,8 @@
 //! Owns the canonical, append-only schema shared by the desktop adapter
 //! (`src-tauri`) and the Flutter adapter (`papr-flutter-bridge`). The
 //! migration sequence v1–v15 is ported verbatim from the desktop's
-//! `src-tauri/src/db.rs`; v16 adds the sync-ready baseline.
+//! `src-tauri/src/db.rs`; v16 adds the sync-ready baseline and later versions
+//! remain shared by every adapter.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,9 +15,9 @@ use rusqlite::{Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
 
 use crate::dto::{
-    ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary, Enclosure,
-    Feed, Folder, Highlight, HighlightInput, NewArticle, ResolvedHighlight, Rule, RuleInput,
-    RulePreview, SourceType, Tag, TagSummary,
+    AiSummaryCache, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary,
+    Enclosure, Feed, Folder, Highlight, HighlightInput, NewArticle, ResolvedHighlight, Rule,
+    RuleInput, RulePreview, SourceType, SummaryTemplate, Tag, TagSummary,
 };
 use crate::error::{CoreError, ErrorCategory};
 
@@ -538,6 +539,12 @@ fn migrations() -> Vec<M<'static>> {
                 PRIMARY KEY (provider, entity_type, local_id)
             );
             "#,
+        ),
+        // v17 — identify the template and output language belonging to the
+        // single most-recent successful AI summary cache.
+        M::up(
+            "ALTER TABLE articles ADD COLUMN ai_summary_template TEXT;
+             ALTER TABLE articles ADD COLUMN ai_summary_lang TEXT;",
         ),
     ]
 }
@@ -1496,6 +1503,107 @@ impl Db {
         Ok(row)
     }
 
+    /// Load the latest complete AI summary cache without exposing partial
+    /// generation state. Metadata may be absent for summaries written before
+    /// migration v17.
+    pub fn get_ai_summary_cache(
+        &self,
+        article_id: i64,
+    ) -> Result<Option<AiSummaryCache>, CoreError> {
+        let conn = self.reader()?;
+        let row = conn
+            .query_row(
+                "SELECT ai_summary, ai_summary_template, ai_summary_lang \
+                 FROM articles WHERE id = ?1",
+                [article_id],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+
+        match row {
+            None => Err(CoreError::coded(
+                ErrorCategory::NotFound,
+                "articleNotFound",
+                Some(article_id.to_string()),
+            )),
+            Some((None, _, _)) => Ok(None),
+            Some((Some(summary), template, language)) => Ok(Some(AiSummaryCache {
+                summary,
+                template,
+                language,
+            })),
+        }
+    }
+
+    /// Return the title and authoritative plain text used for AI summaries.
+    /// Extracted full text wins over the often-truncated feed body.
+    pub fn article_text(&self, article_id: i64) -> Result<(String, String), CoreError> {
+        let conn = self.reader()?;
+        conn.query_row(
+            "SELECT title, body_text, extracted_html FROM articles WHERE id = ?1",
+            [article_id],
+            |row| {
+                let title: String = row.get(0)?;
+                let body: String = row.get(1)?;
+                let extracted: Option<String> = row.get(2)?;
+                let text = extracted
+                    .filter(|html| !html.trim().is_empty())
+                    .map(|html| crate::ingestion::sanitize::html_to_text(&html))
+                    .unwrap_or(body);
+                Ok((title, text))
+            },
+        )
+        .map_err(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => CoreError::coded(
+                ErrorCategory::NotFound,
+                "articleNotFound",
+                Some(article_id.to_string()),
+            ),
+            _ => CoreError::Db(error.to_string()),
+        })
+    }
+
+    /// Atomically replace the single complete summary cache and its identifying
+    /// metadata. Callers invoke this only after a stream completes successfully.
+    pub fn set_ai_summary_cache(
+        &self,
+        article_id: i64,
+        summary: &str,
+        template: SummaryTemplate,
+        language: &str,
+    ) -> Result<(), CoreError> {
+        let summary = summary.trim();
+        if summary.is_empty() {
+            return Err(CoreError::coded(ErrorCategory::Ai, "aiParse", None));
+        }
+        let language = crate::ai::response_language_code(language);
+        self.transact(|tx| {
+            let changed = tx
+                .execute(
+                    "UPDATE articles \
+                     SET ai_summary = ?2, ai_summary_template = ?3, ai_summary_lang = ?4 \
+                     WHERE id = ?1",
+                    (article_id, summary, template.as_str(), language),
+                )
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            if changed == 0 {
+                return Err(CoreError::coded(
+                    ErrorCategory::NotFound,
+                    "articleNotFound",
+                    Some(article_id.to_string()),
+                ));
+            }
+            Ok(())
+        })
+    }
+
     pub fn set_article_read(&self, article_id: i64, value: bool) -> Result<(), CoreError> {
         self.set_article_state(article_id, ArticleStateField::Read, value)
     }
@@ -1607,7 +1715,9 @@ impl Db {
                          image_url = CASE \
                              WHEN ?3 IS NOT NULL AND (image_url IS NULL OR trim(image_url) = '') \
                              THEN ?3 ELSE image_url END, \
-                         translated_html = NULL, translated_lang = NULL \
+                         translated_html = NULL, translated_lang = NULL, \
+                         ai_summary = NULL, ai_summary_template = NULL, \
+                         ai_summary_lang = NULL \
                      WHERE id = ?1",
                     (article_id, html, image_url),
                 )
@@ -2330,8 +2440,8 @@ mod tests {
             .unwrap();
         }
 
-        // Opening through `Db::new` runs the full sequence (v1–v16); only v16
-        // should apply on top of the existing v15 data.
+        // Opening through `Db::new` runs the full sequence; v16+ should apply
+        // on top of the existing v15 data without rebuilding old tables.
         let db = Db::new(&path).unwrap();
         let writer = db.writer().unwrap();
         let name: String = writer
@@ -2356,6 +2466,16 @@ mod tests {
             )
             .unwrap();
         assert_eq!(change_log_exists, 1);
+        for column in ["ai_summary_template", "ai_summary_lang"] {
+            let exists: i64 = writer
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('articles') WHERE name = ?1",
+                    [column],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(exists, 1, "expected articles.{column} to exist");
+        }
     }
 
     #[test]
@@ -2824,6 +2944,63 @@ mod tests {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(fields, ["starred", "read"]);
+    }
+
+    #[test]
+    fn ai_summary_cache_replaces_text_template_and_language_together() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        db.upsert_article(feed_id, &test_article("summary", "Summary article"))
+            .unwrap();
+        let article_id = db.list_articles(&ArticleFilter::default()).unwrap()[0].id;
+
+        assert_eq!(db.get_ai_summary_cache(article_id).unwrap(), None);
+        db.set_ai_summary_cache(
+            article_id,
+            "  cached answer  ",
+            SummaryTemplate::News5w1h,
+            "zh-CN",
+        )
+        .unwrap();
+        assert_eq!(
+            db.get_ai_summary_cache(article_id).unwrap(),
+            Some(AiSummaryCache {
+                summary: "cached answer".into(),
+                template: Some("news5w1h".into()),
+                language: Some("zh".into()),
+            })
+        );
+
+        assert_eq!(
+            db.set_ai_summary_cache(article_id, " ", SummaryTemplate::Minimal, "ja")
+                .unwrap_err()
+                .code(),
+            "aiParse"
+        );
+        assert_eq!(
+            db.get_ai_summary_cache(article_id)
+                .unwrap()
+                .unwrap()
+                .template
+                .as_deref(),
+            Some("news5w1h"),
+            "a rejected replacement keeps the previous complete cache"
+        );
+        assert_eq!(
+            db.set_ai_summary_cache(999_999, "answer", SummaryTemplate::Classic, "en")
+                .unwrap_err()
+                .code(),
+            "articleNotFound"
+        );
+
+        db.set_extracted_html(article_id, "<p>new authoritative body</p>", None)
+            .unwrap();
+        assert_eq!(
+            db.get_ai_summary_cache(article_id).unwrap(),
+            None,
+            "changing the source body invalidates its derived summary"
+        );
     }
 
     #[test]

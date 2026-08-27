@@ -560,4 +560,132 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get allFeeds => '所有订阅';
+
+  @override
+  String get aiProfiles => 'AI 配置';
+
+  @override
+  String get noAiProfiles => '暂无 AI 配置。添加后即可使用摘要。';
+
+  @override
+  String get addAiProfile => '添加 AI 配置';
+
+  @override
+  String get editAiProfile => '编辑 AI 配置';
+
+  @override
+  String get deleteAiProfileTitle => '删除 AI 配置？';
+
+  @override
+  String get profileName => '配置名称';
+
+  @override
+  String get aiProtocol => '协议';
+
+  @override
+  String get aiModel => '模型';
+
+  @override
+  String get aiBaseUrl => 'Base URL';
+
+  @override
+  String get aiAuth => '认证方式';
+
+  @override
+  String get aiApiKey => 'API Key';
+
+  @override
+  String get aiApiKeyKeep => '留空可保留当前密钥。';
+
+  @override
+  String get openaiCompatible => 'OpenAI 兼容';
+
+  @override
+  String get anthropic => 'Anthropic Messages';
+
+  @override
+  String get bearerAuth => 'Bearer Token';
+
+  @override
+  String get xApiKeyAuth => 'x-api-key';
+
+  @override
+  String get noAuth => '无需认证';
+
+  @override
+  String get useForSummary => '用于摘要';
+
+  @override
+  String get testAiConnection => '测试连接';
+
+  @override
+  String get aiConnectionSucceeded => 'AI 服务连接正常。';
+
+  @override
+  String get errorInvalidAiProfile => '请完整填写 AI 配置的必填项。';
+
+  @override
+  String get errorNoAiCredential => '请输入此配置的 API Key。';
+
+  @override
+  String get errorAiCredentialStore => '无法安全访问 API Key。';
+
+  @override
+  String get errorAiAuth => 'AI 服务拒绝了当前认证信息。';
+
+  @override
+  String get aiSummary => 'AI 摘要';
+
+  @override
+  String get summaryNoProfile => '生成摘要前，请先配置并启用一个 AI 配置。';
+
+  @override
+  String get configureAiProfile => '配置 AI';
+
+  @override
+  String get summaryTemplate => '摘要模板';
+
+  @override
+  String get summaryTemplateClassic => '经典摘要';
+
+  @override
+  String get summaryTemplateNews => '新闻 5W1H';
+
+  @override
+  String get summaryTemplateDecision => '阅读决策';
+
+  @override
+  String get summaryTemplateFunnel => '渐进漏斗';
+
+  @override
+  String get summaryTemplateArgument => '观点拆解';
+
+  @override
+  String get summaryTemplateMinimal => '一句话';
+
+  @override
+  String get summaryTemplateLegacy => '旧版';
+
+  @override
+  String summaryCacheInfo(String template, String language) {
+    return '缓存模板：$template · 语言：$language';
+  }
+
+  @override
+  String get regenerate => '重新生成';
+
+  @override
+  String get stop => '停止';
+
+  @override
+  String get noSummaryYet => '暂无完整摘要。';
+
+  @override
+  String get askAboutSummary => '基于此摘要追问';
+
+  @override
+  String get summaryQuestionHint => '仅根据上方摘要提问';
+
+  @override
+  String get send => '发送';
 }

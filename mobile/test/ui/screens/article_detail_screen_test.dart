@@ -38,6 +38,7 @@ void main() {
     expect(find.textContaining('Rendered body', findRichText: true),
         findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
+    expect(find.byTooltip('AI summary'), findsOneWidget);
   });
 
   testWidgets('shows a placeholder for blank article HTML', (tester) async {

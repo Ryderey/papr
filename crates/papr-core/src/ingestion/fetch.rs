@@ -1,8 +1,6 @@
 //! HTTP fetching with conditional GET (ETag / If-Modified-Since).
 
-use reqwest::header::{
-    CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED,
-};
+use reqwest::header::{CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
 use reqwest::{Client, StatusCode};
 use std::time::Duration;
 
@@ -13,11 +11,18 @@ pub const USER_AGENT: &str = "Papr/0.1 (+https://github.com/papr-reader)";
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
 
 async fn read_capped(mut resp: reqwest::Response) -> Result<Vec<u8>, CoreError> {
-    if resp.content_length().is_some_and(|n| n > MAX_BODY_BYTES as u64) {
+    if resp
+        .content_length()
+        .is_some_and(|n| n > MAX_BODY_BYTES as u64)
+    {
         return Err(CoreError::Network("response too large".to_string()));
     }
     let mut buf: Vec<u8> = Vec::new();
-    while let Some(chunk) = resp.chunk().await.map_err(|e| CoreError::Network(e.to_string()))? {
+    while let Some(chunk) = resp
+        .chunk()
+        .await
+        .map_err(|e| CoreError::Network(e.to_string()))?
+    {
         if buf.len() + chunk.len() > MAX_BODY_BYTES {
             return Err(CoreError::Network("response too large".to_string()));
         }
@@ -46,7 +51,9 @@ pub fn build_client(
             }
         }
     }
-    builder.build().map_err(|e| CoreError::Network(format!("failed to build client: {}", e)))
+    builder
+        .build()
+        .map_err(|e| CoreError::Network(format!("failed to build client: {}", e)))
 }
 
 /// Result of a conditional GET against a feed URL.
@@ -74,11 +81,16 @@ pub async fn conditional_get(
         req = req.header(IF_MODIFIED_SINCE, lm);
     }
 
-    let resp = req.send().await.map_err(|e| CoreError::Network(e.to_string()))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| CoreError::Network(e.to_string()))?;
     if resp.status() == StatusCode::NOT_MODIFIED {
         return Ok(Fetched::NotModified);
     }
-    let resp = resp.error_for_status().map_err(|e| CoreError::Network(e.to_string()))?;
+    let resp = resp
+        .error_for_status()
+        .map_err(|e| CoreError::Network(e.to_string()))?;
     let header = |name: reqwest::header::HeaderName| {
         resp.headers()
             .get(&name)

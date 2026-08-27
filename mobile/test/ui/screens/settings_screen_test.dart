@@ -6,7 +6,8 @@ import 'package:papr_mobile/repositories/settings_repository.dart';
 import 'package:papr_mobile/ui/screens/settings_screen.dart';
 
 void main() {
-  testWidgets('does not expose tag management in settings', (tester) async {
+  testWidgets('exposes AI profiles but not removed tag management',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -22,6 +23,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Manage tags'), findsNothing);
+    expect(find.text('AI profiles'), findsOneWidget);
     expect(find.text('Manage rules'), findsOneWidget);
   });
 }

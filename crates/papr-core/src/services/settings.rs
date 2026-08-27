@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::ai::{AiProfile, AiPurpose};
 use crate::db::Db;
 use crate::dto::{ReadingSettings, SettingsSnapshot};
 use crate::error::{CoreError, ErrorCategory};
@@ -137,6 +138,144 @@ impl SettingsService {
             .await
             .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))?
     }
+
+    /// Read non-sensitive AI profile metadata. Credentials live in platform storage.
+    pub async fn list_ai_profiles(&self) -> Result<Vec<AiProfile>, CoreError> {
+        let value = self.db.get_setting("ai_profiles")?;
+        let mut profiles = match value {
+            Some(value) => serde_json::from_str::<Vec<AiProfile>>(&value).map_err(|_| {
+                CoreError::coded(ErrorCategory::InvalidInput, "invalidAiProfile", None)
+            })?,
+            None => Vec::new(),
+        };
+        for profile in &profiles {
+            profile.validate()?;
+        }
+        if profiles.iter().filter(|profile| profile.enabled).count() > 1 {
+            let active_index = profiles
+                .iter()
+                .position(|profile| {
+                    profile.enabled && profile.default_for.contains(&AiPurpose::Summary)
+                })
+                .or_else(|| profiles.iter().position(|profile| profile.enabled));
+            for (index, profile) in profiles.iter_mut().enumerate() {
+                profile.enabled = Some(index) == active_index;
+            }
+            let value = serde_json::to_string(&profiles).map_err(|_| {
+                CoreError::coded(ErrorCategory::InvalidInput, "invalidAiProfile", None)
+            })?;
+            let db = Arc::clone(&self.db);
+            tokio::task::spawn_blocking(move || db.set_setting("ai_profiles", &value))
+                .await
+                .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))??;
+        }
+        Ok(profiles)
+    }
+
+    /// Insert or replace one AI profile without ever accepting a credential value.
+    pub async fn save_ai_profile(&self, mut profile: AiProfile) -> Result<(), CoreError> {
+        profile.id = profile.id.trim().to_string();
+        profile.name = profile.name.trim().to_string();
+        profile.model = profile.model.trim().to_string();
+        profile.base_url = profile.base_url.trim().trim_end_matches('/').to_string();
+        profile.validate()?;
+
+        let profile_id = profile.id.clone();
+        let should_enable = profile.enabled;
+        let mut profiles = self.list_ai_profiles().await?;
+        if let Some(index) = profiles.iter().position(|item| item.id == profile.id) {
+            profiles[index] = profile;
+        } else {
+            if profiles.len() >= 20 {
+                return Err(CoreError::coded(
+                    ErrorCategory::InvalidInput,
+                    "tooManyAiProfiles",
+                    None,
+                ));
+            }
+            profiles.push(profile);
+        }
+        if should_enable {
+            for item in &mut profiles {
+                item.enabled = item.id == profile_id;
+            }
+        }
+        let value = serde_json::to_string(&profiles)
+            .map_err(|_| CoreError::coded(ErrorCategory::InvalidInput, "invalidAiProfile", None))?;
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_setting("ai_profiles", &value))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))?
+    }
+
+    /// Toggle the one profile used by mobile AI features.
+    ///
+    /// Enabling a profile disables every other profile in the same settings
+    /// write. Disabling the active profile deliberately leaves no fallback.
+    pub async fn set_ai_profile_enabled(
+        &self,
+        profile_id: String,
+        enabled: bool,
+    ) -> Result<(), CoreError> {
+        let profile_id = profile_id.trim();
+        if profile_id.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidAiProfile",
+                None,
+            ));
+        }
+
+        let mut profiles = self.list_ai_profiles().await?;
+        if !profiles.iter().any(|profile| profile.id == profile_id) {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidAiProfile",
+                None,
+            ));
+        }
+        if enabled {
+            for profile in &mut profiles {
+                profile.enabled = profile.id == profile_id;
+            }
+        } else {
+            for profile in &mut profiles {
+                profile.enabled = false;
+            }
+        }
+
+        let value = serde_json::to_string(&profiles)
+            .map_err(|_| CoreError::coded(ErrorCategory::InvalidInput, "invalidAiProfile", None))?;
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_setting("ai_profiles", &value))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))?
+    }
+
+    /// Delete profile metadata first and return its credential alias for best-effort cleanup.
+    pub async fn delete_ai_profile(&self, profile_id: String) -> Result<Option<String>, CoreError> {
+        let profile_id = profile_id.trim();
+        if profile_id.is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidAiProfile",
+                None,
+            ));
+        }
+        let mut profiles = self.list_ai_profiles().await?;
+        let credential_ref = profiles
+            .iter()
+            .find(|profile| profile.id == profile_id)
+            .and_then(|profile| profile.credential_ref.clone());
+        profiles.retain(|profile| profile.id != profile_id);
+        let value = serde_json::to_string(&profiles)
+            .map_err(|_| CoreError::coded(ErrorCategory::InvalidInput, "invalidAiProfile", None))?;
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_setting("ai_profiles", &value))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))??;
+        Ok(credential_ref)
+    }
 }
 
 fn validate_range(value: f64, min: f64, max: f64, code: &'static str) -> Result<(), CoreError> {
@@ -154,12 +293,14 @@ fn validate_range(value: f64, min: f64, max: f64, code: &'static str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::{AiAuthMode, AiProtocol, AiPurpose};
+    use std::collections::BTreeMap;
 
     #[tokio::test]
     async fn appearance_settings_validate_and_persist() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
-        let service = SettingsService::new(db);
+        let service = SettingsService::new(Arc::clone(&db));
 
         service.set_theme("dark".to_string()).await.unwrap();
         service.set_language("ja".to_string()).await.unwrap();
@@ -205,5 +346,96 @@ mod tests {
                 .code(),
             "invalidReadingFontSize"
         );
+    }
+
+    #[tokio::test]
+    async fn ai_profiles_persist_only_metadata_and_delete_returns_the_alias() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
+        let service = SettingsService::new(Arc::clone(&db));
+        let profile = AiProfile {
+            id: " profile-1 ".into(),
+            name: " Primary ".into(),
+            protocol: AiProtocol::OpenaiChatCompletions,
+            model: " model ".into(),
+            base_url: "https://example.com/v1/".into(),
+            auth: AiAuthMode::Bearer,
+            headers: BTreeMap::new(),
+            credential_ref: Some("papr.ai.profile-1".into()),
+            enabled: true,
+            default_for: vec![AiPurpose::Summary],
+        };
+
+        service.save_ai_profile(profile).await.unwrap();
+        let profiles = service.list_ai_profiles().await.unwrap();
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0].id, "profile-1");
+        assert_eq!(profiles[0].base_url, "https://example.com/v1");
+        let stored = db.get_setting("ai_profiles").unwrap().unwrap();
+        assert!(!stored.contains("api_key"));
+        assert!(!stored.contains("secret"));
+
+        assert_eq!(
+            service.delete_ai_profile("profile-1".into()).await.unwrap(),
+            Some("papr.ai.profile-1".into())
+        );
+        assert!(service.list_ai_profiles().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn ai_profile_enablement_is_exclusive_and_can_be_fully_disabled() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
+        let service = SettingsService::new(Arc::clone(&db));
+        let primary = AiProfile {
+            id: "primary".into(),
+            name: "Primary".into(),
+            protocol: AiProtocol::OpenaiChatCompletions,
+            model: "model-a".into(),
+            base_url: "https://example.com/v1".into(),
+            auth: AiAuthMode::None,
+            headers: BTreeMap::new(),
+            credential_ref: None,
+            enabled: true,
+            default_for: vec![AiPurpose::Summary],
+        };
+        let secondary = AiProfile {
+            id: "secondary".into(),
+            name: "Secondary".into(),
+            model: "model-b".into(),
+            ..primary.clone()
+        };
+
+        db.set_setting(
+            "ai_profiles",
+            &serde_json::to_string(&vec![primary.clone(), secondary.clone()]).unwrap(),
+        )
+        .unwrap();
+        let profiles = service.list_ai_profiles().await.unwrap();
+        assert!(profiles[0].enabled);
+        assert!(!profiles[1].enabled);
+        let persisted: Vec<AiProfile> =
+            serde_json::from_str(&db.get_setting("ai_profiles").unwrap().unwrap()).unwrap();
+        assert!(persisted[0].enabled);
+        assert!(!persisted[1].enabled);
+
+        service
+            .set_ai_profile_enabled("secondary".into(), true)
+            .await
+            .unwrap();
+        let profiles = service.list_ai_profiles().await.unwrap();
+        assert!(!profiles[0].enabled);
+        assert!(profiles[1].enabled);
+
+        service
+            .set_ai_profile_enabled("secondary".into(), false)
+            .await
+            .unwrap();
+        assert!(service
+            .list_ai_profiles()
+            .await
+            .unwrap()
+            .iter()
+            .all(|profile| !profile.enabled));
     }
 }

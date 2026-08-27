@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../repositories/settings_repository.dart';
+import 'ai_profiles_screen.dart';
 import 'highlights_screen.dart';
 import 'organization_screen.dart';
 
@@ -93,6 +94,15 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   title: Text(l10n.refreshInterval),
                   subtitle: Text(l10n.minutes(settings.refreshIntervalMin)),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome_outlined),
+                  title: Text(l10n.aiProfiles),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AiProfilesScreen(),
+                    ),
+                  ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.rule_outlined),

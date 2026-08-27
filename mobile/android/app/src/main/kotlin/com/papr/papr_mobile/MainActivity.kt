@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
     private var channel: MethodChannel? = null
     private var pendingResult: MethodChannel.Result? = null
     private var pendingExportText: String? = null
+    private val aiCredentialStore by lazy { AiCredentialStore(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,6 +37,19 @@ class MainActivity : FlutterActivity() {
                     "shareArticle" -> shareArticle(
                         call.argument<String>("title"),
                         call.argument<String>("url"),
+                        result,
+                    )
+                    "setAiCredential" -> setAiCredential(
+                        call.argument<String>("credentialRef"),
+                        call.argument<String>("secret"),
+                        result,
+                    )
+                    "getAiCredential" -> getAiCredential(
+                        call.argument<String>("credentialRef"),
+                        result,
+                    )
+                    "deleteAiCredential" -> deleteAiCredential(
+                        call.argument<String>("credentialRef"),
                         result,
                     )
                     else -> result.notImplemented()
@@ -156,6 +170,50 @@ class MainActivity : FlutterActivity() {
             result.success(true)
         } catch (_: ActivityNotFoundException) {
             result.success(false)
+        }
+    }
+
+    private fun setAiCredential(
+        credentialRef: String?,
+        secret: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (!AiCredentialStore.isValidReference(credentialRef) ||
+            !AiCredentialStore.isValidSecret(secret)
+        ) {
+            result.error("invalidAiCredential", null, null)
+            return
+        }
+        try {
+            aiCredentialStore.set(credentialRef!!, secret!!)
+            result.success(true)
+        } catch (_: Exception) {
+            result.error("credentialWriteFailed", null, null)
+        }
+    }
+
+    private fun getAiCredential(credentialRef: String?, result: MethodChannel.Result) {
+        if (!AiCredentialStore.isValidReference(credentialRef)) {
+            result.error("invalidAiCredential", null, null)
+            return
+        }
+        try {
+            result.success(aiCredentialStore.get(credentialRef!!))
+        } catch (_: Exception) {
+            result.error("credentialReadFailed", null, null)
+        }
+    }
+
+    private fun deleteAiCredential(credentialRef: String?, result: MethodChannel.Result) {
+        if (!AiCredentialStore.isValidReference(credentialRef)) {
+            result.error("invalidAiCredential", null, null)
+            return
+        }
+        try {
+            aiCredentialStore.delete(credentialRef!!)
+            result.success(true)
+        } catch (_: Exception) {
+            result.error("credentialDeleteFailed", null, null)
         }
     }
 

@@ -11,6 +11,7 @@ import '../../repositories/settings_repository.dart';
 import '../../services/platform_service.dart';
 import '../highlight_html.dart';
 import '../highlight_style.dart';
+import 'ai_summary_screen.dart';
 
 final articleDetailProvider =
     FutureProvider.family<bridge.ArticleDetail, int>((ref, articleId) {
@@ -117,6 +118,16 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         actions: detail == null
             ? null
             : [
+                IconButton(
+                  tooltip: context.l10n.aiSummary,
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          AiSummaryScreen(articleId: widget.articleId),
+                    ),
+                  ),
+                ),
                 IconButton(
                   tooltip: detail.isRead
                       ? context.l10n.markUnread
