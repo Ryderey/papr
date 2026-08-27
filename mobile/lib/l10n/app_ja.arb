@@ -220,5 +220,15 @@
   "noSummaryYet": "完了した要約はまだありません。",
   "askAboutSummary": "この要約について質問",
   "summaryQuestionHint": "上の要約だけを使って質問",
-  "send": "送信"
+  "send": "送信",
+  "aiTranslation": "AI 翻訳",
+  "translationNoProfile": "翻訳する前に、有効な AI プロファイルを設定してください。",
+  "targetLanguage": "翻訳先の言語",
+  "translateArticle": "翻訳",
+  "translationCacheInfo": "キャッシュ済み翻訳：{language}",
+  "@translationCacheInfo": {"placeholders": {"language": {"type": "String"}}},
+  "translationPreparing": "翻訳を準備しています…",
+  "translationProgress": "{completed}/{total} セクションを翻訳済み",
+  "@translationProgress": {"placeholders": {"completed": {"type": "int"}, "total": {"type": "int"}}},
+  "noTranslationYet": "完了した翻訳はまだありません。"
 }

@@ -220,5 +220,15 @@
   "noSummaryYet": "暂无完整摘要。",
   "askAboutSummary": "基于此摘要追问",
   "summaryQuestionHint": "仅根据上方摘要提问",
-  "send": "发送"
+  "send": "发送",
+  "aiTranslation": "AI 翻译",
+  "translationNoProfile": "翻译前，请先配置并启用一个 AI 配置。",
+  "targetLanguage": "目标语言",
+  "translateArticle": "翻译",
+  "translationCacheInfo": "缓存翻译：{language}",
+  "@translationCacheInfo": {"placeholders": {"language": {"type": "String"}}},
+  "translationPreparing": "正在准备翻译…",
+  "translationProgress": "已翻译 {completed}/{total} 个段落",
+  "@translationProgress": {"placeholders": {"completed": {"type": "int"}, "total": {"type": "int"}}},
+  "noTranslationYet": "暂无完整翻译。"
 }

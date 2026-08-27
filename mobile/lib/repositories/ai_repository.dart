@@ -135,18 +135,15 @@ class AiRepository {
     }
   }
 
-  bridge.AiProfile? summaryProfile(List<bridge.AiProfile> profiles) {
-    for (final profile in profiles) {
-      if (profile.enabled &&
-          profile.defaultFor.contains(bridge.AiPurpose.summary)) {
-        return profile;
-      }
-    }
+  bridge.AiProfile? activeProfile(List<bridge.AiProfile> profiles) {
     for (final profile in profiles) {
       if (profile.enabled) return profile;
     }
     return null;
   }
+
+  bridge.AiProfile? summaryProfile(List<bridge.AiProfile> profiles) =>
+      activeProfile(profiles);
 
   Future<void> testConnection(bridge.AiProfile profile) async {
     final core = await _ref.read(paprCoreBridgeProvider.future);
@@ -190,6 +187,28 @@ class AiRepository {
         profile: profile,
         credential: credential,
         template: template,
+        language: language,
+        requestId: requestId,
+      );
+    } catch (error) {
+      throw PaprCoreService.mapError(error);
+    }
+  }
+
+  Stream<bridge.AiStreamEvent> translate({
+    required int articleId,
+    required bridge.AiProfile profile,
+    required String language,
+    required String requestId,
+  }) async* {
+    final core = await _ref.read(paprCoreBridgeProvider.future);
+    final credential = await _credentialFor(profile);
+    try {
+      yield* bridge.streamAiTranslation(
+        core: core,
+        articleId: articleId,
+        profile: profile,
+        credential: credential,
         language: language,
         requestId: requestId,
       );

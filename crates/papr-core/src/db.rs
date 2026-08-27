@@ -1570,6 +1570,62 @@ impl Db {
         })
     }
 
+    /// Return the authoritative HTML body for translation. Extracted full text
+    /// wins over the feed body, matching the reader and summary precedence.
+    pub fn article_html(&self, article_id: i64) -> Result<String, CoreError> {
+        let conn = self.reader()?;
+        conn.query_row(
+            "SELECT content_html, extracted_html FROM articles WHERE id = ?1",
+            [article_id],
+            |row| {
+                let content: Option<String> = row.get(0)?;
+                let extracted: Option<String> = row.get(1)?;
+                Ok(extracted
+                    .filter(|html| !html.trim().is_empty())
+                    .or_else(|| content.filter(|html| !html.trim().is_empty())))
+            },
+        )
+        .map_err(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => CoreError::coded(
+                ErrorCategory::NotFound,
+                "articleNotFound",
+                Some(article_id.to_string()),
+            ),
+            _ => CoreError::Db(error.to_string()),
+        })?
+        .ok_or_else(|| CoreError::coded(ErrorCategory::InvalidInput, "noArticleBody", None))
+    }
+
+    /// Persist a complete sanitized translation only after all batches succeed.
+    pub fn set_translation_cache(
+        &self,
+        article_id: i64,
+        html: &str,
+        language: &str,
+    ) -> Result<(), CoreError> {
+        let html = html.trim();
+        if html.is_empty() {
+            return Err(CoreError::coded(ErrorCategory::Ai, "aiParse", None));
+        }
+        let language = crate::ai::response_language_code(language);
+        self.transact(|tx| {
+            let changed = tx
+                .execute(
+                    "UPDATE articles SET translated_html = ?2, translated_lang = ?3 WHERE id = ?1",
+                    (article_id, html, language),
+                )
+                .map_err(|error| CoreError::Db(error.to_string()))?;
+            if changed == 0 {
+                return Err(CoreError::coded(
+                    ErrorCategory::NotFound,
+                    "articleNotFound",
+                    Some(article_id.to_string()),
+                ));
+            }
+            Ok(())
+        })
+    }
+
     /// Atomically replace the single complete summary cache and its identifying
     /// metadata. Callers invoke this only after a stream completes successfully.
     pub fn set_ai_summary_cache(

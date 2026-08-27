@@ -8,6 +8,7 @@ use crate::ai::{
 use crate::db::Db;
 use crate::dto::{AiSummaryCache, SummaryTemplate};
 use crate::error::CoreError;
+use crate::translate;
 
 /// Coordinates article reads, provider streaming, and success-only cache writes.
 pub struct AiService {
@@ -178,6 +179,135 @@ impl AiService {
         )
         .await
     }
+
+    /// Translate article HTML through the configured LLM, reporting only
+    /// batch-level progress and caching the result after full success.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn translate_with_profile<F>(
+        &self,
+        article_id: i64,
+        profile: &AiProfile,
+        credential: Option<&ResolvedAiCredential>,
+        language: &str,
+        request_id: &str,
+        cancellation: &AiCancellation,
+        mut emit: F,
+    ) -> Result<String, CoreError>
+    where
+        F: FnMut(AiStreamEvent) -> bool,
+    {
+        let db = Arc::clone(&self.db);
+        let html = match tokio::task::spawn_blocking(move || db.article_html(article_id))
+            .await
+            .map_err(blocking_error)
+            .and_then(|result| result)
+        {
+            Ok(html) => html,
+            Err(error) => {
+                emit(AiStreamEvent::Error {
+                    request_id: request_id.to_string(),
+                    code: error.code().to_string(),
+                });
+                return Err(error);
+            }
+        };
+        let batches = translate::chunk_blocks(&html, translate::LLM_CHUNK_BUDGET);
+        if batches.is_empty() {
+            let error = CoreError::coded(
+                crate::error::ErrorCategory::InvalidInput,
+                "noArticleBody",
+                None,
+            );
+            emit(AiStreamEvent::Error {
+                request_id: request_id.to_string(),
+                code: error.code().to_string(),
+            });
+            return Err(error);
+        }
+        let total = batches.len() as u32;
+        if !emit(AiStreamEvent::Progress {
+            request_id: request_id.to_string(),
+            completed: 0,
+            total,
+        }) {
+            return Err(CoreError::coded(
+                crate::error::ErrorCategory::Ai,
+                "aiCancelled",
+                None,
+            ));
+        }
+
+        let system = translate::system_prompt(translate::language_name(language));
+        let mut translated = String::new();
+        for (index, batch) in batches.iter().enumerate() {
+            if cancellation.is_cancelled() {
+                let error = CoreError::coded(crate::error::ErrorCategory::Ai, "aiCancelled", None);
+                emit(AiStreamEvent::Error {
+                    request_id: request_id.to_string(),
+                    code: error.code().to_string(),
+                });
+                return Err(error);
+            }
+            let mut discard_deltas = |_| true;
+            let raw = match stream_chat_inner(
+                &self.http,
+                profile,
+                credential,
+                request_id,
+                &system,
+                batch,
+                cancellation,
+                &mut discard_deltas,
+            )
+            .await
+            {
+                Ok(text) => text,
+                Err(error) => {
+                    emit(AiStreamEvent::Error {
+                        request_id: request_id.to_string(),
+                        code: error.code().to_string(),
+                    });
+                    return Err(error);
+                }
+            };
+            translated.push_str(&crate::ingestion::sanitize::sanitize(
+                &translate::strip_code_fence(&raw),
+                None,
+            ));
+            if !emit(AiStreamEvent::Progress {
+                request_id: request_id.to_string(),
+                completed: index as u32 + 1,
+                total,
+            }) {
+                return Err(CoreError::coded(
+                    crate::error::ErrorCategory::Ai,
+                    "aiCancelled",
+                    None,
+                ));
+            }
+        }
+
+        let db = Arc::clone(&self.db);
+        let cached = translated.clone();
+        let language = language.to_string();
+        let cache_result = tokio::task::spawn_blocking(move || {
+            db.set_translation_cache(article_id, &cached, &language)
+        })
+        .await
+        .map_err(blocking_error)
+        .and_then(|result| result);
+        if let Err(error) = cache_result {
+            emit(AiStreamEvent::Error {
+                request_id: request_id.to_string(),
+                code: error.code().to_string(),
+            });
+            return Err(error);
+        }
+        emit(AiStreamEvent::Completed {
+            request_id: request_id.to_string(),
+        });
+        Ok(translated)
+    }
 }
 
 fn blocking_error(error: tokio::task::JoinError) -> CoreError {
@@ -200,7 +330,9 @@ mod tests {
         let address = listener.local_addr().unwrap();
         let status = status.to_string();
         let body = body.to_string();
+        let (ready, started) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
+            let _ = ready.send(());
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut request = [0_u8; 4096];
             let _ = socket.read(&mut request).await;
@@ -210,18 +342,22 @@ mod tests {
             );
             socket.write_all(response.as_bytes()).await.unwrap();
         });
+        started.await.unwrap();
         format!("http://{address}/v1")
     }
 
     async fn serve_stalled_once() -> String {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
+        let (ready, started) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
+            let _ = ready.send(());
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut request = [0_u8; 4096];
             let _ = socket.read(&mut request).await;
             tokio::time::sleep(Duration::from_secs(5)).await;
         });
+        started.await.unwrap();
         format!("http://{address}/v1")
     }
 
@@ -252,7 +388,7 @@ mod tests {
                 title: "Article".into(),
                 author: None,
                 summary: None,
-                content_html: None,
+                content_html: Some("<p>Article body</p>".into()),
                 body_text: "Article body".into(),
                 image_url: None,
                 published_at: None,
@@ -485,5 +621,121 @@ mod tests {
         .unwrap_err();
         assert_eq!(result.code(), "aiCancelled");
         assert_eq!(db.get_ai_summary_cache(article_id).unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn translation_emits_only_batch_progress_and_caches_complete_html() {
+        let (_temp, db, article_id) = setup_db();
+        let profile = profile(
+            serve_once(
+                "200 OK",
+                concat!(
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"<p>译文</p>\"}}]}\n",
+                    "data: [DONE]\n"
+                ),
+            )
+            .await,
+        );
+        let service = AiService::new(Arc::clone(&db), Arc::new(reqwest::Client::new()));
+        let mut events = Vec::new();
+
+        let translated = service
+            .translate_with_profile(
+                article_id,
+                &profile,
+                None,
+                "zh-CN",
+                "translate-1",
+                &AiCancellation::default(),
+                |event| {
+                    events.push(event);
+                    true
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(translated, "<p>译文</p>");
+        assert!(events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::Delta { .. })));
+        assert!(matches!(
+            events.first(),
+            Some(AiStreamEvent::Progress {
+                completed: 0,
+                total: 1,
+                ..
+            })
+        ));
+        assert!(matches!(
+            events.last(),
+            Some(AiStreamEvent::Completed { .. })
+        ));
+        let detail = db.get_article_detail(article_id).unwrap();
+        assert_eq!(detail.translated_html.as_deref(), Some("<p>译文</p>"));
+        assert_eq!(detail.translated_lang.as_deref(), Some("zh"));
+    }
+
+    #[tokio::test]
+    async fn failed_translation_keeps_the_previous_complete_cache() {
+        let (_temp, db, article_id) = setup_db();
+        db.set_translation_cache(article_id, "<p>old</p>", "ja")
+            .unwrap();
+        let profile = profile(serve_once("500 Internal Server Error", "failure").await);
+        let service = AiService::new(Arc::clone(&db), Arc::new(reqwest::Client::new()));
+
+        let error = service
+            .translate_with_profile(
+                article_id,
+                &profile,
+                None,
+                "zh",
+                "translate-failure",
+                &AiCancellation::default(),
+                |_| true,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.code(), "aiNetwork");
+        let detail = db.get_article_detail(article_id).unwrap();
+        assert_eq!(detail.translated_html.as_deref(), Some("<p>old</p>"));
+        assert_eq!(detail.translated_lang.as_deref(), Some("ja"));
+    }
+
+    #[tokio::test]
+    async fn cancelled_translation_keeps_the_previous_complete_cache() {
+        let (_temp, db, article_id) = setup_db();
+        db.set_translation_cache(article_id, "<p>old</p>", "ja")
+            .unwrap();
+        let service = AiService::new(Arc::clone(&db), Arc::new(reqwest::Client::new()));
+        let cancellation = AiCancellation::default();
+        cancellation.cancel();
+        let mut events = Vec::new();
+
+        let error = service
+            .translate_with_profile(
+                article_id,
+                &profile("http://127.0.0.1:1/v1".into()),
+                None,
+                "zh",
+                "translate-cancelled",
+                &cancellation,
+                |event| {
+                    events.push(event);
+                    true
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.code(), "aiCancelled");
+        assert!(matches!(
+            events.last(),
+            Some(AiStreamEvent::Error { code, .. }) if code == "aiCancelled"
+        ));
+        let detail = db.get_article_detail(article_id).unwrap();
+        assert_eq!(detail.translated_html.as_deref(), Some("<p>old</p>"));
+        assert_eq!(detail.translated_lang.as_deref(), Some("ja"));
     }
 }

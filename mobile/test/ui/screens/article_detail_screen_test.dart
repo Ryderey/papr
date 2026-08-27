@@ -39,6 +39,7 @@ void main() {
         findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
     expect(find.byTooltip('AI summary'), findsOneWidget);
+    expect(find.byTooltip('AI translation'), findsOneWidget);
   });
 
   testWidgets('shows a placeholder for blank article HTML', (tester) async {

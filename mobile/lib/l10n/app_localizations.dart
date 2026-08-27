@@ -1401,6 +1401,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send'**
   String get send;
+
+  /// No description provided for @aiTranslation.
+  ///
+  /// In en, this message translates to:
+  /// **'AI translation'**
+  String get aiTranslation;
+
+  /// No description provided for @translationNoProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure and enable an AI profile before translating.'**
+  String get translationNoProfile;
+
+  /// No description provided for @targetLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Target language'**
+  String get targetLanguage;
+
+  /// No description provided for @translateArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate'**
+  String get translateArticle;
+
+  /// No description provided for @translationCacheInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cached translation: {language}'**
+  String translationCacheInfo(String language);
+
+  /// No description provided for @translationPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing translation…'**
+  String get translationPreparing;
+
+  /// No description provided for @translationProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Translated {completed} of {total} sections'**
+  String translationProgress(int completed, int total);
+
+  /// No description provided for @noTranslationYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No complete translation yet.'**
+  String get noTranslationYet;
 }
 
 class _AppLocalizationsDelegate

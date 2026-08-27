@@ -690,4 +690,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get send => '送信';
+
+  @override
+  String get aiTranslation => 'AI 翻訳';
+
+  @override
+  String get translationNoProfile => '翻訳する前に、有効な AI プロファイルを設定してください。';
+
+  @override
+  String get targetLanguage => '翻訳先の言語';
+
+  @override
+  String get translateArticle => '翻訳';
+
+  @override
+  String translationCacheInfo(String language) {
+    return 'キャッシュ済み翻訳：$language';
+  }
+
+  @override
+  String get translationPreparing => '翻訳を準備しています…';
+
+  @override
+  String translationProgress(int completed, int total) {
+    return '$completed/$total セクションを翻訳済み';
+  }
+
+  @override
+  String get noTranslationYet => '完了した翻訳はまだありません。';
 }

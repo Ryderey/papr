@@ -11,6 +11,9 @@ use scraper::{ElementRef, Html};
 const UNWRAP_TAGS: &[&str] = &["div", "article", "section", "main"];
 const SKIP_TEXT_TAGS: &[&str] = &["script", "style", "code", "pre", "kbd", "samp"];
 
+/// Source-HTML budget for one LLM request. Whole blocks are never split.
+pub const LLM_CHUNK_BUDGET: usize = 8_000;
+
 /// The human-readable name for the supported target language codes.
 pub fn language_name(code: &str) -> &'static str {
     match code {

@@ -736,6 +736,53 @@ pub async fn stream_ai_summary(
     Ok(())
 }
 
+/// Translate one article through the configured LLM and cache only a complete
+/// sanitized result. The event stream reports batch progress, never raw text.
+#[allow(clippy::too_many_arguments)]
+pub async fn stream_ai_translation(
+    core: &PaprCoreBridge,
+    article_id: i64,
+    profile: AiProfile,
+    credential: Option<String>,
+    language: String,
+    request_id: String,
+    sink: StreamSink<AiStreamEvent>,
+) -> Result<(), PaprBridgeError> {
+    let lease = match core.ai_requests.register(&request_id) {
+        Ok(lease) => lease,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code.clone());
+            return Ok(());
+        }
+    };
+    let profile = papr_core::ai::AiProfile::from(profile);
+    let credential = match credential
+        .map(papr_core::ai::ResolvedAiCredential::new)
+        .transpose()
+    {
+        Ok(credential) => credential,
+        Err(error) => {
+            emit_ai_stream_error(&sink, &request_id, error.code().to_string());
+            return Ok(());
+        }
+    };
+
+    let _ = core
+        .inner
+        .ai_service()
+        .translate_with_profile(
+            article_id,
+            &profile,
+            credential.as_ref(),
+            &language,
+            &request_id,
+            &lease.cancellation,
+            |event| sink.add(event.into()).is_ok(),
+        )
+        .await;
+    Ok(())
+}
+
 /// Stream a follow-up answer using only the supplied summary and Q&A history.
 #[allow(clippy::too_many_arguments)]
 pub async fn stream_ai_follow_up(

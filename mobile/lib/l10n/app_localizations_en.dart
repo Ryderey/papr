@@ -703,4 +703,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get send => 'Send';
+
+  @override
+  String get aiTranslation => 'AI translation';
+
+  @override
+  String get translationNoProfile =>
+      'Configure and enable an AI profile before translating.';
+
+  @override
+  String get targetLanguage => 'Target language';
+
+  @override
+  String get translateArticle => 'Translate';
+
+  @override
+  String translationCacheInfo(String language) {
+    return 'Cached translation: $language';
+  }
+
+  @override
+  String get translationPreparing => 'Preparing translation…';
+
+  @override
+  String translationProgress(int completed, int total) {
+    return 'Translated $completed of $total sections';
+  }
+
+  @override
+  String get noTranslationYet => 'No complete translation yet.';
 }

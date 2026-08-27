@@ -72,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -2069014313;
+  int get rustContentHash => 924642537;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -287,6 +287,14 @@ abstract class RustLibApi extends BaseApi {
       required AiProfile profile,
       String? credential,
       required SummaryTemplate template,
+      required String language,
+      required String requestId});
+
+  Stream<AiStreamEvent> crateApiStreamAiTranslation(
+      {required PaprCoreBridge core,
+      required PlatformInt64 articleId,
+      required AiProfile profile,
+      String? credential,
       required String language,
       required String requestId});
 
@@ -1982,6 +1990,62 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Stream<AiStreamEvent> crateApiStreamAiTranslation(
+      {required PaprCoreBridge core,
+      required PlatformInt64 articleId,
+      required AiProfile profile,
+      String? credential,
+      required String language,
+      required String requestId}) {
+    final sink = RustStreamSink<AiStreamEvent>();
+    unawaited(handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPaprCoreBridge(
+            core, serializer);
+        sse_encode_i_64(articleId, serializer);
+        sse_encode_box_autoadd_ai_profile(profile, serializer);
+        sse_encode_opt_String(credential, serializer);
+        sse_encode_String(language, serializer);
+        sse_encode_String(requestId, serializer);
+        sse_encode_StreamSink_ai_stream_event_Sse(sink, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 59, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: sse_decode_papr_bridge_error,
+      ),
+      constMeta: kCrateApiStreamAiTranslationConstMeta,
+      argValues: [
+        core,
+        articleId,
+        profile,
+        credential,
+        language,
+        requestId,
+        sink
+      ],
+      apiImpl: this,
+    )));
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiStreamAiTranslationConstMeta =>
+      const TaskConstMeta(
+        debugName: "stream_ai_translation",
+        argNames: [
+          "core",
+          "articleId",
+          "profile",
+          "credential",
+          "language",
+          "requestId",
+          "sink"
+        ],
+      );
+
+  @override
   Future<void> crateApiTestAiConnection(
       {required PaprCoreBridge core,
       required AiProfile profile,
@@ -1994,7 +2058,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_box_autoadd_ai_profile(profile, serializer);
         sse_encode_opt_String(credential, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 59, port: port_);
+            funcId: 60, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2024,7 +2088,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_String(note, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 60, port: port_);
+            funcId: 61, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2055,7 +2119,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_box_autoadd_rule_input(input, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 61, port: port_);
+            funcId: 62, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,

@@ -12,6 +12,7 @@ import '../../services/platform_service.dart';
 import '../highlight_html.dart';
 import '../highlight_style.dart';
 import 'ai_summary_screen.dart';
+import 'ai_translation_screen.dart';
 
 final articleDetailProvider =
     FutureProvider.family<bridge.ArticleDetail, int>((ref, articleId) {
@@ -125,6 +126,16 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                     MaterialPageRoute<void>(
                       builder: (_) =>
                           AiSummaryScreen(articleId: widget.articleId),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: context.l10n.aiTranslation,
+                  icon: const Icon(Icons.translate),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          AiTranslationScreen(articleId: widget.articleId),
                     ),
                   ),
                 ),

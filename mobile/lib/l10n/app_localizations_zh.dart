@@ -688,4 +688,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get send => '发送';
+
+  @override
+  String get aiTranslation => 'AI 翻译';
+
+  @override
+  String get translationNoProfile => '翻译前，请先配置并启用一个 AI 配置。';
+
+  @override
+  String get targetLanguage => '目标语言';
+
+  @override
+  String get translateArticle => '翻译';
+
+  @override
+  String translationCacheInfo(String language) {
+    return '缓存翻译：$language';
+  }
+
+  @override
+  String get translationPreparing => '正在准备翻译…';
+
+  @override
+  String translationProgress(int completed, int total) {
+    return '已翻译 $completed/$total 个段落';
+  }
+
+  @override
+  String get noTranslationYet => '暂无完整翻译。';
 }

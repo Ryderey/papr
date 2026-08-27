@@ -86,6 +86,100 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Highlight offsets use UTF-16 code units so Flutter selections and Core anchors agree. Resolution tries the stored offset first, then quote plus prefix/suffix context, and finally the first quote match. An unresolved anchor remains a valid editable record.
 - Flutter must pass the reader's DOM text-node sequence to `resolve_highlights`, then render each returned resolved range by safely inserting `<mark class="papr-highlight" data-highlight-color="…">` into parsed HTML text nodes. Never use a regular expression to alter raw article HTML. Unresolved records stay in the highlight list and display a localized notice.
 
+## Scenario: AI summary and LLM translation
+
+### 1. Scope / Trigger
+
+- Trigger: a reader feature uses an AI Profile and an article cache across
+  Android Keystore, Flutter, FRB, Core HTTP/SSE, and SQLite.
+- Why: Flutter must never own provider parsing, persistent credentials, or a
+  partial translation cache; otherwise a route cancellation can corrupt a
+  later reader session.
+
+### 2. Signatures
+
+```rust
+stream_ai_summary(core, article_id, profile, credential, template, language, request_id, sink)
+stream_ai_translation(core, article_id, profile, credential, language, request_id, sink)
+cancel_ai_request(core, request_id) -> bool
+```
+
+- Translation persistence is `articles.translated_html` plus
+  `articles.translated_lang`; Core writes both only through
+  `Db::set_translation_cache` after every HTML batch succeeds.
+
+### 3. Contracts
+
+- Flutter reads a Keystore credential only at request time, passes it as the
+  ephemeral `credential` argument, and never writes it to a DTO, provider, log,
+  backup, or cache.
+- `AiStreamEvent::Delta` belongs to summary/follow-up output. Translation
+  emits only `Progress { completed, total }`, then one terminal `Completed` or
+  `Error { code }` for the request ID.
+- The Core translation service chooses extracted HTML when present, chunks it
+  without splitting a block, sanitizes every returned fragment, and replaces
+  the cache only after the complete result is valid.
+- A Flutter translation route owns its request ID and cancels it on disposal.
+  It reloads `ArticleDetail.translated_html` only after `Completed`; it does
+  not synthesize translated HTML from stream payloads.
+- Mobile permits at most one enabled AI Profile. If none is enabled, summary
+  and translation show the configuration route and do not attempt a request.
+
+### 4. Validation & Error Matrix
+
+| Condition | Stable code / result |
+| --- | --- |
+| Article body is missing | `noArticleBody` |
+| No enabled profile or no request-time credential | no request / `noAiCredential` |
+| Provider rejects credentials | `aiAuth` |
+| Provider/network/invalid stream failure | `aiRateLimited`, `aiNetwork`, or `aiParse` |
+| Request cancelled, page left, or stream sink closes | `aiCancelled`; prior cache remains |
+| All batches complete and sanitize successfully | `Completed`; HTML and language replace the prior cache together |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a completed multi-block translation emits `0/N … N/N`, then displays
+  the freshly re-read cached HTML with links and images intact.
+- Base: a cache exists for Japanese and the user selects Chinese. The page
+  keeps showing the Japanese cache until the user explicitly regenerates; a
+  failed regeneration leaves it untouched.
+- Bad: leaving the page during a request, an SSE parse failure, or a failed
+  batch must not write a partial translation or overwrite a previous one.
+
+### 6. Tests Required
+
+- Core: assert block progress contains no delta events; completed translation
+  writes sanitized HTML/language; provider failure and cancellation retain the
+  prior cache; local SSE helpers signal readiness rather than relying on
+  scheduler timing.
+- Bridge: regenerate FRB bindings and cover request-ID cancellation/lease
+  cleanup.
+- Flutter: reader exposes the translation route; route localizes stable error
+  codes, disables conflicting actions while active, and only displays cache
+  re-read after completion.
+- Android acceptance: check cached display offline, multi-block progress,
+  cancel/back navigation, rotation/process restore, and that a request uses
+  the sole enabled Profile.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+// Rebuilds a translation from streamed provider text and can persist a partial body.
+stream.listen((event) => translatedHtml += event.text);
+```
+
+#### Correct
+
+```dart
+// Treat completion as a signal to read the atomically stored Core cache.
+await articleRepository.getArticleDetail(articleId);
+```
+
+Core owns stream parsing, sanitizing, and the success-only write transaction;
+Flutter owns only route state, progress presentation, and cancellation.
+
 ## 4. Validation & Error Matrix
 
 | Condition | Stable code / result |

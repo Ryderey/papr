@@ -230,5 +230,15 @@
   "noSummaryYet": "No complete summary yet.",
   "askAboutSummary": "Ask about this summary",
   "summaryQuestionHint": "Ask using only the summary above",
-  "send": "Send"
+  "send": "Send",
+  "aiTranslation": "AI translation",
+  "translationNoProfile": "Configure and enable an AI profile before translating.",
+  "targetLanguage": "Target language",
+  "translateArticle": "Translate",
+  "translationCacheInfo": "Cached translation: {language}",
+  "@translationCacheInfo": {"placeholders": {"language": {"type": "String"}}},
+  "translationPreparing": "Preparing translation…",
+  "translationProgress": "Translated {completed} of {total} sections",
+  "@translationProgress": {"placeholders": {"completed": {"type": "int"}, "total": {"type": "int"}}},
+  "noTranslationYet": "No complete translation yet."
 }

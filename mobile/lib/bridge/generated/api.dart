@@ -332,6 +332,23 @@ Stream<AiStreamEvent> streamAiSummary(
         language: language,
         requestId: requestId);
 
+/// Translate one article through the configured LLM and cache only a complete
+/// sanitized result. The event stream reports batch progress, never raw text.
+Stream<AiStreamEvent> streamAiTranslation(
+        {required PaprCoreBridge core,
+        required PlatformInt64 articleId,
+        required AiProfile profile,
+        String? credential,
+        required String language,
+        required String requestId}) =>
+    RustLib.instance.api.crateApiStreamAiTranslation(
+        core: core,
+        articleId: articleId,
+        profile: profile,
+        credential: credential,
+        language: language,
+        requestId: requestId);
+
 /// Stream a follow-up answer using only the supplied summary and Q&A history.
 Stream<AiStreamEvent> streamAiFollowUp(
         {required PaprCoreBridge core,
