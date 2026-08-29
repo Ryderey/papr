@@ -263,6 +263,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errorParse => '購読データを読み取れませんでした。';
 
   @override
+  String get errorAiNoVisibleOutput => 'AI から表示可能な内容が返されませんでした。もう一度生成してください。';
+
+  @override
   String get retry => '再試行';
 
   @override

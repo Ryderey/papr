@@ -78,6 +78,7 @@
   "errorInvalidFeedUrl": "请输入有效的 Feed 或网页地址。",
   "errorNetwork": "网络请求失败，请检查连接后重试。",
   "errorParse": "无法读取订阅数据。",
+  "errorAiNoVisibleOutput": "AI 未返回可显示的内容，请重新生成。",
   "retry": "重试",
   "articleActions": "文章操作",
   "readerActions": "阅读器操作",

@@ -568,6 +568,12 @@ abstract class AppLocalizations {
   /// **'The subscription data could not be read.'**
   String get errorParse;
 
+  /// No description provided for @errorAiNoVisibleOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'The AI returned no visible content. Try generating again.'**
+  String get errorAiNoVisibleOutput;
+
   /// No description provided for @retry.
   ///
   /// In en, this message translates to:

@@ -116,6 +116,11 @@ cancel_ai_request(core, request_id) -> bool
 - `AiStreamEvent::Delta` belongs to summary/follow-up output. Translation
   emits only `Progress { completed, total }`, then one terminal `Completed` or
   `Error { code }` for the request ID.
+- A provider may stream hidden reasoning before visible `content`. Core never
+  renders or persists reasoning. For SenseNova 6.8 Flash Lite, Core uses an
+  8,192-token output ceiling because the provider counts reasoning toward
+  `max_tokens`; an otherwise valid stream with no visible content returns
+  `aiNoVisibleOutput`, not `aiParse`.
 - The Core translation service chooses extracted HTML when present, chunks it
   without splitting a block, sanitizes every returned fragment, and replaces
   the cache only after the complete result is valid.
@@ -133,6 +138,7 @@ cancel_ai_request(core, request_id) -> bool
 | No enabled profile or no request-time credential | no request / `noAiCredential` |
 | Provider rejects credentials | `aiAuth` |
 | Provider/network/invalid stream failure | `aiRateLimited`, `aiNetwork`, or `aiParse` |
+| Complete stream contains no visible content | `aiNoVisibleOutput` |
 | Request cancelled, page left, or stream sink closes | `aiCancelled`; prior cache remains |
 | All batches complete and sanitize successfully | `Completed`; HTML and language replace the prior cache together |
 

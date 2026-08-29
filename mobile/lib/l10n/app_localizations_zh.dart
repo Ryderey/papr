@@ -263,6 +263,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorParse => '无法读取订阅数据。';
 
   @override
+  String get errorAiNoVisibleOutput => 'AI 未返回可显示的内容，请重新生成。';
+
+  @override
   String get retry => '重试';
 
   @override

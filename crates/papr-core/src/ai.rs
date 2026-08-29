@@ -23,6 +23,8 @@ pub const SUMMARY_INPUT_CHAR_LIMIT: usize = 8_000;
 // Reasoning-capable OpenAI-compatible models count hidden reasoning toward this
 // limit. Keep enough room for the visible summary or follow-up response.
 pub const AI_MAX_OUTPUT_TOKENS: u32 = 2_000;
+const SENSENOVA_FLASH_LITE_MODEL: &str = "sensenova-6.8-flash-lite";
+const SENSENOVA_REASONING_MAX_OUTPUT_TOKENS: u32 = 8_192;
 const AI_REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
 const MAX_SSE_BUFFER: usize = 8 * 1024 * 1024;
 
@@ -347,7 +349,7 @@ where
         credential,
         system,
         user,
-        AI_MAX_OUTPUT_TOKENS,
+        output_token_limit(profile),
     )?;
     let mut response = tokio::select! {
         response = client.execute(request) => response.map_err(|_| ai_error("aiNetwork"))?,
@@ -389,9 +391,28 @@ where
         }
     }
     if full.trim().is_empty() {
-        return Err(ai_error("aiParse"));
+        return Err(ai_error(if decoder.completed() {
+            "aiNoVisibleOutput"
+        } else {
+            "aiParse"
+        }));
     }
     Ok(full)
+}
+
+/// SenseNova 6.8 counts hidden reasoning against `max_tokens`; its standard
+/// 2,000-token example can therefore finish before producing visible content.
+fn output_token_limit(profile: &AiProfile) -> u32 {
+    if profile.protocol == AiProtocol::OpenaiChatCompletions
+        && profile
+            .model
+            .trim()
+            .eq_ignore_ascii_case(SENSENOVA_FLASH_LITE_MODEL)
+    {
+        SENSENOVA_REASONING_MAX_OUTPUT_TOKENS
+    } else {
+        AI_MAX_OUTPUT_TOKENS
+    }
 }
 
 fn build_stream_request(
@@ -485,6 +506,7 @@ fn http_status_error(status: StatusCode) -> CoreError {
 struct SseDecoder {
     protocol: AiProtocol,
     buffer: Vec<u8>,
+    completed: bool,
 }
 
 impl SseDecoder {
@@ -492,6 +514,7 @@ impl SseDecoder {
         Self {
             protocol,
             buffer: Vec::new(),
+            completed: false,
         }
     }
 
@@ -504,6 +527,7 @@ impl SseDecoder {
         let mut deltas = Vec::new();
         while let Some(position) = self.buffer.iter().position(|byte| *byte == b'\n') {
             let line: Vec<u8> = self.buffer.drain(..=position).collect();
+            self.completed |= is_openai_done_line(&line, self.protocol);
             if let Some(delta) = parse_sse_line(&line, self.protocol)? {
                 deltas.push(delta);
             }
@@ -511,14 +535,27 @@ impl SseDecoder {
         Ok(deltas)
     }
 
-    fn finish(self) -> Result<Vec<String>, CoreError> {
+    fn finish(&mut self) -> Result<Vec<String>, CoreError> {
         if self.buffer.is_empty() {
             return Ok(Vec::new());
         }
+        self.completed |= is_openai_done_line(&self.buffer, self.protocol);
         Ok(parse_sse_line(&self.buffer, self.protocol)?
             .into_iter()
             .collect())
     }
+
+    fn completed(&self) -> bool {
+        self.completed
+    }
+}
+
+fn is_openai_done_line(line: &[u8], protocol: AiProtocol) -> bool {
+    protocol == AiProtocol::OpenaiChatCompletions
+        && std::str::from_utf8(line)
+            .ok()
+            .and_then(|line| line.trim().strip_prefix("data:").map(str::trim))
+            == Some("[DONE]")
 }
 
 fn parse_sse_line(line: &[u8], protocol: AiProtocol) -> Result<Option<String>, CoreError> {
@@ -692,6 +729,15 @@ mod tests {
         );
         let body = std::str::from_utf8(request.body().unwrap().as_bytes().unwrap()).unwrap();
         assert!(!body.contains("sk-secret"));
+    }
+
+    #[test]
+    fn sensenova_reasoning_model_gets_a_larger_visible_output_budget() {
+        let mut sensenova = profile();
+        sensenova.model = SENSENOVA_FLASH_LITE_MODEL.into();
+
+        assert_eq!(output_token_limit(&sensenova), 8_192);
+        assert_eq!(output_token_limit(&profile()), AI_MAX_OUTPUT_TOKENS);
     }
 
     #[test]

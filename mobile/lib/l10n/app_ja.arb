@@ -78,6 +78,7 @@
   "errorInvalidFeedUrl": "有効な Feed またはウェブサイト URL を入力してください。",
   "errorNetwork": "ネットワーク要求に失敗しました。接続を確認してください。",
   "errorParse": "購読データを読み取れませんでした。",
+  "errorAiNoVisibleOutput": "AI から表示可能な内容が返されませんでした。もう一度生成してください。",
   "retry": "再試行",
   "articleActions": "記事の操作",
   "readerActions": "リーダーの操作",

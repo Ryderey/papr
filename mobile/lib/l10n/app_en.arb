@@ -88,6 +88,7 @@
   "errorInvalidFeedUrl": "Enter a valid feed or website URL.",
   "errorNetwork": "The network request failed. Check your connection and try again.",
   "errorParse": "The subscription data could not be read.",
+  "errorAiNoVisibleOutput": "The AI returned no visible content. Try generating again.",
   "retry": "Retry",
   "articleActions": "Article actions",
   "readerActions": "Reader actions",

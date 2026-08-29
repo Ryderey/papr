@@ -53,6 +53,7 @@ extension AppErrorLocalizations on AppLocalizations {
       'aiRateLimited' => errorNetwork,
       'aiNetwork' => errorNetwork,
       'aiParse' => errorParse,
+      'aiNoVisibleOutput' => errorAiNoVisibleOutput,
       _ => switch (error.kind) {
           AppErrorKind.network => errorNetwork,
           AppErrorKind.parse => errorParse,

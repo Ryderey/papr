@@ -459,6 +459,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reasoning_only_stream_reports_no_visible_output() {
+        let (_temp, db, article_id) = setup_db();
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"reasoning\":\"thinking\"}}]}\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n",
+            "data: [DONE]\n"
+        );
+        let profile = profile(serve_once("200 OK", body).await);
+        let service = AiService::new(Arc::clone(&db), Arc::new(reqwest::Client::new()));
+        let mut events = Vec::new();
+
+        let error = service
+            .summarize(
+                article_id,
+                &profile,
+                None,
+                SummaryTemplate::Classic,
+                "zh",
+                "reasoning-only",
+                &AiCancellation::default(),
+                |event| {
+                    events.push(event);
+                    true
+                },
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.code(), "aiNoVisibleOutput");
+        assert_eq!(
+            events,
+            [AiStreamEvent::Error {
+                request_id: "reasoning-only".into(),
+                code: "aiNoVisibleOutput".into(),
+            }]
+        );
+        assert_eq!(db.get_ai_summary_cache(article_id).unwrap(), None);
+    }
+
+    #[tokio::test]
     async fn summary_preflight_failure_emits_a_terminal_error_event() {
         let (_temp, db, _) = setup_db();
         let service = AiService::new(Arc::clone(&db), Arc::new(reqwest::Client::new()));

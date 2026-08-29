@@ -266,6 +266,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorParse => 'The subscription data could not be read.';
 
   @override
+  String get errorAiNoVisibleOutput =>
+      'The AI returned no visible content. Try generating again.';
+
+  @override
   String get retry => 'Retry';
 
   @override
