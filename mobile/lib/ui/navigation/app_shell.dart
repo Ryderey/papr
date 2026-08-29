@@ -8,6 +8,7 @@ import '../../repositories/feed_repository.dart';
 import '../../services/platform_service.dart';
 import '../screens/article_browser_screen.dart';
 import '../screens/feed_list_screen.dart';
+import '../screens/playback_screen.dart';
 import '../screens/settings_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -20,11 +21,19 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   int _selectedIndex = 0;
   StreamSubscription<String>? _deepLinkSubscription;
+  StreamSubscription<PlaybackState>? _playbackSubscription;
+  PlaybackState _playbackState = PlaybackState.empty;
 
   @override
   void initState() {
     super.initState();
     _deepLinkSubscription = platformService.deepLinks.listen(_openDeepLink);
+    _playbackSubscription = platformService.playbackStates.listen((state) {
+      if (mounted) setState(() => _playbackState = state);
+    });
+    platformService.getPlaybackState().then((state) {
+      if (mounted) setState(() => _playbackState = state);
+    });
     platformService.getInitialDeepLink().then((link) {
       if (link != null) _openDeepLink(link);
     });
@@ -33,6 +42,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void dispose() {
     _deepLinkSubscription?.cancel();
+    _playbackSubscription?.cancel();
     super.dispose();
   }
 
@@ -94,7 +104,18 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ],
                   ),
                   const VerticalDivider(width: 1),
-                  Expanded(child: body),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(child: body),
+                        if (_playbackState.mediaId.isNotEmpty)
+                          _MiniPlayer(
+                            state: _playbackState,
+                            onOpen: _openPlayback,
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -102,10 +123,17 @@ class _AppShellState extends ConsumerState<AppShell> {
         }
         return Scaffold(
           body: body,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _select,
-            destinations: destinations,
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_playbackState.mediaId.isNotEmpty)
+                _MiniPlayer(state: _playbackState, onOpen: _openPlayback),
+              NavigationBar(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: _select,
+                destinations: destinations,
+              ),
+            ],
           ),
         );
       },
@@ -113,6 +141,12 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _select(int index) => setState(() => _selectedIndex = index);
+
+  Future<void> _openPlayback() => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PlaybackScreen(initialState: _playbackState),
+        ),
+      );
 
   Future<void> _openDeepLink(String link) async {
     try {
@@ -132,3 +166,57 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 }
+
+class _MiniPlayer extends StatelessWidget {
+  final PlaybackState state;
+  final VoidCallback onOpen;
+
+  const _MiniPlayer({required this.state, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        child: ListTile(
+          leading: const Icon(Icons.graphic_eq),
+          title: Text(
+            state.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            state.error == null
+                ? state.source
+                : _miniPlayerError(context, state.error!),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: onOpen,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: state.playing
+                    ? context.l10n.pauseAudio
+                    : context.l10n.playAudio,
+                onPressed: () => platformService.playbackCommand(
+                  state.playing ? 'pause' : 'play',
+                ),
+                icon: Icon(state.playing ? Icons.pause : Icons.play_arrow),
+              ),
+              IconButton(
+                tooltip: context.l10n.stopPlayback,
+                onPressed: () => platformService.playbackCommand('stop'),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+String _miniPlayerError(BuildContext context, String error) => switch (error) {
+      'invalidPlaybackUrl' => context.l10n.errorInvalidPlaybackUrl,
+      'playbackNetwork' => context.l10n.errorPlaybackNetwork,
+      'playbackUnavailable' => context.l10n.errorPlaybackUnavailable,
+      _ => context.l10n.errorPlaybackFailed,
+    };

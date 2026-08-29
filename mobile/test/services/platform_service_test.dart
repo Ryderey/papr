@@ -66,4 +66,58 @@ void main() {
     expect(await service.deleteAiCredential('outside.namespace'), isFalse);
     expect(callCount, 0);
   });
+
+  test('playback commands validate inputs and use the platform contract',
+      () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return switch (call.method) {
+        'startPlayback' || 'playbackCommand' => true,
+        'getPlaybackState' => {
+            'mediaId': 'article-1',
+            'title': 'Episode',
+            'source': 'Feed',
+            'durationMs': 60000,
+            'positionMs': 15000,
+            'speed': 1.25,
+            'playing': true,
+            'buffering': false,
+            'error': null,
+          },
+        _ => null,
+      };
+    });
+    final service = PlatformService();
+
+    expect(
+      await service.startPlayback(
+        mediaId: 'article-1',
+        url: 'https://cdn.example.com/episode.mp3',
+        title: 'Episode',
+        source: 'Feed',
+      ),
+      isTrue,
+    );
+    expect(await service.playbackCommand('setSpeed', speed: 1.25), isTrue);
+    expect(await service.playbackCommand('seekTo', positionMs: -1), isFalse);
+    expect(
+        await service.startPlayback(
+          mediaId: 'article-1',
+          url: 'file:///episode.mp3',
+          title: 'Episode',
+          source: 'Feed',
+        ),
+        isFalse);
+
+    final state = await service.getPlaybackState();
+    expect(state.mediaId, 'article-1');
+    expect(state.positionMs, 15000);
+    expect(state.speed, 1.25);
+    expect(calls.map((call) => call.method), [
+      'startPlayback',
+      'playbackCommand',
+      'getPlaybackState',
+    ]);
+  });
 }

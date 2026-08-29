@@ -3,9 +3,13 @@ package com.papr.papr_mobile
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.IOException
 
@@ -13,6 +17,7 @@ class MainActivity : FlutterActivity() {
     private var channel: MethodChannel? = null
     private var pendingResult: MethodChannel.Result? = null
     private var pendingExportText: String? = null
+    private var removePlaybackListener: (() -> Unit)? = null
     private val aiCredentialStore by lazy { AiCredentialStore(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -39,6 +44,15 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("url"),
                         result,
                     )
+                    "startPlayback" -> startPlayback(
+                        call.argument<String>("mediaId"),
+                        call.argument<String>("url"),
+                        call.argument<String>("title"),
+                        call.argument<String>("source"),
+                        result,
+                    )
+                    "playbackCommand" -> playbackCommand(call, result)
+                    "getPlaybackState" -> result.success(PlaybackService.currentState())
                     "setAiCredential" -> setAiCredential(
                         call.argument<String>("credentialRef"),
                         call.argument<String>("secret"),
@@ -56,12 +70,34 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "$PLATFORM_CHANNEL/playback",
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                removePlaybackListener?.invoke()
+                removePlaybackListener = PlaybackService.addStateListener { state ->
+                    runOnUiThread { events.success(state.toMap()) }
+                }
+            }
+
+            override fun onCancel(arguments: Any?) {
+                removePlaybackListener?.invoke()
+                removePlaybackListener = null
+            }
+        })
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         intent.dataString?.let { channel?.invokeMethod("deepLink", it) }
+    }
+
+    override fun onDestroy() {
+        removePlaybackListener?.invoke()
+        removePlaybackListener = null
+        super.onDestroy()
     }
 
     @Deprecated("Deprecated in Android")
@@ -173,6 +209,75 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun startPlayback(
+        mediaId: String?,
+        url: String?,
+        title: String?,
+        source: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (!isHttpUrl(url)) {
+            result.error("invalidPlaybackUrl", null, null)
+            return
+        }
+        requestPlaybackNotificationPermission()
+        PlaybackService.start(
+            this,
+            mediaId.orEmpty(),
+            url!!,
+            title.orEmpty(),
+            source.orEmpty(),
+        )
+        result.success(true)
+    }
+
+    private fun playbackCommand(call: MethodCall, result: MethodChannel.Result) {
+        when (call.argument<String>("command")) {
+            "play" -> PlaybackService.play(this)
+            "pause" -> PlaybackService.pause(this)
+            "skipBack" -> PlaybackService.skipBack(this)
+            "skipForward" -> PlaybackService.skipForward(this)
+            "stop" -> PlaybackService.stop(this)
+            "seekTo" -> {
+                val position = call.argument<Number>("positionMs")?.toLong()
+                if (position == null || position < 0) {
+                    result.error("invalidPlaybackCommand", null, null)
+                    return
+                }
+                PlaybackService.seekTo(this, position)
+            }
+            "setSpeed" -> {
+                val speed = call.argument<Number>("speed")?.toFloat()
+                if (speed == null || speed !in 0.75f..2f) {
+                    result.error("invalidPlaybackCommand", null, null)
+                    return
+                }
+                PlaybackService.setSpeed(this, speed)
+            }
+            else -> {
+                result.error("invalidPlaybackCommand", null, null)
+                return
+            }
+        }
+        result.success(true)
+    }
+
+    private fun isHttpUrl(url: String?): Boolean {
+        val uri = url?.let(Uri::parse) ?: return false
+        return uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
+    }
+
+    private fun requestPlaybackNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                PLAYBACK_NOTIFICATION_PERMISSION_REQUEST,
+            )
+        }
+    }
+
     private fun setAiCredential(
         credentialRef: String?,
         secret: String?,
@@ -221,5 +326,6 @@ class MainActivity : FlutterActivity() {
         private const val PLATFORM_CHANNEL = "com.papr.papr_mobile/platform"
         private const val OPEN_OPML_REQUEST = 4101
         private const val SAVE_OPML_REQUEST = 4102
+        private const val PLAYBACK_NOTIFICATION_PERMISSION_REQUEST = 4103
     }
 }

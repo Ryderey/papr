@@ -396,6 +396,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get attachment => '附件';
 
   @override
+  String get audioEpisodes => '音频节目';
+
+  @override
+  String get audioEpisode => 'Podcast 音频';
+
+  @override
+  String get playAudio => '播放';
+
+  @override
+  String get pauseAudio => '暂停';
+
+  @override
+  String get nowPlaying => '正在播放';
+
+  @override
+  String get noActivePlayback => '当前没有正在播放的音频。';
+
+  @override
+  String get rewind15 => '后退 15 秒';
+
+  @override
+  String get forward30 => '前进 30 秒';
+
+  @override
+  String get playbackSpeed => '播放速度';
+
+  @override
+  String get stopPlayback => '停止播放';
+
+  @override
+  String get errorInvalidPlaybackUrl => '音频地址无效。';
+
+  @override
+  String get errorPlaybackNetwork => '音频加载失败，请检查网络后重试。';
+
+  @override
+  String get errorPlaybackUnavailable => '当前设备无法播放此音频。';
+
+  @override
+  String get errorPlaybackFailed => '音频播放失败。';
+
+  @override
   String get imageUnavailable => '图片无法加载';
 
   @override

@@ -396,6 +396,48 @@ class AppLocalizationsJa extends AppLocalizations {
   String get attachment => '添付ファイル';
 
   @override
+  String get audioEpisodes => '音声エピソード';
+
+  @override
+  String get audioEpisode => 'Podcast 音声';
+
+  @override
+  String get playAudio => '再生';
+
+  @override
+  String get pauseAudio => '一時停止';
+
+  @override
+  String get nowPlaying => '再生中';
+
+  @override
+  String get noActivePlayback => '再生中の音声はありません。';
+
+  @override
+  String get rewind15 => '15 秒戻る';
+
+  @override
+  String get forward30 => '30 秒進む';
+
+  @override
+  String get playbackSpeed => '再生速度';
+
+  @override
+  String get stopPlayback => '再生を停止';
+
+  @override
+  String get errorInvalidPlaybackUrl => '音声のアドレスが無効です。';
+
+  @override
+  String get errorPlaybackNetwork => '音声を読み込めません。ネットワークを確認して再試行してください。';
+
+  @override
+  String get errorPlaybackUnavailable => 'この端末では音声を再生できません。';
+
+  @override
+  String get errorPlaybackFailed => '音声の再生に失敗しました。';
+
+  @override
   String get imageUnavailable => '画像を読み込めません';
 
   @override

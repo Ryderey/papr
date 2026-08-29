@@ -3,7 +3,7 @@
   "name": "p5-podcast-android-playback",
   "title": "P5 Podcast 与 Android 原生播放",
   "description": "实现 Podcast 播放、MediaSession、前台服务及锁屏/蓝牙控制；不包含 Newsletter。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

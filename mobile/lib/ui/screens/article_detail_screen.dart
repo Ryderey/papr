@@ -368,7 +368,26 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                         ),
                         onTap: () => _editHighlight(highlight),
                       ),
-                  if (detail.enclosures.isNotEmpty) ...[
+                  if (detail.enclosures.any(_isPlayableAudio)) ...[
+                    const Divider(height: 28),
+                    Text(
+                      context.l10n.audioEpisodes,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    for (final entry in detail.enclosures.indexed)
+                      if (_isPlayableAudio(entry.$2))
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.play_circle_outline),
+                          title: Text(detail.title),
+                          subtitle: Text(context.l10n.audioEpisode),
+                          trailing: const Icon(Icons.play_arrow),
+                          onTap: () => _startAudio(entry.$1, entry.$2),
+                        ),
+                  ],
+                  if (detail.enclosures
+                      .any((item) => !_isPlayableAudio(item))) ...[
                     const Divider(height: 28),
                     Text(
                       context.l10n.attachments,
@@ -376,18 +395,19 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     for (final enclosure in detail.enclosures)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.attach_file),
-                        title:
-                            Text(enclosure.mimeType ?? context.l10n.attachment),
-                        subtitle: Text(
-                          enclosure.url,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      if (!_isPlayableAudio(enclosure))
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.attach_file),
+                          title: Text(
+                              enclosure.mimeType ?? context.l10n.attachment),
+                          subtitle: Text(
+                            enclosure.url,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => platformService.openUrl(enclosure.url),
                         ),
-                        onTap: () => platformService.openUrl(enclosure.url),
-                      ),
                   ],
                 ],
               ),
@@ -396,6 +416,21 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         ),
         if (_extracting) const LinearProgressIndicator(),
       ],
+    );
+  }
+
+  Future<void> _startAudio(int index, bridge.Enclosure enclosure) async {
+    final detail = _detail;
+    if (detail == null) return;
+    final started = await platformService.startPlayback(
+      mediaId: 'article-${detail.id}-$index',
+      url: enclosure.url,
+      title: detail.title,
+      source: detail.feedTitle,
+    );
+    if (!mounted || started) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.platformActionFailed)),
     );
   }
 
@@ -920,6 +955,14 @@ int _readingMinutes(String html) {
   final wordCount = text.split(' ').where((word) => word.isNotEmpty).length;
   final estimate = wordCount > 20 ? wordCount / 220 : text.runes.length / 500;
   return math.max(1, estimate.ceil());
+}
+
+bool _isPlayableAudio(bridge.Enclosure enclosure) {
+  if (enclosure.mimeType?.toLowerCase().startsWith('audio/') ?? false) {
+    return true;
+  }
+  final path = Uri.tryParse(enclosure.url)?.path.toLowerCase() ?? '';
+  return RegExp(r'\.(aac|flac|m4a|mp3|ogg|oga|opus|wav)$').hasMatch(path);
 }
 
 String _shortDate(String value) =>

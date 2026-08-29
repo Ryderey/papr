@@ -186,6 +186,98 @@ await articleRepository.getArticleDetail(articleId);
 Core owns stream parsing, sanitizing, and the success-only write transaction;
 Flutter owns only route state, progress presentation, and cancellation.
 
+## Scenario: Android podcast playback
+
+### 1. Scope / Trigger
+
+- Trigger: an `ArticleDetail.enclosures` entry is playable audio and needs
+  background playback, system media controls, and Flutter controls.
+- Why: Flutter must not create a second audio player or derive an independent
+  playback state from timers; Android owns the player lifecycle.
+
+### 2. Signatures
+
+Android method channel `com.papr.papr_mobile/platform` provides:
+
+```text
+startPlayback({ mediaId, url, title, source }) -> bool
+playbackCommand({ command, positionMs?, speed? }) -> bool
+getPlaybackState() -> PlaybackState
+```
+
+The `com.papr.papr_mobile/platform/playback` event channel emits:
+
+```text
+PlaybackState { mediaId, title, source, durationMs, positionMs, speed,
+                playing, buffering, error? }
+```
+
+### 3. Contracts
+
+- Flutter identifies an audio enclosure from `audio/*` MIME type or a known
+  audio extension, then sends its URL only to `startPlayback`.
+- `PlaybackService` owns the Media3 `ExoPlayer`, `MediaSession`, foreground
+  notification, audio focus, and becoming-noisy handling. The full URL never
+  appears in a playback event, Dart state, or a log message.
+- `play`, `pause`, `skipBack`, `skipForward`, `stop`, `seekTo`, and
+  `setSpeed` are idempotent commands. Seek values are non-negative and speed
+  is bounded to 0.75-2.0.
+- Flutter shares one broadcast event stream between the app shell and the
+  control page. A service event, including the 500ms playing-position update,
+  is the sole source for the mini-player, full controls, and system UI.
+
+### 4. Validation & Error Matrix
+
+| Condition | Stable code / result |
+| --- | --- |
+| URL is not HTTP(S), or has no host | `invalidPlaybackUrl` |
+| Network connection, timeout, HTTP, or file load error | `playbackNetwork` |
+| Player cannot be created or used | `playbackUnavailable` |
+| Other player failure | `playbackFailed` |
+| Invalid command, seek, or speed | rejected before crossing the channel |
+
+### 5. Good / Base / Bad Cases
+
+- Good: tapping an audio enclosure starts `PlaybackService`; leaving the
+  article continues playback and the app-shell mini player follows the same
+  state as the notification.
+- Base: an enclosure lacks `audio/*` but ends in `.mp3`; Flutter still offers
+  the podcast entry while non-audio attachments retain external open behavior.
+- Bad: a media URL fails after start. The mini player and full control page
+  show the same stable error, with no URL or provider response exposed.
+
+### 6. Tests Required
+
+- Flutter: verify platform command validation, audio-enclosure classification,
+  mini-player/control-page state rendering, and unchanged ordinary attachment
+  behavior.
+- Android acceptance: verify background notification, lock-screen/Bluetooth
+  controls, focus loss, headphone unplug, rotation, network failure, and one
+  real podcast enclosure.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+// A second player drifts from the MediaSession notification and lock screen.
+final localPlayer = AudioPlayer()..play(url);
+```
+
+#### Correct
+
+```dart
+await platformService.startPlayback(
+  mediaId: mediaId,
+  url: enclosure.url,
+  title: detail.title,
+  source: detail.feedTitle,
+);
+```
+
+Keep `PlaybackService` as the only player and render the event-channel
+snapshot everywhere in Flutter.
+
 ## 4. Validation & Error Matrix
 
 | Condition | Stable code / result |

@@ -826,6 +826,90 @@ abstract class AppLocalizations {
   /// **'Attachment'**
   String get attachment;
 
+  /// No description provided for @audioEpisodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio episodes'**
+  String get audioEpisodes;
+
+  /// No description provided for @audioEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast audio'**
+  String get audioEpisode;
+
+  /// No description provided for @playAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get playAudio;
+
+  /// No description provided for @pauseAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get pauseAudio;
+
+  /// No description provided for @nowPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Now playing'**
+  String get nowPlaying;
+
+  /// No description provided for @noActivePlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio is playing.'**
+  String get noActivePlayback;
+
+  /// No description provided for @rewind15.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewind 15 seconds'**
+  String get rewind15;
+
+  /// No description provided for @forward30.
+  ///
+  /// In en, this message translates to:
+  /// **'Forward 30 seconds'**
+  String get forward30;
+
+  /// No description provided for @playbackSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed'**
+  String get playbackSpeed;
+
+  /// No description provided for @stopPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop playback'**
+  String get stopPlayback;
+
+  /// No description provided for @errorInvalidPlaybackUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'The audio address is invalid.'**
+  String get errorInvalidPlaybackUrl;
+
+  /// No description provided for @errorPlaybackNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'The audio could not be loaded. Check your network and try again.'**
+  String get errorPlaybackNetwork;
+
+  /// No description provided for @errorPlaybackUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This device cannot play the audio.'**
+  String get errorPlaybackUnavailable;
+
+  /// No description provided for @errorPlaybackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio playback failed.'**
+  String get errorPlaybackFailed;
+
   /// No description provided for @imageUnavailable.
   ///
   /// In en, this message translates to:

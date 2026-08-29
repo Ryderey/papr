@@ -401,6 +401,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attachment => 'Attachment';
 
   @override
+  String get audioEpisodes => 'Audio episodes';
+
+  @override
+  String get audioEpisode => 'Podcast audio';
+
+  @override
+  String get playAudio => 'Play';
+
+  @override
+  String get pauseAudio => 'Pause';
+
+  @override
+  String get nowPlaying => 'Now playing';
+
+  @override
+  String get noActivePlayback => 'No audio is playing.';
+
+  @override
+  String get rewind15 => 'Rewind 15 seconds';
+
+  @override
+  String get forward30 => 'Forward 30 seconds';
+
+  @override
+  String get playbackSpeed => 'Playback speed';
+
+  @override
+  String get stopPlayback => 'Stop playback';
+
+  @override
+  String get errorInvalidPlaybackUrl => 'The audio address is invalid.';
+
+  @override
+  String get errorPlaybackNetwork =>
+      'The audio could not be loaded. Check your network and try again.';
+
+  @override
+  String get errorPlaybackUnavailable => 'This device cannot play the audio.';
+
+  @override
+  String get errorPlaybackFailed => 'Audio playback failed.';
+
+  @override
   String get imageUnavailable => 'Image unavailable';
 
   @override
