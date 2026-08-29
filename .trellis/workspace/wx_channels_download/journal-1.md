@@ -185,3 +185,36 @@ Completed mobile AI summaries and LLM translation, including SenseNova reasoning
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: P5 Android podcast playback
+
+**Date**: 2026-08-29
+**Task**: P5 Android podcast playback
+**Branch**: `feat/flutter-android-rearchitecture`
+
+### Summary
+
+Added Media3 playback service, Flutter playback controls, and unified Android playback state; user accepted the lower-priority remaining device-matrix work.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `efe6cd6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
