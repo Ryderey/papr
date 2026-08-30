@@ -185,6 +185,11 @@ export type RefreshProgress =
     }
   | { event: "finished"; data: { newArticles: number } };
 
+export interface RefreshFeedResult {
+  newArticles: number;
+  error: string | null;
+}
+
 export type SummaryTemplate =
   | "classic"
   | "news5w1h"

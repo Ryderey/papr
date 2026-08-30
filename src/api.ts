@@ -13,6 +13,7 @@ import type {
   Highlight,
   NewsletterInput,
   NewsletterSource,
+  RefreshFeedResult,
   RefreshProgress,
   Rule,
   RuleAction,
@@ -73,6 +74,10 @@ export function refreshFeeds(
   if (onProgress) channel.onmessage = onProgress;
   return invoke<number>("refresh_feeds", { onProgress: channel });
 }
+
+/** Refresh one user-selected source, regardless of its automatic interval. */
+export const refreshFeed = (id: number) =>
+  invoke<RefreshFeedResult>("refresh_feed", { id });
 
 // ── articles ──
 export const listArticles = (

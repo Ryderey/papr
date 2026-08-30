@@ -221,3 +221,13 @@ pub enum RefreshProgress {
     FeedDone { feed_id: i64, new_articles: usize, error: Option<String> },
     Finished { new_articles: usize },
 }
+
+/// Result of a user-requested refresh for one feed. Fetch failures are data,
+/// not command failures: the scheduler persists the message on the feed and
+/// the frontend shows it while keeping the stale articles available.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshFeedResult {
+    pub new_articles: usize,
+    pub error: Option<String>,
+}

@@ -225,6 +225,7 @@ pub fn run() {
             commands::set_feed_refresh_interval,
             commands::rename_feed,
             commands::refresh_feeds,
+            commands::refresh_feed,
             commands::list_articles,
             commands::get_article,
             commands::mark_read,

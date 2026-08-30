@@ -68,6 +68,7 @@ export default function App() {
   const activeToast = useToasts((s) => s.current);
   const dismissToast = useToasts((s) => s.dismiss);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingFeedId, setRefreshingFeedId] = useState<number | null>(null);
   const [cpOpen, setCpOpen] = useState(false);
   const [settings, setSettings] = useState<{ open: boolean; section?: string }>({
     open: false,
@@ -237,11 +238,11 @@ export default function App() {
     };
   }, []);
 
-  // A ref — not the `refreshing` state — is the concurrency guard: it must be
-  // read-and-set synchronously, and the kick-off has side effects (a network
-  // refresh, a toast). A setState updater must stay pure; React invokes it
-  // twice under StrictMode, which previously fired the refresh twice in dev.
-  // `refreshing` state is kept purely to drive the sidebar spinner.
+  // A ref — not the render state — is the shared concurrency guard for both
+  // manual refresh paths. It must be read-and-set synchronously, and kick-off
+  // has side effects (network work and feedback). A setState updater must stay
+  // pure; React invokes it twice under StrictMode, which previously fired the
+  // refresh twice in dev. Render state only drives the footer / feed spinners.
   const refreshingRef = useRef(false);
   const doRefresh = useCallback(() => {
     if (refreshingRef.current) return;
@@ -263,6 +264,34 @@ export default function App() {
         setRefreshing(false);
       });
   }, [actions, showToast, t]);
+
+  const doRefreshFeed = useCallback(
+    (id: number) => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      setRefreshingFeedId(id);
+      api
+        .refreshFeed(id)
+        .then(({ newArticles, error }) => {
+          actions.refreshAfterFetch();
+          if (error) {
+            toastApi.error(error);
+          } else {
+            showToast(
+              newArticles > 0
+                ? t("app.foundNew", { count: newArticles })
+                : t("app.upToDate"),
+            );
+          }
+        })
+        .catch(reportError)
+        .finally(() => {
+          refreshingRef.current = false;
+          setRefreshingFeedId(null);
+        });
+    },
+    [actions, showToast, t],
+  );
 
   const markAllRead = useCallback(async () => {
     try {
@@ -464,7 +493,9 @@ export default function App() {
             onOpenSettings={openSettings}
             onSearchClick={() => setCpOpen(true)}
             onRefresh={doRefresh}
+            onRefreshFeed={doRefreshFeed}
             refreshing={refreshing}
+            refreshingFeedId={refreshingFeedId}
             onToast={showToast}
           />
           <ArticleList onToast={showToast} />

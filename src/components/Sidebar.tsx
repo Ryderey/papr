@@ -20,7 +20,9 @@ interface Props {
   onOpenSettings: (section?: string) => void;
   onSearchClick: () => void;
   onRefresh: () => void;
+  onRefreshFeed: (id: number) => void;
   refreshing: boolean;
+  refreshingFeedId: number | null;
   onToast: (msg: string) => void;
 }
 
@@ -85,7 +87,9 @@ export default function Sidebar({
   onOpenSettings,
   onSearchClick,
   onRefresh,
+  onRefreshFeed,
   refreshing,
+  refreshingFeedId,
   onToast,
 }: Props) {
   const { t } = useTranslation();
@@ -259,6 +263,16 @@ export default function Sidebar({
             },
           ];
     return [
+      ...(!refreshing && refreshingFeedId == null
+        ? ([
+            {
+              icon: "refresh",
+              label: t("sidebar.refreshFeed"),
+              onClick: () => onRefreshFeed(f.id),
+            },
+            { separator: true },
+          ] as MenuEntry[])
+        : []),
       {
         icon: "check-all",
         label: t("sidebar.markAllRead"),
@@ -495,15 +509,27 @@ export default function Sidebar({
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY, kind: "feed", feed: f });
       }}
-      title={f.fetchError ?? f.title}
+      title={
+        refreshingFeedId === f.id
+          ? t("sidebar.refreshingFeed", { feed: f.title })
+          : (f.fetchError ?? f.title)
+      }
     >
       <FeedAvatar title={f.title} faviconUrl={f.faviconUrl} seed={f.id} />
       <span className="sb-label">{f.title}</span>
-      {f.fetchError && (
+      {refreshingFeedId === f.id ? (
+        <span
+          className="sb-feed-refresh spinning"
+          role="status"
+          aria-label={t("sidebar.refreshingFeed", { feed: f.title })}
+        >
+          <Icon name="refresh" size={12} />
+        </span>
+      ) : f.fetchError ? (
         <span className="sb-warn" role="img" aria-label={t("sidebar.feedError")}>
           !
         </span>
-      )}
+      ) : null}
       {showCounts && f.unreadCount > 0 && (
         <span className="sb-count">{f.unreadCount}</span>
       )}
@@ -634,6 +660,9 @@ export default function Sidebar({
           // expanded, the per-feed badges already carry the same signal, and a
           // header total would just duplicate them.
           const folderUnread = inFolder.reduce((n, f) => n + f.unreadCount, 0);
+          const folderErrors = inFolder.filter(
+            (f) => f.fetchError != null,
+          ).length;
           return (
             <div
               key={folder.id}
@@ -668,6 +697,18 @@ export default function Sidebar({
               >
                 <Icon name="chevron-down" size={11} />
                 <span className="sb-folder-name">{folder.name}</span>
+                {isCollapsed && folderErrors > 0 && (
+                  <span
+                    className="sb-warn"
+                    role="img"
+                    title={t("sidebar.feedErrorCount", { count: folderErrors })}
+                    aria-label={t("sidebar.feedErrorCount", {
+                      count: folderErrors,
+                    })}
+                  >
+                    ! {folderErrors}
+                  </span>
+                )}
                 {showCounts && isCollapsed && folderUnread > 0 && (
                   <span className="sb-count">{folderUnread}</span>
                 )}
@@ -760,7 +801,7 @@ export default function Sidebar({
           title={t("sidebar.refreshAll")}
           aria-label={t("sidebar.refreshAll")}
           onClick={onRefresh}
-          disabled={refreshing}
+          disabled={refreshing || refreshingFeedId != null}
           className={refreshing ? "spinning" : ""}
         >
           <Icon name="refresh" size={14} />

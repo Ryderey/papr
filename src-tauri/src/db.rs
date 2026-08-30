@@ -628,6 +628,16 @@ pub fn set_feed_error(conn: &Connection, id: i64, error: &str) -> AppResult<()> 
     Ok(())
 }
 
+/// The latest persisted fetch error for one feed. A successful refresh clears
+/// it, so this is the shared result source for both HTTP and newsletter feeds.
+pub fn feed_fetch_error(conn: &Connection, id: i64) -> AppResult<Option<String>> {
+    Ok(conn.query_row(
+        "SELECT fetch_error FROM feeds WHERE id = ?1",
+        params![id],
+        |r| r.get(0),
+    )?)
+}
+
 pub fn delete_feed(conn: &Connection, id: i64) -> AppResult<()> {
     conn.execute("DELETE FROM feeds WHERE id = ?1", params![id])?;
     Ok(())
@@ -2201,6 +2211,23 @@ mod tests {
         // the 20-minute-old fetch and a 5-minute global, it is due again.
         set_feed_refresh_interval(&conn, feed_id, None).unwrap();
         assert!(!feeds_due_for_refresh(&conn, 5).unwrap().is_empty());
+    }
+
+    #[test]
+    fn feed_fetch_error_tracks_failure_and_recovery() {
+        let (conn, _) = test_db();
+        let feed_id: i64 = conn
+            .query_row("SELECT id FROM feeds", [], |r| r.get(0))
+            .unwrap();
+
+        assert_eq!(feed_fetch_error(&conn, feed_id).unwrap(), None);
+        set_feed_error(&conn, feed_id, "temporary failure").unwrap();
+        assert_eq!(
+            feed_fetch_error(&conn, feed_id).unwrap().as_deref(),
+            Some("temporary failure")
+        );
+        touch_feed(&conn, feed_id).unwrap();
+        assert_eq!(feed_fetch_error(&conn, feed_id).unwrap(), None);
     }
 
     #[test]

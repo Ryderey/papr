@@ -94,6 +94,17 @@ pub enum RefreshScope {
     /// Only sources whose per-feed (or global) interval has elapsed — the
     /// background scheduler. An empty due-set skips the whole pipeline.
     Due,
+    /// One user-selected source, regardless of its automatic refresh interval.
+    Feed(i64),
+}
+
+impl RefreshScope {
+    fn includes(self, feed_id: i64) -> bool {
+        match self {
+            Self::Feed(target_id) => feed_id == target_id,
+            Self::All | Self::Due => true,
+        }
+    }
 }
 
 /// Refresh feeds (bounded concurrency) selected by `scope`. Streams per-feed
@@ -110,8 +121,8 @@ pub async fn refresh_all(
 
     // Only one refresh at a time: the manual command and the periodic
     // scheduler would otherwise duplicate every fetch. `wait_if_busy` callers
-    // (OPML import) queue behind an in-flight run so their freshly added
-    // feeds still get fetched; everyone else bows out cleanly.
+    // (OPML import and a selected-feed retry) queue behind an in-flight run
+    // so explicitly requested work is not skipped; everyone else bows out.
     let _refresh_guard = if wait_if_busy {
         state.refresh_lock.lock().await
     } else {
@@ -139,8 +150,8 @@ pub async fn refresh_all(
             .filter(|m| *m >= 5)
             .map(|m| m.min(db::REFRESH_OFF_MINUTES))
             .unwrap_or(30);
-        let (feeds, newsletters) = match scope {
-            RefreshScope::All => (
+        let (mut feeds, mut newsletters) = match scope {
+            RefreshScope::All | RefreshScope::Feed(_) => (
                 db::feeds_to_refresh(&conn)?,
                 db::newsletter_sources_to_poll(&conn).unwrap_or_default(),
             ),
@@ -149,6 +160,11 @@ pub async fn refresh_all(
                 db::newsletter_sources_due_to_poll(&conn, global_min).unwrap_or_default(),
             ),
         };
+        // ponytail: filtering the already-loaded candidates keeps one source
+        // selection path; add per-id SQL only if subscription scale proves it
+        // necessary.
+        feeds.retain(|(id, ..)| scope.includes(*id));
+        newsletters.retain(|(id, ..)| scope.includes(*id));
         let concurrency =
             db::setting_parsed::<i64>(&conn, "net_concurrency", 6).clamp(1, 16) as usize;
         let dedup = db::setting_flag(&conn, "dedup_enabled", false);
@@ -158,7 +174,7 @@ pub async fn refresh_all(
 
     // Background scheduler with nothing due this cycle: bow out before any of
     // the heavier tail (sync, retention, notifications) so an idle tick is
-    // genuinely idle. The manual refresh (scope All) always runs the pipeline.
+    // genuinely idle. Manual refreshes (All / Feed) always run the pipeline.
     if scope == RefreshScope::Due && feeds.is_empty() && newsletters.is_empty() {
         if let Some(p) = &progress {
             let _ = p.send(RefreshProgress::Started { total: 0 });
@@ -417,4 +433,17 @@ pub fn spawn_scheduler(app: AppHandle) {
             tokio::time::sleep(SCHEDULER_TICK).await;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RefreshScope;
+
+    #[test]
+    fn selected_feed_scope_matches_only_its_id() {
+        assert!(RefreshScope::Feed(7).includes(7));
+        assert!(!RefreshScope::Feed(7).includes(8));
+        assert!(RefreshScope::All.includes(8));
+        assert!(RefreshScope::Due.includes(8));
+    }
 }

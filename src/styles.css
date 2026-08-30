@@ -1846,6 +1846,11 @@ body.ai-resizing .reader-scroll { transition: none; }
   font-size: 12px;
   flex-shrink: 0;
 }
+.sb-feed-refresh {
+  color: var(--muted);
+  display: inline-flex;
+  flex-shrink: 0;
+}
 
 /* rendered article images */
 .article-hero,

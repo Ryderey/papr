@@ -293,6 +293,21 @@ pub async fn refresh_feeds(
     scheduler::refresh_all(&app, Some(on_progress), false, scheduler::RefreshScope::All).await
 }
 
+/// Refresh one user-selected source and return its persisted outcome. Queue
+/// behind an in-flight background run so an explicit retry is never skipped.
+#[tauri::command]
+pub async fn refresh_feed(app: AppHandle, id: i64) -> AppResult<RefreshFeedResult> {
+    let new_articles =
+        scheduler::refresh_all(&app, None, true, scheduler::RefreshScope::Feed(id)).await?;
+    let state = app.state::<AppState>();
+    let conn = state.read().await;
+    let error = db::feed_fetch_error(&conn, id)?;
+    Ok(RefreshFeedResult {
+        new_articles,
+        error,
+    })
+}
+
 // ─────────────────────────── articles ───────────────────────────
 
 #[tauri::command]
