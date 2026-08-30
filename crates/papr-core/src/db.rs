@@ -2088,6 +2088,39 @@ impl Db {
         Ok(feeds)
     }
 
+    /// Return non-newsletter feeds whose effective automatic refresh interval
+    /// has elapsed. Manual refreshes deliberately use `feeds_to_refresh`.
+    pub fn feeds_due_for_refresh(
+        &self,
+        global_min: i64,
+    ) -> Result<Vec<FeedRefreshInfo>, CoreError> {
+        let conn = self.reader()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, feed_url, etag, last_modified FROM feeds
+                 WHERE source_type != 'newsletter'
+                   AND COALESCE(refresh_interval_min, ?1) < ?2
+                   AND (last_fetched_at IS NULL
+                        OR (julianday('now') - julianday(last_fetched_at)) * 1440.0
+                           >= COALESCE(refresh_interval_min, ?1))
+                 ORDER BY title COLLATE NOCASE",
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = stmt
+            .query_map((global_min, REFRESH_OFF_MINUTES), |row| {
+                Ok(FeedRefreshInfo {
+                    id: row.get(0)?,
+                    feed_url: row.get(1)?,
+                    etag: row.get(2)?,
+                    last_modified: row.get(3)?,
+                })
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
     /// Upsert an article, using (feed_id, guid) as the dedup key. The article
     /// row, its FTS index entry, and its enclosures land in one transaction so
     /// a mid-loop failure cannot leave a partially-indexed article.
@@ -2791,6 +2824,92 @@ mod tests {
         // Delete feed removes it.
         db.delete_feed(feed_id).unwrap();
         assert!(db.get_feed(feed_id).is_err());
+    }
+
+    #[test]
+    fn due_feeds_respect_global_override_and_off_intervals() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let never_fetched = db
+            .insert_feed(
+                "https://example.com/new.xml",
+                None,
+                "New",
+                None,
+                SourceType::Rss,
+                None,
+            )
+            .unwrap();
+        let recent = db
+            .insert_feed(
+                "https://example.com/recent.xml",
+                None,
+                "Recent",
+                None,
+                SourceType::Rss,
+                None,
+            )
+            .unwrap();
+        let overridden = db
+            .insert_feed(
+                "https://example.com/override.xml",
+                None,
+                "Override",
+                None,
+                SourceType::Rss,
+                None,
+            )
+            .unwrap();
+        let disabled = db
+            .insert_feed(
+                "https://example.com/off.xml",
+                None,
+                "Off",
+                None,
+                SourceType::Rss,
+                None,
+            )
+            .unwrap();
+        let newsletter = db
+            .insert_feed(
+                "newsletter://example",
+                None,
+                "Newsletter",
+                None,
+                SourceType::Newsletter,
+                None,
+            )
+            .unwrap();
+
+        {
+            let writer = db.writer().unwrap();
+            writer
+                .execute(
+                    "UPDATE feeds SET last_fetched_at = datetime('now') WHERE id = ?1",
+                    [recent],
+                )
+                .unwrap();
+            writer
+                .execute(
+                    "UPDATE feeds SET last_fetched_at = datetime('now', '-31 minutes'), refresh_interval_min = 30 WHERE id = ?1",
+                    [overridden],
+                )
+                .unwrap();
+            writer
+                .execute(
+                    "UPDATE feeds SET refresh_interval_min = ?2 WHERE id = ?1",
+                    (disabled, REFRESH_OFF_MINUTES),
+                )
+                .unwrap();
+        }
+
+        let due = db.feeds_due_for_refresh(60).unwrap();
+        let due_ids = due.iter().map(|feed| feed.id).collect::<Vec<_>>();
+        assert!(due_ids.contains(&never_fetched));
+        assert!(due_ids.contains(&overridden));
+        assert!(!due_ids.contains(&recent));
+        assert!(!due_ids.contains(&disabled));
+        assert!(!due_ids.contains(&newsletter));
     }
 
     #[test]

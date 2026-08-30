@@ -117,6 +117,20 @@ the visible destination view, not only the command result.
 matches. A result of zero can be a successful idempotent write; refresh the
 derived views after every successful command.
 
+### Mistake 6: String-Named Native Resource Has The Wrong Type
+
+**Symptom**: Flutter compiles and the Android APK builds, but a platform plugin
+throws a runtime error such as `invalid_icon` when the feature is enabled.
+
+**Cause**: The Dart API accepts a resource name as an untyped string while the
+native implementation searches one Android resource type, such as `drawable`.
+A same-named resource under `mipmap` does not satisfy that contract.
+
+**Prevention**: Read the native plugin lookup, keep an app-owned resource in the
+required namespace, add a source-level existence regression, and inspect the
+built APK resource table. A successful compile alone does not validate a
+string-addressed native resource.
+
 ---
 
 ## Checklist for Cross-Layer Features
@@ -137,6 +151,8 @@ After implementation:
       casting payload fields locally
 - [ ] Checked that derived state points back to the source event identifier
       (`seq`, `id`, `version`) instead of inventing a second cursor
+- [ ] Checked every string-addressed native resource against the required
+      platform resource type and the compiled artifact
 
 ---
 

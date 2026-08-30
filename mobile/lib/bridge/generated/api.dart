@@ -270,6 +270,18 @@ Future<void> setLanguage(
         {required PaprCoreBridge core, required String language}) =>
     RustLib.instance.api.crateApiSetLanguage(core: core, language: language);
 
+/// Persist validated automatic-refresh and notification settings atomically.
+Future<void> setBackgroundSettings(
+        {required PaprCoreBridge core,
+        required PlatformInt64 refreshIntervalMin,
+        required bool notificationsEnabled,
+        required bool notificationQuietHours}) =>
+    RustLib.instance.api.crateApiSetBackgroundSettings(
+        core: core,
+        refreshIntervalMin: refreshIntervalMin,
+        notificationsEnabled: notificationsEnabled,
+        notificationQuietHours: notificationQuietHours);
+
 /// Persist validated reader appearance and behaviour settings.
 Future<void> setReadingSettings(
         {required PaprCoreBridge core, required ReadingSettings settings}) =>

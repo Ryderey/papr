@@ -406,6 +406,8 @@ pub struct SettingsSnapshot {
     pub theme: String,
     pub language: String,
     pub refresh_interval_min: i64,
+    pub notifications_enabled: bool,
+    pub notification_quiet_hours: bool,
     pub reading: ReadingSettings,
 }
 

@@ -186,7 +186,7 @@ class FeedRepository {
       return await bridge.refreshFeeds(
         core: core,
         options:
-            options ?? const bridge.RefreshOptions(feedIds: null, force: false),
+            options ?? const bridge.RefreshOptions(feedIds: null, force: true),
       );
     } catch (e) {
       throw PaprCoreService.mapError(e);

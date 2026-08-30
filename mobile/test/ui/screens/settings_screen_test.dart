@@ -25,6 +25,9 @@ void main() {
     expect(find.text('Manage tags'), findsNothing);
     expect(find.text('AI profiles'), findsOneWidget);
     expect(find.text('Manage rules'), findsOneWidget);
+    expect(find.text('Background refresh'), findsOneWidget);
+    expect(find.text('New article notifications'), findsOneWidget);
+    expect(find.text('Night quiet hours'), findsOneWidget);
   });
 }
 

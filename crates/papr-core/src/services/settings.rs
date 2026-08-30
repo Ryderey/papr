@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::ai::{AiProfile, AiPurpose};
-use crate::db::Db;
+use crate::db::{Db, REFRESH_OFF_MINUTES};
 use crate::dto::{ReadingSettings, SettingsSnapshot};
 use crate::error::{CoreError, ErrorCategory};
 
@@ -23,11 +23,12 @@ impl SettingsService {
         if let Some(value) = self.db.get_setting("language")? {
             snapshot.language = value;
         }
-        if let Some(value) = self.db.get_setting("refresh_interval_min")? {
-            if let Ok(n) = value.parse::<i64>() {
-                snapshot.refresh_interval_min = n;
-            }
-        }
+        snapshot.refresh_interval_min =
+            stored_refresh_interval(self.db.get_setting("refresh_interval_min")?.as_deref());
+        snapshot.notifications_enabled =
+            self.bool_setting("notify_enabled", snapshot.notifications_enabled)?;
+        snapshot.notification_quiet_hours =
+            self.bool_setting("notify_dnd_night", snapshot.notification_quiet_hours)?;
         if let Some(value) = self.db.get_setting("reading_font")? {
             if matches!(value.as_str(), "system" | "serif" | "sans") {
                 snapshot.reading.font = value;
@@ -105,6 +106,38 @@ impl SettingsService {
         tokio::task::spawn_blocking(move || db.set_setting("language", &language))
             .await
             .map_err(|e| CoreError::Platform(format!("blocking task failed: {}", e)))?
+    }
+
+    /// Persist the settings that drive Android background refresh and alerts.
+    pub async fn set_background_settings(
+        &self,
+        refresh_interval_min: i64,
+        notifications_enabled: bool,
+        notification_quiet_hours: bool,
+    ) -> Result<(), CoreError> {
+        if refresh_interval_min != REFRESH_OFF_MINUTES && !(5..=120).contains(&refresh_interval_min)
+        {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidRefreshInterval",
+                Some(refresh_interval_min.to_string()),
+            ));
+        }
+        let values = vec![
+            ("refresh_interval_min", refresh_interval_min.to_string()),
+            (
+                "notify_enabled",
+                if notifications_enabled { "1" } else { "0" }.to_string(),
+            ),
+            (
+                "notify_dnd_night",
+                if notification_quiet_hours { "1" } else { "0" }.to_string(),
+            ),
+        ];
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_settings(&values))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))?
     }
 
     pub async fn set_reading_settings(&self, settings: ReadingSettings) -> Result<(), CoreError> {
@@ -290,6 +323,14 @@ fn validate_range(value: f64, min: f64, max: f64, code: &'static str) -> Result<
     }
 }
 
+pub(crate) fn stored_refresh_interval(value: Option<&str>) -> i64 {
+    match value.and_then(|value| value.parse::<i64>().ok()) {
+        Some(value) if value >= REFRESH_OFF_MINUTES => REFRESH_OFF_MINUTES,
+        Some(value) if (5..=120).contains(&value) => value,
+        _ => 30,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -346,6 +387,52 @@ mod tests {
                 .code(),
             "invalidReadingFontSize"
         );
+    }
+
+    #[tokio::test]
+    async fn background_settings_validate_and_persist_atomically() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
+        let service = SettingsService::new(Arc::clone(&db));
+
+        let defaults = service.get_settings().await.unwrap();
+        assert_eq!(defaults.refresh_interval_min, 30);
+        assert!(!defaults.notifications_enabled);
+        assert!(!defaults.notification_quiet_hours);
+
+        service
+            .set_background_settings(60, true, true)
+            .await
+            .unwrap();
+        let saved = service.get_settings().await.unwrap();
+        assert_eq!(saved.refresh_interval_min, 60);
+        assert!(saved.notifications_enabled);
+        assert!(saved.notification_quiet_hours);
+
+        assert_eq!(
+            service
+                .set_background_settings(4, false, false)
+                .await
+                .unwrap_err()
+                .code(),
+            "invalidRefreshInterval"
+        );
+        assert_eq!(
+            service.get_settings().await.unwrap().refresh_interval_min,
+            60
+        );
+
+        service
+            .set_background_settings(REFRESH_OFF_MINUTES, false, false)
+            .await
+            .unwrap();
+        assert_eq!(
+            service.get_settings().await.unwrap().refresh_interval_min,
+            REFRESH_OFF_MINUTES
+        );
+        assert_eq!(stored_refresh_interval(Some("broken")), 30);
+        assert_eq!(stored_refresh_interval(Some("4")), 30);
+        assert_eq!(stored_refresh_interval(Some("999999")), REFRESH_OFF_MINUTES);
     }
 
     #[tokio::test]

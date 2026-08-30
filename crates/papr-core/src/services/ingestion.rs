@@ -5,6 +5,7 @@ use crate::dto::{Feed, RefreshError, RefreshOptions, RefreshReport, SourceType};
 use crate::error::{CoreError, ErrorCategory};
 use crate::ingestion;
 use crate::ingestion::parse::ParsedFeed;
+use crate::services::settings::stored_refresh_interval;
 
 pub struct IngestionService {
     db: Arc<Db>,
@@ -74,7 +75,15 @@ impl IngestionService {
     pub async fn refresh_feeds(&self, options: RefreshOptions) -> Result<RefreshReport, CoreError> {
         let feeds = {
             let db = Arc::clone(&self.db);
-            tokio::task::block_in_place(move || db.feeds_to_refresh())?
+            tokio::task::block_in_place(move || {
+                if options.force {
+                    db.feeds_to_refresh()
+                } else {
+                    let global_min =
+                        stored_refresh_interval(db.get_setting("refresh_interval_min")?.as_deref());
+                    db.feeds_due_for_refresh(global_min)
+                }
+            })?
         };
 
         let feeds: Vec<_> = match options.feed_ids {
@@ -293,5 +302,28 @@ mod tests {
 
         let feed = db.get_feed(1).unwrap();
         assert!(feed.fetch_error.is_some());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn background_refresh_skips_recent_feeds_but_manual_refresh_does_not() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
+        let http = Arc::new(crate::ingestion::fetch::build_client(30, "system", None).unwrap());
+        let svc = IngestionService::new(db.clone(), http);
+        let feed_id = db.add_feed("https://example.com/feed").unwrap();
+        db.touch_feed(feed_id).unwrap();
+
+        let background = svc.refresh_feeds(RefreshOptions::default()).await.unwrap();
+        assert_eq!(background.total_feeds, 0);
+
+        let manual = svc
+            .refresh_feeds(RefreshOptions {
+                feed_ids: None,
+                force: true,
+            })
+            .await
+            .unwrap();
+        assert_eq!(manual.total_feeds, 1);
+        assert_eq!(manual.errors.len(), 1);
     }
 }

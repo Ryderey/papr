@@ -86,6 +86,116 @@ Android channel: `com.papr.papr_mobile/platform`, with `getInitialDeepLink`, `op
 - Highlight offsets use UTF-16 code units so Flutter selections and Core anchors agree. Resolution tries the stored offset first, then quote plus prefix/suffix context, and finally the first quote match. An unresolved anchor remains a valid editable record.
 - Flutter must pass the reader's DOM text-node sequence to `resolve_highlights`, then render each returned resolved range by safely inserting `<mark class="papr-highlight" data-highlight-color="…">` into parsed HTML text nodes. Never use a regular expression to alter raw article HTML. Unresolved records stay in the highlight list and display a localized notice.
 
+## Scenario: Android background refresh and new-article notification
+
+### 1. Scope / Trigger
+
+- Trigger: Android wakes Papr without a visible Flutter route to refresh due
+  subscriptions and optionally notify about newly inserted articles.
+- Why: feed timing, conditional fetches, deduplication, and partial-error
+  handling must remain in Core; Android and Flutter only schedule and present.
+
+### 2. Signatures
+
+```rust
+Db::feeds_due_for_refresh(global_min: i64) -> Result<Vec<FeedRefreshInfo>, CoreError>
+refresh_feeds(core, RefreshOptions { feed_ids, force }) -> Result<RefreshReport, PaprBridgeError>
+get_settings(core) -> Result<SettingsSnapshot, PaprBridgeError>
+set_background_settings(core, refresh_interval_min,
+                        notifications_enabled,
+                        notification_quiet_hours) -> Result<(), PaprBridgeError>
+```
+
+The Android adapter registers unique periodic work named
+`papr.background.refresh`; its top-level Dart callback invokes task
+`papr.refresh.due` from a headless engine.
+
+### 3. Contracts
+
+- `force=true` means a user-initiated refresh and selects every requested
+  feed. `force=false` means background work and selects only feeds due under
+  the global/per-feed interval. Never reuse the background default in a manual
+  refresh entry point.
+- Core accepts persisted live intervals from 5 through 120 minutes for desktop
+  compatibility and `525_600` as off. Android schedules at 15 through 120
+  minutes, so a 5/10-minute Core interval is checked on a best-effort 15-minute
+  wake-up rather than rejected or rewritten.
+- The Worker requires connectivity, initializes the same FRB/Core database,
+  and registers unique periodic work with update semantics. Turning automatic
+  refresh off cancels that unique work; changing the interval never creates a
+  second job.
+- Background settings persist atomically. Flutter reconciles the Android job
+  after a successful write; if persistence or scheduling fails, it restores
+  the previous settings and schedule before restoring UI state.
+- Notifications default off. Android 13+ permission is requested only after an
+  explicit enable action. A completed report with zero new articles, disabled
+  or revoked permission, or enabled quiet hours during 22:00–08:00 produces no
+  notification. A normal run emits one localized count-only notification with
+  stable ID `6101`; URLs, titles, bodies, credentials, and provider text never
+  enter notification or log output.
+- The default Android notification icon is an app-owned white silhouette in
+  `res/drawable` (currently `ic_notification.xml`).
+  `flutter_local_notifications` resolves `AndroidInitializationSettings` as a
+  drawable resource, so a launcher icon that exists only under `res/mipmap`
+  is not a valid substitute.
+
+### 4. Validation & Error Matrix
+
+| Condition | Stable result |
+| --- | --- |
+| Live interval below 5 or above 120 | `invalidRefreshInterval`; no settings change |
+| Interval at/above `525_600` | normalized to off; unique periodic work cancelled |
+| Worker setup/Core call fails before a report | WorkManager retry (`false`) |
+| One feed fails but Core returns a report | completed work (`true`); other inserts remain |
+| Notification permission denied or revoked | refresh still completes; no notification |
+| Default notification icon is missing or is only a mipmap | initialization returns `invalid_icon`; preference and schedule stay unchanged |
+| Scheduling fails after settings persist | restore previous Core settings/job/UI state |
+
+### 5. Good / Base / Bad Cases
+
+- Good: Android wakes one connected job, Core refreshes only due feeds, and one
+  localized summary replaces the prior Papr summary.
+- Base: a desktop database contains a 5-minute interval. Mobile preserves it,
+  schedules Android's 15-minute minimum, and notification settings can still
+  be changed atomically.
+- Bad: a manual pull-to-refresh sends `force=false`, or Flutter implements its
+  own `last_fetched_at` timing query. Both silently skip work the user asked
+  for and split the timing contract across layers.
+
+### 6. Tests Required
+
+- Core: due selection covers never fetched, recent, boundary/overdue,
+  per-feed override, off, corrupt global fallback, and newsletter exclusion;
+  `force=true` and `force=false` have an explicit regression test.
+- Flutter: scheduling helpers cover off and 15–120 bounds; notification
+  eligibility covers zero, enablement, 22:00/08:00 boundaries, and localized
+  count-only text; settings UI exposes rollback-safe controls. A resource
+  regression must prove the configured icon name exists under `res/drawable`.
+- Android acceptance: confirm a single unique job after restart/update/toggle,
+  a successful background/headless run, permission denial, one allowed
+  notification, quiet-hour suppression, and persistence after process reclaim;
+  inspect the built APK resource table when changing any string-addressed
+  notification resource.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+// Manual refresh accidentally applies the background due filter.
+const RefreshOptions(feedIds: null, force: false);
+```
+
+#### Correct
+
+```dart
+// Foreground user action is forced; only WorkManager sends force: false.
+const RefreshOptions(feedIds: null, force: true);
+```
+
+Keep due selection and feed error isolation in Core, and keep WorkManager and
+notification permission behavior in the Android/Flutter adapter.
+
 ## Scenario: AI summary and LLM translation
 
 ### 1. Scope / Trigger

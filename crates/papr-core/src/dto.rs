@@ -327,6 +327,8 @@ pub struct SettingsSnapshot {
     pub theme: String,
     pub language: String,
     pub refresh_interval_min: i64,
+    pub notifications_enabled: bool,
+    pub notification_quiet_hours: bool,
     pub reading: ReadingSettings,
 }
 
@@ -360,6 +362,8 @@ impl Default for SettingsSnapshot {
             theme: "system".to_string(),
             language: "en".to_string(),
             refresh_interval_min: 30,
+            notifications_enabled: false,
+            notification_quiet_hours: false,
             reading: ReadingSettings::default(),
         }
     }

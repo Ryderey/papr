@@ -18,7 +18,10 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "08-29-p6a-background-refresh-notifications",
+    "08-29-p6b-freshrss-miniflux-sync"
+  ],
   "parent": "08-20-flutter-android-phased-plan",
   "relatedFiles": [],
   "notes": "",

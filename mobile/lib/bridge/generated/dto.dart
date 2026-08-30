@@ -1022,12 +1022,16 @@ class SettingsSnapshot {
   final String theme;
   final String language;
   final PlatformInt64 refreshIntervalMin;
+  final bool notificationsEnabled;
+  final bool notificationQuietHours;
   final ReadingSettings reading;
 
   const SettingsSnapshot({
     required this.theme,
     required this.language,
     required this.refreshIntervalMin,
+    required this.notificationsEnabled,
+    required this.notificationQuietHours,
     required this.reading,
   });
 
@@ -1036,6 +1040,8 @@ class SettingsSnapshot {
       theme.hashCode ^
       language.hashCode ^
       refreshIntervalMin.hashCode ^
+      notificationsEnabled.hashCode ^
+      notificationQuietHours.hashCode ^
       reading.hashCode;
 
   @override
@@ -1046,6 +1052,8 @@ class SettingsSnapshot {
           theme == other.theme &&
           language == other.language &&
           refreshIntervalMin == other.refreshIntervalMin &&
+          notificationsEnabled == other.notificationsEnabled &&
+          notificationQuietHours == other.notificationQuietHours &&
           reading == other.reading;
 }
 

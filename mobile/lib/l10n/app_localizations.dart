@@ -208,6 +208,54 @@ abstract class AppLocalizations {
   /// **'Refresh interval'**
   String get refreshInterval;
 
+  /// No description provided for @autoRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Background refresh'**
+  String get autoRefresh;
+
+  /// No description provided for @autoRefreshDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh due subscriptions when Android allows background work'**
+  String get autoRefreshDescription;
+
+  /// No description provided for @newArticleNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'New article notifications'**
+  String get newArticleNotifications;
+
+  /// No description provided for @newArticleNotificationsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show one summary after a background refresh'**
+  String get newArticleNotificationsDescription;
+
+  /// No description provided for @newArticleNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 new article} other{{count} new articles}}'**
+  String newArticleNotificationBody(int count);
+
+  /// No description provided for @notificationQuietHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Night quiet hours'**
+  String get notificationQuietHours;
+
+  /// No description provided for @notificationQuietHoursDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Do not notify between 22:00 and 08:00'**
+  String get notificationQuietHoursDescription;
+
+  /// No description provided for @notificationPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification permission was not granted.'**
+  String get notificationPermissionDenied;
+
   /// No description provided for @minutes.
   ///
   /// In en, this message translates to:

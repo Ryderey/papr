@@ -63,6 +63,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refreshInterval => 'Refresh interval';
 
   @override
+  String get autoRefresh => 'Background refresh';
+
+  @override
+  String get autoRefreshDescription =>
+      'Refresh due subscriptions when Android allows background work';
+
+  @override
+  String get newArticleNotifications => 'New article notifications';
+
+  @override
+  String get newArticleNotificationsDescription =>
+      'Show one summary after a background refresh';
+
+  @override
+  String newArticleNotificationBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new articles',
+      one: '1 new article',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notificationQuietHours => 'Night quiet hours';
+
+  @override
+  String get notificationQuietHoursDescription =>
+      'Do not notify between 22:00 and 08:00';
+
+  @override
+  String get notificationPermissionDenied =>
+      'Notification permission was not granted.';
+
+  @override
   String minutes(int count) {
     return '$count min';
   }

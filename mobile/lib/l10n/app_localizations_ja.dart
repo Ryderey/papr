@@ -63,6 +63,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refreshInterval => '更新間隔';
 
   @override
+  String get autoRefresh => 'バックグラウンド更新';
+
+  @override
+  String get autoRefreshDescription => 'Android がバックグラウンド処理を許可したときに購読を更新します';
+
+  @override
+  String get newArticleNotifications => '新着記事の通知';
+
+  @override
+  String get newArticleNotificationsDescription => 'バックグラウンド更新後に要約通知を1件表示します';
+
+  @override
+  String newArticleNotificationBody(int count) {
+    return '新着記事 $count 件';
+  }
+
+  @override
+  String get notificationQuietHours => '夜間の通知停止';
+
+  @override
+  String get notificationQuietHoursDescription => '22:00 から 08:00 までは通知しません';
+
+  @override
+  String get notificationPermissionDenied => '通知権限が許可されていません。';
+
+  @override
   String minutes(int count) {
     return '$count 分';
   }

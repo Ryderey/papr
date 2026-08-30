@@ -63,6 +63,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refreshInterval => '刷新间隔';
 
   @override
+  String get autoRefresh => '后台刷新';
+
+  @override
+  String get autoRefreshDescription => '在 Android 允许后台运行时刷新已到期订阅';
+
+  @override
+  String get newArticleNotifications => '新文章通知';
+
+  @override
+  String get newArticleNotificationsDescription => '后台刷新完成后显示一条汇总通知';
+
+  @override
+  String newArticleNotificationBody(int count) {
+    return '$count 篇新文章';
+  }
+
+  @override
+  String get notificationQuietHours => '夜间免打扰';
+
+  @override
+  String get notificationQuietHoursDescription => '22:00 至 08:00 之间不显示通知';
+
+  @override
+  String get notificationPermissionDenied => '未授予通知权限。';
+
+  @override
   String minutes(int count) {
     return '$count 分钟';
   }

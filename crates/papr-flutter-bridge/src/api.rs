@@ -593,6 +593,24 @@ pub async fn set_language(core: &PaprCoreBridge, language: String) -> Result<(),
     Ok(core.inner.settings_service().set_language(language).await?)
 }
 
+/// Persist validated automatic-refresh and notification settings atomically.
+pub async fn set_background_settings(
+    core: &PaprCoreBridge,
+    refresh_interval_min: i64,
+    notifications_enabled: bool,
+    notification_quiet_hours: bool,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .set_background_settings(
+            refresh_interval_min,
+            notifications_enabled,
+            notification_quiet_hours,
+        )
+        .await?)
+}
+
 /// Persist validated reader appearance and behaviour settings.
 pub async fn set_reading_settings(
     core: &PaprCoreBridge,
@@ -1315,6 +1333,8 @@ impl From<papr_core::SettingsSnapshot> for SettingsSnapshot {
             theme: s.theme,
             language: s.language,
             refresh_interval_min: s.refresh_interval_min,
+            notifications_enabled: s.notifications_enabled,
+            notification_quiet_hours: s.notification_quiet_hours,
             reading: s.reading.into(),
         }
     }

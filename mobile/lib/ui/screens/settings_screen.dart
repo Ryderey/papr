@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../repositories/settings_repository.dart';
+import '../../services/background_refresh_service.dart';
 import 'ai_profiles_screen.dart';
 import 'highlights_screen.dart';
 import 'organization_screen.dart';
@@ -91,9 +92,71 @@ class SettingsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                ListTile(
-                  title: Text(l10n.refreshInterval),
-                  subtitle: Text(l10n.minutes(settings.refreshIntervalMin)),
+                SwitchListTile(
+                  title: Text(l10n.autoRefresh),
+                  subtitle: Text(l10n.autoRefreshDescription),
+                  value: settings.refreshIntervalMin < refreshOffMinutes,
+                  onChanged: appearance.isLoading
+                      ? null
+                      : (value) => _save(
+                            context,
+                            () => ref
+                                .read(appearanceProvider.notifier)
+                                .setAutoRefresh(value),
+                          ),
+                ),
+                if (settings.refreshIntervalMin < refreshOffMinutes)
+                  ListTile(
+                    title: Text(l10n.refreshInterval),
+                    trailing: DropdownButton<int>(
+                      value: [15, 30, 60, 120]
+                              .contains(settings.refreshIntervalMin)
+                          ? settings.refreshIntervalMin
+                          : null,
+                      hint: Text(l10n.minutes(settings.refreshIntervalMin)),
+                      items: [15, 30, 60, 120]
+                          .map(
+                            (minutes) => DropdownMenuItem(
+                              value: minutes,
+                              child: Text(l10n.minutes(minutes)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: appearance.isLoading
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                _save(
+                                  context,
+                                  () => ref
+                                      .read(appearanceProvider.notifier)
+                                      .setRefreshInterval(value),
+                                );
+                              }
+                            },
+                    ),
+                  ),
+                SwitchListTile(
+                  title: Text(l10n.newArticleNotifications),
+                  subtitle: Text(l10n.newArticleNotificationsDescription),
+                  value: settings.notificationsEnabled,
+                  onChanged: appearance.isLoading
+                      ? null
+                      : (value) => _setNotifications(context, ref, value),
+                ),
+                SwitchListTile(
+                  title: Text(l10n.notificationQuietHours),
+                  subtitle: Text(l10n.notificationQuietHoursDescription),
+                  value: settings.notificationQuietHours,
+                  onChanged:
+                      appearance.isLoading || !settings.notificationsEnabled
+                          ? null
+                          : (value) => _save(
+                                context,
+                                () => ref
+                                    .read(appearanceProvider.notifier)
+                                    .setNotificationQuietHours(value),
+                              ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.auto_awesome_outlined),
@@ -260,6 +323,35 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _save(BuildContext context, Future<void> Function() save) async {
     try {
       await save();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.appearanceSaveFailed(
+                context.l10n.localizeError(error),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _setNotifications(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    try {
+      final accepted = await ref
+          .read(appearanceProvider.notifier)
+          .setNotificationsEnabled(enabled);
+      if (!accepted && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.notificationPermissionDenied)),
+        );
+      }
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

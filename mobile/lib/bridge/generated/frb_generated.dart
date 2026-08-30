@@ -72,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 924642537;
+  int get rustContentHash => 1055526642;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -246,6 +246,12 @@ abstract class RustLibApi extends BaseApi {
       required PlatformInt64 articleId,
       required PlatformInt64 tagId,
       required bool attached});
+
+  Future<void> crateApiSetBackgroundSettings(
+      {required PaprCoreBridge core,
+      required PlatformInt64 refreshIntervalMin,
+      required bool notificationsEnabled,
+      required bool notificationQuietHours});
 
   Future<void> crateApiSetFeedRefreshInterval(
       {required PaprCoreBridge core,
@@ -1696,6 +1702,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiSetBackgroundSettings(
+      {required PaprCoreBridge core,
+      required PlatformInt64 refreshIntervalMin,
+      required bool notificationsEnabled,
+      required bool notificationQuietHours}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerPaprCoreBridge(
+            core, serializer);
+        sse_encode_i_64(refreshIntervalMin, serializer);
+        sse_encode_bool(notificationsEnabled, serializer);
+        sse_encode_bool(notificationQuietHours, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 51, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_unit,
+        decodeErrorData: sse_decode_papr_bridge_error,
+      ),
+      constMeta: kCrateApiSetBackgroundSettingsConstMeta,
+      argValues: [
+        core,
+        refreshIntervalMin,
+        notificationsEnabled,
+        notificationQuietHours
+      ],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiSetBackgroundSettingsConstMeta =>
+      const TaskConstMeta(
+        debugName: "set_background_settings",
+        argNames: [
+          "core",
+          "refreshIntervalMin",
+          "notificationsEnabled",
+          "notificationQuietHours"
+        ],
+      );
+
+  @override
   Future<void> crateApiSetFeedRefreshInterval(
       {required PaprCoreBridge core,
       required PlatformInt64 id,
@@ -1708,7 +1757,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_opt_box_autoadd_i_64(minutes, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 51, port: port_);
+            funcId: 52, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1739,7 +1788,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_String(color, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 52, port: port_);
+            funcId: 53, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1766,7 +1815,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             core, serializer);
         sse_encode_String(language, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 53, port: port_);
+            funcId: 54, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1793,7 +1842,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             core, serializer);
         sse_encode_box_autoadd_reading_settings(settings, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 54, port: port_);
+            funcId: 55, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1823,7 +1872,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_String(color, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 55, port: port_);
+            funcId: 56, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1850,7 +1899,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             core, serializer);
         sse_encode_String(theme, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 56, port: port_);
+            funcId: 57, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1892,7 +1941,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(requestId, serializer);
         sse_encode_StreamSink_ai_stream_event_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 57, port: port_);
+            funcId: 58, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -1953,7 +2002,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(requestId, serializer);
         sse_encode_StreamSink_ai_stream_event_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 58, port: port_);
+            funcId: 59, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2010,7 +2059,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(requestId, serializer);
         sse_encode_StreamSink_ai_stream_event_Sse(sink, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 59, port: port_);
+            funcId: 60, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2058,7 +2107,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_box_autoadd_ai_profile(profile, serializer);
         sse_encode_opt_String(credential, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 60, port: port_);
+            funcId: 61, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2088,7 +2137,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_String(note, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 61, port: port_);
+            funcId: 62, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2119,7 +2168,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_i_64(id, serializer);
         sse_encode_box_autoadd_rule_input(input, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 62, port: port_);
+            funcId: 63, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -2900,13 +2949,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SettingsSnapshot dco_decode_settings_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return SettingsSnapshot(
       theme: dco_decode_String(arr[0]),
       language: dco_decode_String(arr[1]),
       refreshIntervalMin: dco_decode_i_64(arr[2]),
-      reading: dco_decode_reading_settings(arr[3]),
+      notificationsEnabled: dco_decode_bool(arr[3]),
+      notificationQuietHours: dco_decode_bool(arr[4]),
+      reading: dco_decode_reading_settings(arr[5]),
     );
   }
 
@@ -3894,11 +3945,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_theme = sse_decode_String(deserializer);
     var var_language = sse_decode_String(deserializer);
     var var_refreshIntervalMin = sse_decode_i_64(deserializer);
+    var var_notificationsEnabled = sse_decode_bool(deserializer);
+    var var_notificationQuietHours = sse_decode_bool(deserializer);
     var var_reading = sse_decode_reading_settings(deserializer);
     return SettingsSnapshot(
         theme: var_theme,
         language: var_language,
         refreshIntervalMin: var_refreshIntervalMin,
+        notificationsEnabled: var_notificationsEnabled,
+        notificationQuietHours: var_notificationQuietHours,
         reading: var_reading);
   }
 
@@ -4704,6 +4759,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.theme, serializer);
     sse_encode_String(self.language, serializer);
     sse_encode_i_64(self.refreshIntervalMin, serializer);
+    sse_encode_bool(self.notificationsEnabled, serializer);
+    sse_encode_bool(self.notificationQuietHours, serializer);
     sse_encode_reading_settings(self.reading, serializer);
   }
 
