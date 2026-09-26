@@ -789,4 +789,84 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get noTranslationYet => '完了した翻訳はまだありません。';
+
+  @override
+  String get syncTitle => 'リーダー同期';
+
+  @override
+  String get syncProvider => 'サービス';
+
+  @override
+  String get syncServerUrl => 'サーバー URL';
+
+  @override
+  String get syncUsername => 'ユーザー名';
+
+  @override
+  String get syncCredential => 'GReader パスワード';
+
+  @override
+  String get syncFieldRequired => '入力してください。';
+
+  @override
+  String get syncConnect => '接続';
+
+  @override
+  String get syncConnected => '接続済み';
+
+  @override
+  String get syncNotConnected => 'リーダーサービスに接続していません。';
+
+  @override
+  String get syncTestSucceeded => '接続テストに成功しました。';
+
+  @override
+  String get syncNow => '今すぐ同期';
+
+  @override
+  String get syncCompleted => '同期が完了しました。';
+
+  @override
+  String get syncDisconnect => '接続を解除';
+
+  @override
+  String get syncDisconnectConfirm => '接続を解除し、保存済みの認証情報を削除しますか？';
+
+  @override
+  String get syncReplaceConnection => '接続を変更';
+
+  @override
+  String get syncNeverCompleted => '同期履歴なし';
+
+  @override
+  String syncLastSuccess(String time) {
+    return '前回の同期：$time';
+  }
+
+  @override
+  String get errorInvalidSyncProfile => 'サーバー URL、ユーザー名、パスワードを確認してください。';
+
+  @override
+  String get errorSyncCredentialMissing => '保存済みのパスワードがありません。再接続してください。';
+
+  @override
+  String get errorSyncNotConnected => '先にリーダーサービスへ接続してください。';
+
+  @override
+  String get errorSyncAuthFailed => '認証に失敗しました。GReader パスワードを確認してください。';
+
+  @override
+  String get errorSyncUnavailable => 'リーダーサービスを利用できません。後でもう一度お試しください。';
+
+  @override
+  String get errorSyncProviderFailed => 'リーダーサービスの処理に失敗しました。もう一度お試しください。';
+
+  @override
+  String get errorSyncInvalidResponse => 'リーダーサービスから予期しない応答が返されました。';
+
+  @override
+  String get errorSyncTooManyItems => '一度に同期する項目が多すぎます。履歴を減らして再試行してください。';
+
+  @override
+  String get errorSyncCredentialStore => '保存済みパスワードに安全にアクセスできません。';
 }

@@ -4,11 +4,16 @@ import 'package:flutter/services.dart';
 
 class PlatformService {
   static const _channel = MethodChannel('com.papr.papr_mobile/platform');
+  static const _syncCredentialChannel =
+      MethodChannel('com.papr.papr_mobile/sync_credentials');
   static const _playbackChannel = EventChannel(
     'com.papr.papr_mobile/platform/playback',
   );
   static final _aiCredentialRefPattern = RegExp(
     r'^papr\.ai\.[A-Za-z0-9_-]{1,80}$',
+  );
+  static final _syncCredentialRefPattern = RegExp(
+    r'^papr\.sync\.[A-Za-z0-9_-]{1,80}$',
   );
 
   final _deepLinks = StreamController<String>.broadcast();
@@ -148,15 +153,44 @@ class PlatformService {
     return _aiCredentialRefPattern.hasMatch(value);
   }
 
+  static bool isValidSyncCredentialRef(String value) {
+    return _syncCredentialRefPattern.hasMatch(value);
+  }
+
   Future<bool> setAiCredential(String credentialRef, String secret) async {
-    if (!isValidAiCredentialRef(credentialRef) ||
+    return _setCredential(
+      credentialRef,
+      secret,
+      isValidAiCredentialRef(credentialRef),
+      'setAiCredential',
+    );
+  }
+
+  Future<String?> getAiCredential(String credentialRef) async {
+    return _getCredential(
+      credentialRef,
+      isValidAiCredentialRef(credentialRef),
+      'getAiCredential',
+    );
+  }
+
+  Future<bool> deleteAiCredential(String credentialRef) async {
+    return _deleteCredential(
+      credentialRef,
+      isValidAiCredentialRef(credentialRef),
+      'deleteAiCredential',
+    );
+  }
+
+  Future<bool> setSyncCredential(String credentialRef, String secret) async {
+    if (!isValidSyncCredentialRef(credentialRef) ||
         secret.trim().isEmpty ||
         secret.length > 8192) {
       return false;
     }
     try {
-      return await _channel.invokeMethod<bool>(
-            'setAiCredential',
+      return await _syncCredentialChannel.invokeMethod<bool>(
+            'setSyncCredential',
             {'credentialRef': credentialRef, 'secret': secret},
           ) ??
           false;
@@ -165,11 +199,11 @@ class PlatformService {
     }
   }
 
-  Future<String?> getAiCredential(String credentialRef) async {
-    if (!isValidAiCredentialRef(credentialRef)) return null;
+  Future<String?> getSyncCredential(String credentialRef) async {
+    if (!isValidSyncCredentialRef(credentialRef)) return null;
     try {
-      return await _channel.invokeMethod<String>(
-        'getAiCredential',
+      return await _syncCredentialChannel.invokeMethod<String>(
+        'getSyncCredential',
         {'credentialRef': credentialRef},
       );
     } on MissingPluginException {
@@ -177,11 +211,64 @@ class PlatformService {
     }
   }
 
-  Future<bool> deleteAiCredential(String credentialRef) async {
-    if (!isValidAiCredentialRef(credentialRef)) return false;
+  Future<bool> deleteSyncCredential(String credentialRef) async {
+    if (!isValidSyncCredentialRef(credentialRef)) return false;
+    try {
+      return await _syncCredentialChannel.invokeMethod<bool>(
+            'deleteSyncCredential',
+            {'credentialRef': credentialRef},
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<bool> _setCredential(
+    String credentialRef,
+    String secret,
+    bool validReference,
+    String method,
+  ) async {
+    if (!validReference || secret.trim().isEmpty || secret.length > 8192) {
+      return false;
+    }
     try {
       return await _channel.invokeMethod<bool>(
-            'deleteAiCredential',
+            method,
+            {'credentialRef': credentialRef, 'secret': secret},
+          ) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<String?> _getCredential(
+    String credentialRef,
+    bool validReference,
+    String method,
+  ) async {
+    if (!validReference) return null;
+    try {
+      return await _channel.invokeMethod<String>(
+        method,
+        {'credentialRef': credentialRef},
+      );
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<bool> _deleteCredential(
+    String credentialRef,
+    bool validReference,
+    String method,
+  ) async {
+    if (!validReference) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            method,
             {'credentialRef': credentialRef},
           ) ??
           false;

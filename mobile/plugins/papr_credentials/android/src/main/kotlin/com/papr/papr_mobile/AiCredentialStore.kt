@@ -13,8 +13,8 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Stores encrypted AI credentials using an app-private Android Keystore key. */
-internal class AiCredentialStore(context: Context) {
+/** Stores encrypted app credentials using app-private Android Keystore keys. */
+class AiCredentialStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
         Context.MODE_PRIVATE,
@@ -118,10 +118,14 @@ internal class AiCredentialStore(context: Context) {
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
         private const val SEPARATOR = "."
-        private val REFERENCE_PATTERN = Regex("^papr\\.ai\\.[A-Za-z0-9_-]{1,80}$")
+        private val AI_REFERENCE_PATTERN = Regex("^papr\\.ai\\.[A-Za-z0-9_-]{1,80}$")
+        private val SYNC_REFERENCE_PATTERN = Regex("^papr\\.sync\\.[A-Za-z0-9_-]{1,80}$")
 
-        fun isValidReference(value: String?): Boolean =
-            value != null && REFERENCE_PATTERN.matches(value)
+        fun isValidAiReference(value: String?): Boolean =
+            value != null && AI_REFERENCE_PATTERN.matches(value)
+
+        fun isValidSyncReference(value: String?): Boolean =
+            value != null && SYNC_REFERENCE_PATTERN.matches(value)
 
         fun isValidSecret(value: String?): Boolean =
             value != null && value.isNotBlank() && value.length <= 8_192

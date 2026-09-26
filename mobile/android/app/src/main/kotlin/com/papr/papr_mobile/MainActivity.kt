@@ -18,7 +18,7 @@ class MainActivity : FlutterActivity() {
     private var pendingResult: MethodChannel.Result? = null
     private var pendingExportText: String? = null
     private var removePlaybackListener: (() -> Unit)? = null
-    private val aiCredentialStore by lazy { AiCredentialStore(this) }
+    private val credentialStore by lazy { AiCredentialStore(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -283,39 +283,81 @@ class MainActivity : FlutterActivity() {
         secret: String?,
         result: MethodChannel.Result,
     ) {
-        if (!AiCredentialStore.isValidReference(credentialRef) ||
-            !AiCredentialStore.isValidSecret(secret)
-        ) {
-            result.error("invalidAiCredential", null, null)
+        setCredential(
+            credentialRef,
+            secret,
+            AiCredentialStore.isValidAiReference(credentialRef),
+            "invalidAiCredential",
+            result,
+        )
+    }
+
+    private fun getAiCredential(credentialRef: String?, result: MethodChannel.Result) {
+        getCredential(
+            credentialRef,
+            AiCredentialStore.isValidAiReference(credentialRef),
+            "invalidAiCredential",
+            result,
+        )
+    }
+
+    private fun deleteAiCredential(credentialRef: String?, result: MethodChannel.Result) {
+        deleteCredential(
+            credentialRef,
+            AiCredentialStore.isValidAiReference(credentialRef),
+            "invalidAiCredential",
+            result,
+        )
+    }
+
+    private fun setCredential(
+        credentialRef: String?,
+        secret: String?,
+        validReference: Boolean,
+        invalidCode: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!validReference || !AiCredentialStore.isValidSecret(secret)) {
+            result.error(invalidCode, null, null)
             return
         }
         try {
-            aiCredentialStore.set(credentialRef!!, secret!!)
+            credentialStore.set(credentialRef!!, secret!!)
             result.success(true)
         } catch (_: Exception) {
             result.error("credentialWriteFailed", null, null)
         }
     }
 
-    private fun getAiCredential(credentialRef: String?, result: MethodChannel.Result) {
-        if (!AiCredentialStore.isValidReference(credentialRef)) {
-            result.error("invalidAiCredential", null, null)
+    private fun getCredential(
+        credentialRef: String?,
+        validReference: Boolean,
+        invalidCode: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!validReference) {
+            result.error(invalidCode, null, null)
             return
         }
         try {
-            result.success(aiCredentialStore.get(credentialRef!!))
+            result.success(credentialStore.get(credentialRef!!))
         } catch (_: Exception) {
             result.error("credentialReadFailed", null, null)
         }
     }
 
-    private fun deleteAiCredential(credentialRef: String?, result: MethodChannel.Result) {
-        if (!AiCredentialStore.isValidReference(credentialRef)) {
-            result.error("invalidAiCredential", null, null)
+    private fun deleteCredential(
+        credentialRef: String?,
+        validReference: Boolean,
+        invalidCode: String,
+        result: MethodChannel.Result,
+    ) {
+        if (!validReference) {
+            result.error(invalidCode, null, null)
             return
         }
         try {
-            aiCredentialStore.delete(credentialRef!!)
+            credentialStore.delete(credentialRef!!)
             result.success(true)
         } catch (_: Exception) {
             result.error("credentialDeleteFailed", null, null)

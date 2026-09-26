@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `cancel`, `emit_ai_stream_error`, `finish`, `invalid_ai_request`, `new`, `register`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AiRequestLease`, `AiRequestRegistry`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -287,6 +287,38 @@ Future<void> setReadingSettings(
         {required PaprCoreBridge core, required ReadingSettings settings}) =>
     RustLib.instance.api
         .crateApiSetReadingSettings(core: core, settings: settings);
+
+/// Read the external sync connection metadata without its Keystore credential.
+Future<SyncProfile?> getSyncProfile({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGetSyncProfile(core: core);
+
+/// Probe a provider without changing the saved connection.
+Future<void> testSyncConnection(
+        {required PaprCoreBridge core,
+        required SyncProfile profile,
+        required String credential}) =>
+    RustLib.instance.api.crateApiTestSyncConnection(
+        core: core, profile: profile, credential: credential);
+
+/// Save connection metadata only after the transient credential is verified.
+Future<void> connectSyncProfile(
+        {required PaprCoreBridge core,
+        required SyncProfile profile,
+        required String credential}) =>
+    RustLib.instance.api.crateApiConnectSyncProfile(
+        core: core, profile: profile, credential: credential);
+
+Future<SyncStatus> getSyncStatus({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGetSyncStatus(core: core);
+
+/// Run the configured connection with a one-call Keystore credential.
+Future<BigInt> syncNow(
+        {required PaprCoreBridge core, required String credential}) =>
+    RustLib.instance.api.crateApiSyncNow(core: core, credential: credential);
+
+/// Delete sync metadata and return its Keystore alias for platform cleanup.
+Future<String?> deleteSyncProfile({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiDeleteSyncProfile(core: core);
 
 /// List persistable AI profile metadata. This API never returns credentials.
 Future<List<AiProfile>> listAiProfiles({required PaprCoreBridge core}) =>

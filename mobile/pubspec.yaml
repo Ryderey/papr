@@ -19,6 +19,8 @@ dependencies:
   intl: 0.20.2
   path_provider: ^2.1.5
   workmanager: ^0.10.9
+  papr_credentials:
+    path: plugins/papr_credentials
   freezed_annotation: ^2.4.4
 
 dev_dependencies:

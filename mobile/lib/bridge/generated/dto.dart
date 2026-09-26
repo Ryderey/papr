@@ -1080,6 +1080,78 @@ enum SummaryTemplate {
   ;
 }
 
+/// Persistable sync connection metadata. Its credential lives only in Android
+/// Keystore and is referenced by `credential_ref`.
+class SyncProfile {
+  final SyncProvider provider;
+  final String serverUrl;
+  final String username;
+  final String credentialRef;
+
+  const SyncProfile({
+    required this.provider,
+    required this.serverUrl,
+    required this.username,
+    required this.credentialRef,
+  });
+
+  @override
+  int get hashCode =>
+      provider.hashCode ^
+      serverUrl.hashCode ^
+      username.hashCode ^
+      credentialRef.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyncProfile &&
+          runtimeType == other.runtimeType &&
+          provider == other.provider &&
+          serverUrl == other.serverUrl &&
+          username == other.username &&
+          credentialRef == other.credentialRef;
+}
+
+/// Mobile-supported external reader service families.
+enum SyncProvider {
+  freshRss,
+  miniflux,
+  ;
+}
+
+/// Secret-free connection and last-sync state.
+class SyncStatus {
+  final SyncProfile? profile;
+  final String? lastSuccessAt;
+  final String? lastErrorCode;
+  final bool backgroundDue;
+
+  const SyncStatus({
+    this.profile,
+    this.lastSuccessAt,
+    this.lastErrorCode,
+    required this.backgroundDue,
+  });
+
+  @override
+  int get hashCode =>
+      profile.hashCode ^
+      lastSuccessAt.hashCode ^
+      lastErrorCode.hashCode ^
+      backgroundDue.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyncStatus &&
+          runtimeType == other.runtimeType &&
+          profile == other.profile &&
+          lastSuccessAt == other.lastSuccessAt &&
+          lastErrorCode == other.lastErrorCode &&
+          backgroundDue == other.backgroundDue;
+}
+
 /// A lightweight tag representation.
 class Tag {
   final PlatformInt64 id;

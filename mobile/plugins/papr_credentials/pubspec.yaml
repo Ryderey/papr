@@ -1,0 +1,18 @@
+name: papr_credentials
+description: App-owned Android Keystore channel for foreground and background Flutter engines.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.papr.papr_mobile
+        pluginClass: SyncCredentialPlugin

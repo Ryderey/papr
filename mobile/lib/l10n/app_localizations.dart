@@ -1587,6 +1587,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No complete translation yet.'**
   String get noTranslationYet;
+
+  /// No description provided for @syncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader sync'**
+  String get syncTitle;
+
+  /// No description provided for @syncProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get syncProvider;
+
+  /// No description provided for @syncServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get syncServerUrl;
+
+  /// No description provided for @syncUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get syncUsername;
+
+  /// No description provided for @syncCredential.
+  ///
+  /// In en, this message translates to:
+  /// **'GReader password'**
+  String get syncCredential;
+
+  /// No description provided for @syncFieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required.'**
+  String get syncFieldRequired;
+
+  /// No description provided for @syncConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get syncConnect;
+
+  /// No description provided for @syncConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get syncConnected;
+
+  /// No description provided for @syncNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'No reader service connected.'**
+  String get syncNotConnected;
+
+  /// No description provided for @syncTestSucceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection succeeded.'**
+  String get syncTestSucceeded;
+
+  /// No description provided for @syncNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync now'**
+  String get syncNow;
+
+  /// No description provided for @syncCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync complete.'**
+  String get syncCompleted;
+
+  /// No description provided for @syncDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get syncDisconnect;
+
+  /// No description provided for @syncDisconnectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect this reader service and remove its saved credential?'**
+  String get syncDisconnectConfirm;
+
+  /// No description provided for @syncReplaceConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace connection'**
+  String get syncReplaceConnection;
+
+  /// No description provided for @syncNeverCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Never synced'**
+  String get syncNeverCompleted;
+
+  /// No description provided for @syncLastSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync: {time}'**
+  String syncLastSuccess(String time);
+
+  /// No description provided for @errorInvalidSyncProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the service URL, username, and password.'**
+  String get errorInvalidSyncProfile;
+
+  /// No description provided for @errorSyncCredentialMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved password is unavailable. Reconnect to continue syncing.'**
+  String get errorSyncCredentialMissing;
+
+  /// No description provided for @errorSyncNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a reader service first.'**
+  String get errorSyncNotConnected;
+
+  /// No description provided for @errorSyncAuthFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The service rejected these credentials. Check the GReader password.'**
+  String get errorSyncAuthFailed;
+
+  /// No description provided for @errorSyncUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The reader service is unavailable. Try again later.'**
+  String get errorSyncUnavailable;
+
+  /// No description provided for @errorSyncProviderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The reader service could not complete the request. Try again.'**
+  String get errorSyncProviderFailed;
+
+  /// No description provided for @errorSyncInvalidResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'The reader service returned an unexpected response.'**
+  String get errorSyncInvalidResponse;
+
+  /// No description provided for @errorSyncTooManyItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many items to sync in one pass. Reduce the service history and retry.'**
+  String get errorSyncTooManyItems;
+
+  /// No description provided for @errorSyncCredentialStore.
+  ///
+  /// In en, this message translates to:
+  /// **'The saved password could not be accessed securely.'**
+  String get errorSyncCredentialStore;
 }
 
 class _AppLocalizationsDelegate

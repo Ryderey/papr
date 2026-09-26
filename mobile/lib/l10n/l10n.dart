@@ -10,6 +10,21 @@ extension AppLocalizationsContext on BuildContext {
 }
 
 extension AppErrorLocalizations on AppLocalizations {
+  String localizeSyncCode(String code) => switch (code) {
+        'invalidSyncProfile' => errorInvalidSyncProfile,
+        'syncCredentialMissing' => errorSyncCredentialMissing,
+        'syncNotConnected' => errorSyncNotConnected,
+        'syncAuthFailed' => errorSyncAuthFailed,
+        'syncUnavailable' => errorSyncUnavailable,
+        'syncProviderFailed' => errorSyncProviderFailed,
+        'syncInvalidResponse' ||
+        'invalidSyncChange' ||
+        'invalidSyncPushCursor' =>
+          errorSyncInvalidResponse,
+        'syncTooManyItems' => errorSyncTooManyItems,
+        _ => unknownError,
+      };
+
   String localizeError(Object error) {
     if (error is! AppException) return errorMessage(error.toString());
     return switch (error.code) {
@@ -48,13 +63,28 @@ extension AppErrorLocalizations on AppLocalizations {
       'credentialWriteFailed' ||
       'credentialReadFailed' ||
       'credentialDeleteFailed' =>
-        errorAiCredentialStore,
+        error.kind == AppErrorKind.sync
+            ? errorSyncCredentialStore
+            : errorAiCredentialStore,
       'aiAuth' => errorAiAuth,
       'aiRateLimited' => errorNetwork,
       'aiNetwork' => errorNetwork,
       'aiParse' => errorParse,
       'aiNoVisibleOutput' => errorAiNoVisibleOutput,
+      'invalidSyncProfile' ||
+      'syncCredentialMissing' ||
+      'syncNotConnected' ||
+      'syncAuthFailed' ||
+      'syncUnavailable' ||
+      'syncProviderFailed' ||
+      'syncInvalidResponse' ||
+      'invalidSyncChange' ||
+      'invalidSyncPushCursor' ||
+      'syncTooManyItems' =>
+        localizeSyncCode(error.code),
+      'invalidSyncCredential' => errorSyncCredentialStore,
       _ => switch (error.kind) {
+          AppErrorKind.sync => unknownError,
           AppErrorKind.network => errorNetwork,
           AppErrorKind.parse => errorParse,
           _ =>

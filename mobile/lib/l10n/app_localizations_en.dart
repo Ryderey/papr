@@ -815,4 +815,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noTranslationYet => 'No complete translation yet.';
+
+  @override
+  String get syncTitle => 'Reader sync';
+
+  @override
+  String get syncProvider => 'Service';
+
+  @override
+  String get syncServerUrl => 'Server URL';
+
+  @override
+  String get syncUsername => 'Username';
+
+  @override
+  String get syncCredential => 'GReader password';
+
+  @override
+  String get syncFieldRequired => 'This field is required.';
+
+  @override
+  String get syncConnect => 'Connect';
+
+  @override
+  String get syncConnected => 'Connected';
+
+  @override
+  String get syncNotConnected => 'No reader service connected.';
+
+  @override
+  String get syncTestSucceeded => 'Connection succeeded.';
+
+  @override
+  String get syncNow => 'Sync now';
+
+  @override
+  String get syncCompleted => 'Sync complete.';
+
+  @override
+  String get syncDisconnect => 'Disconnect';
+
+  @override
+  String get syncDisconnectConfirm =>
+      'Disconnect this reader service and remove its saved credential?';
+
+  @override
+  String get syncReplaceConnection => 'Replace connection';
+
+  @override
+  String get syncNeverCompleted => 'Never synced';
+
+  @override
+  String syncLastSuccess(String time) {
+    return 'Last sync: $time';
+  }
+
+  @override
+  String get errorInvalidSyncProfile =>
+      'Check the service URL, username, and password.';
+
+  @override
+  String get errorSyncCredentialMissing =>
+      'The saved password is unavailable. Reconnect to continue syncing.';
+
+  @override
+  String get errorSyncNotConnected => 'Connect a reader service first.';
+
+  @override
+  String get errorSyncAuthFailed =>
+      'The service rejected these credentials. Check the GReader password.';
+
+  @override
+  String get errorSyncUnavailable =>
+      'The reader service is unavailable. Try again later.';
+
+  @override
+  String get errorSyncProviderFailed =>
+      'The reader service could not complete the request. Try again.';
+
+  @override
+  String get errorSyncInvalidResponse =>
+      'The reader service returned an unexpected response.';
+
+  @override
+  String get errorSyncTooManyItems =>
+      'Too many items to sync in one pass. Reduce the service history and retry.';
+
+  @override
+  String get errorSyncCredentialStore =>
+      'The saved password could not be accessed securely.';
 }

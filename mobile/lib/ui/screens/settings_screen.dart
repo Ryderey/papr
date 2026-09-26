@@ -7,6 +7,7 @@ import '../../services/background_refresh_service.dart';
 import 'ai_profiles_screen.dart';
 import 'highlights_screen.dart';
 import 'organization_screen.dart';
+import 'sync_settings_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -164,6 +165,15 @@ class SettingsScreen extends ConsumerWidget {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const AiProfilesScreen(),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sync_outlined),
+                  title: Text(l10n.syncTitle),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SyncSettingsScreen(),
                     ),
                   ),
                 ),

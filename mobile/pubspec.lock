@@ -541,6 +541,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  papr_credentials:
+    dependency: "direct main"
+    description:
+      path: "plugins/papr_credentials"
+      relative: true
+    source: path
+    version: "0.1.0"
   path:
     dependency: transitive
     description:

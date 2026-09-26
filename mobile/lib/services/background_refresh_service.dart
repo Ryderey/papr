@@ -9,6 +9,7 @@ import '../bridge/generated/generated.dart' as bridge;
 import '../bridge/generated/frb_generated.dart';
 import '../core/config.dart';
 import '../l10n/app_localizations.dart';
+import 'platform_service.dart';
 
 const refreshOffMinutes = 525600;
 const backgroundRefreshUniqueName = 'papr.background.refresh';
@@ -42,6 +43,21 @@ void backgroundRefreshDispatcher() {
           language: settings.language,
           count: report.newArticles.toInt(),
         );
+      }
+      try {
+        final status = await bridge.getSyncStatus(core: core);
+        if (status.backgroundDue && status.profile != null) {
+          String? credential;
+          try {
+            credential = await platformService
+                .getSyncCredential(status.profile!.credentialRef);
+          } catch (_) {
+            // Core records a stable missing-credential error below.
+          }
+          await bridge.syncNow(core: core, credential: credential ?? '');
+        }
+      } catch (_) {
+        // Feed refresh succeeded; sync shows its stable error for manual retry.
       }
       return true;
     } catch (_) {

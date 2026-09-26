@@ -125,6 +125,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RuleInput dco_decode_box_autoadd_rule_input(dynamic raw);
 
   @protected
+  SyncProfile dco_decode_box_autoadd_sync_profile(dynamic raw);
+
+  @protected
   DiscoveryResult dco_decode_discovery_result(dynamic raw);
 
   @protected
@@ -221,6 +224,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
+  SyncProfile? dco_decode_opt_box_autoadd_sync_profile(dynamic raw);
+
+  @protected
   Int64List? dco_decode_opt_list_prim_i_64_strict(dynamic raw);
 
   @protected
@@ -264,6 +270,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SummaryTemplate dco_decode_summary_template(dynamic raw);
+
+  @protected
+  SyncProfile dco_decode_sync_profile(dynamic raw);
+
+  @protected
+  SyncProvider dco_decode_sync_provider(dynamic raw);
+
+  @protected
+  SyncStatus dco_decode_sync_status(dynamic raw);
 
   @protected
   Tag dco_decode_tag(dynamic raw);
@@ -392,6 +407,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RuleInput sse_decode_box_autoadd_rule_input(SseDeserializer deserializer);
 
   @protected
+  SyncProfile sse_decode_box_autoadd_sync_profile(SseDeserializer deserializer);
+
+  @protected
   DiscoveryResult sse_decode_discovery_result(SseDeserializer deserializer);
 
   @protected
@@ -494,6 +512,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  SyncProfile? sse_decode_opt_box_autoadd_sync_profile(
+      SseDeserializer deserializer);
+
+  @protected
   Int64List? sse_decode_opt_list_prim_i_64_strict(SseDeserializer deserializer);
 
   @protected
@@ -537,6 +559,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SummaryTemplate sse_decode_summary_template(SseDeserializer deserializer);
+
+  @protected
+  SyncProfile sse_decode_sync_profile(SseDeserializer deserializer);
+
+  @protected
+  SyncProvider sse_decode_sync_provider(SseDeserializer deserializer);
+
+  @protected
+  SyncStatus sse_decode_sync_status(SseDeserializer deserializer);
 
   @protected
   Tag sse_decode_tag(SseDeserializer deserializer);
@@ -672,6 +703,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       RuleInput self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_sync_profile(
+      SyncProfile self, SseSerializer serializer);
+
+  @protected
   void sse_encode_discovery_result(
       DiscoveryResult self, SseSerializer serializer);
 
@@ -785,6 +820,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       PlatformInt64? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_sync_profile(
+      SyncProfile? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_list_prim_i_64_strict(
       Int64List? self, SseSerializer serializer);
 
@@ -836,6 +875,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_summary_template(
       SummaryTemplate self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_profile(SyncProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_provider(SyncProvider self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_status(SyncStatus self, SseSerializer serializer);
 
   @protected
   void sse_encode_tag(Tag self, SseSerializer serializer);

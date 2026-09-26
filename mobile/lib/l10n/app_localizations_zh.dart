@@ -787,4 +787,84 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noTranslationYet => '暂无完整翻译。';
+
+  @override
+  String get syncTitle => '阅读器同步';
+
+  @override
+  String get syncProvider => '服务';
+
+  @override
+  String get syncServerUrl => '服务器地址';
+
+  @override
+  String get syncUsername => '用户名';
+
+  @override
+  String get syncCredential => 'GReader 密码';
+
+  @override
+  String get syncFieldRequired => '请填写此项。';
+
+  @override
+  String get syncConnect => '连接';
+
+  @override
+  String get syncConnected => '已连接';
+
+  @override
+  String get syncNotConnected => '尚未连接阅读器服务。';
+
+  @override
+  String get syncTestSucceeded => '连接测试成功。';
+
+  @override
+  String get syncNow => '立即同步';
+
+  @override
+  String get syncCompleted => '同步完成。';
+
+  @override
+  String get syncDisconnect => '断开连接';
+
+  @override
+  String get syncDisconnectConfirm => '断开此阅读器服务并删除保存的凭据？';
+
+  @override
+  String get syncReplaceConnection => '更换连接';
+
+  @override
+  String get syncNeverCompleted => '尚未同步';
+
+  @override
+  String syncLastSuccess(String time) {
+    return '上次同步：$time';
+  }
+
+  @override
+  String get errorInvalidSyncProfile => '请检查服务地址、用户名和密码。';
+
+  @override
+  String get errorSyncCredentialMissing => '已保存的密码不可用。请重新连接后再同步。';
+
+  @override
+  String get errorSyncNotConnected => '请先连接阅读器服务。';
+
+  @override
+  String get errorSyncAuthFailed => '服务拒绝了认证信息，请检查 GReader 密码。';
+
+  @override
+  String get errorSyncUnavailable => '阅读器服务暂时不可用，请稍后重试。';
+
+  @override
+  String get errorSyncProviderFailed => '阅读器服务未能完成请求，请重试。';
+
+  @override
+  String get errorSyncInvalidResponse => '阅读器服务返回了意外的数据。';
+
+  @override
+  String get errorSyncTooManyItems => '单次同步的条目过多，请缩减服务端历史后重试。';
+
+  @override
+  String get errorSyncCredentialStore => '无法安全访问已保存的密码。';
 }
