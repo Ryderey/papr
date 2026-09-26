@@ -4,6 +4,7 @@ use crate::ai::{AiProfile, AiPurpose};
 use crate::db::{Db, REFRESH_OFF_MINUTES};
 use crate::dto::{ReadingSettings, SettingsSnapshot};
 use crate::error::{CoreError, ErrorCategory};
+use crate::sync::SyncProfile;
 
 pub struct SettingsService {
     db: Arc<Db>,
@@ -54,6 +55,64 @@ impl SettingsService {
             self.bool_setting("reading_auto_extract", snapshot.reading.auto_extract)?;
 
         Ok(snapshot)
+    }
+
+    /// Load the single mobile sync connection without exposing its secret.
+    pub async fn get_sync_profile(&self) -> Result<Option<SyncProfile>, CoreError> {
+        let stored = self
+            .db
+            .get_setting("sync_profile")?
+            .filter(|value| !value.trim().is_empty());
+        stored
+            .map(|value| {
+                serde_json::from_str::<SyncProfile>(&value)
+                    .map_err(|_| CoreError::coded(ErrorCategory::Sync, "invalidSyncProfile", None))
+                    .and_then(|profile| {
+                        profile.validate()?;
+                        Ok(profile)
+                    })
+            })
+            .transpose()
+    }
+
+    /// Persist only a verified, secret-free sync connection profile.
+    pub async fn save_sync_profile(&self, mut profile: SyncProfile) -> Result<(), CoreError> {
+        profile.server_url = profile.server_url.trim().trim_end_matches('/').to_string();
+        profile.username = profile.username.trim().to_string();
+        profile.credential_ref = profile.credential_ref.trim().to_string();
+        profile.validate()?;
+        let value = serde_json::to_string(&profile)
+            .map_err(|_| CoreError::coded(ErrorCategory::Sync, "invalidSyncProfile", None))?;
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || {
+            db.set_settings(&[
+                ("sync_profile", value),
+                ("sync_last_success_at", String::new()),
+                ("sync_last_error_code", String::new()),
+            ])
+        })
+        .await
+        .map_err(|error| CoreError::Platform(format!("blocking task failed: {error}")))?
+    }
+
+    /// Remove profile metadata first and return the Keystore alias for
+    /// best-effort platform cleanup.
+    pub async fn delete_sync_profile(&self) -> Result<Option<String>, CoreError> {
+        let credential_ref = self
+            .get_sync_profile()
+            .await?
+            .map(|profile| profile.credential_ref);
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || {
+            db.set_settings(&[
+                ("sync_profile", String::new()),
+                ("sync_last_success_at", String::new()),
+                ("sync_last_error_code", String::new()),
+            ])
+        })
+        .await
+        .map_err(|error| CoreError::Platform(format!("blocking task failed: {error}")))??;
+        Ok(credential_ref)
     }
 
     fn number_setting(
@@ -335,6 +394,7 @@ pub(crate) fn stored_refresh_interval(value: Option<&str>) -> i64 {
 mod tests {
     use super::*;
     use crate::ai::{AiAuthMode, AiProtocol, AiPurpose};
+    use crate::sync::SyncProvider;
     use std::collections::BTreeMap;
 
     #[tokio::test]
@@ -524,5 +584,33 @@ mod tests {
             .unwrap()
             .iter()
             .all(|profile| !profile.enabled));
+    }
+
+    #[tokio::test]
+    async fn sync_profile_persists_only_metadata_and_returns_its_alias() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("test.db")).unwrap());
+        let service = SettingsService::new(Arc::clone(&db));
+        let profile = SyncProfile {
+            provider: SyncProvider::Miniflux,
+            server_url: "https://reader.example.com/".into(),
+            username: " reader ".into(),
+            credential_ref: " papr.sync.primary ".into(),
+        };
+
+        service.save_sync_profile(profile).await.unwrap();
+        let profile = service.get_sync_profile().await.unwrap().unwrap();
+        assert_eq!(profile.server_url, "https://reader.example.com");
+        assert_eq!(profile.username, "reader");
+        assert_eq!(profile.credential_ref, "papr.sync.primary");
+        let stored = db.get_setting("sync_profile").unwrap().unwrap();
+        assert!(!stored.contains("password"));
+        assert!(!stored.contains("token"));
+
+        assert_eq!(
+            service.delete_sync_profile().await.unwrap().as_deref(),
+            Some("papr.sync.primary")
+        );
+        assert_eq!(service.get_sync_profile().await.unwrap(), None);
     }
 }

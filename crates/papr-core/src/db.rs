@@ -17,9 +17,11 @@ use rusqlite_migration::{Migrations, M};
 use crate::dto::{
     AiSummaryCache, ArticleCounts, ArticleDetail, ArticleFilter, ArticleFilterKind, ArticleSummary,
     Enclosure, Feed, Folder, Highlight, HighlightInput, NewArticle, ResolvedHighlight, Rule,
-    RuleInput, RulePreview, SourceType, SummaryTemplate, Tag, TagSummary,
+    RuleInput, RulePreview, SourceType, SummaryTemplate, SyncChange, SyncEntity, SyncOperation,
+    Tag, TagSummary,
 };
 use crate::error::{CoreError, ErrorCategory};
+use crate::sync::SyncPull;
 
 /// Number of read-only connections in the UI query pool.
 const READER_POOL_SIZE: usize = 3;
@@ -2064,6 +2066,226 @@ impl Db {
         })
     }
 
+    /// Read a bounded, provider-agnostic batch from the transactional change
+    /// log. Only P6B's supported entities and article read/starred fields are
+    /// eligible for remote delivery.
+    pub fn pending_sync_changes(
+        &self,
+        provider: &str,
+        after_sequence: i64,
+        limit: usize,
+    ) -> Result<Vec<SyncChange>, CoreError> {
+        let provider = validate_sync_cursor_key(provider)?;
+        let limit = i64::try_from(limit.clamp(1, 500))
+            .map_err(|_| CoreError::coded(ErrorCategory::InvalidInput, "invalidSyncBatch", None))?;
+        let conn = self.reader()?;
+        let mut statement = conn
+            .prepare(
+                "SELECT c.entity, c.entity_id, c.field, c.value, c.op, c.seq, \
+                        CASE WHEN c.entity = 'feed' THEN f.feed_url \
+                             WHEN c.entity = 'article' THEN a.url END, \
+                        CASE WHEN c.entity = 'feed' THEN fo.name END, m.remote_id \
+                 FROM change_log c \
+                 LEFT JOIN feeds f ON c.entity = 'feed' AND f.id = c.entity_id \
+                 LEFT JOIN folders fo ON fo.id = f.folder_id \
+                 LEFT JOIN articles a ON c.entity = 'article' AND a.id = c.entity_id \
+                 LEFT JOIN remote_id_map m ON m.provider = ?1 AND m.entity_type = c.entity AND m.local_id = c.entity_id \
+                 WHERE c.seq > ?2 \
+                   AND (c.entity IN ('folder', 'feed') \
+                     OR (c.entity = 'article' AND c.field IN ('read', 'starred'))) \
+                 ORDER BY c.seq LIMIT ?3",
+            )
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        let rows = statement
+            .query_map((provider, after_sequence.max(0), limit), |row| {
+                let entity: String = row.get(0)?;
+                let op: String = row.get(4)?;
+                Ok((
+                    entity,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    op,
+                    row.get::<_, i64>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                ))
+            })
+            .map_err(|e| CoreError::Db(e.to_string()))?;
+        rows.map(|row| {
+            let (entity, local_id, field, value, op, sequence, url, folder, remote_id) =
+                row.map_err(|e| CoreError::Db(e.to_string()))?;
+            let entity = SyncEntity::from_change_log(&entity)
+                .ok_or_else(|| CoreError::coded(ErrorCategory::Sync, "invalidSyncChange", None))?;
+            Ok(SyncChange {
+                sequence,
+                entity,
+                local_id,
+                operation: if op == "delete" {
+                    SyncOperation::Tombstone
+                } else {
+                    SyncOperation::Upsert
+                },
+                field,
+                value,
+                remote_id,
+                url,
+                folder,
+            })
+        })
+        .collect()
+    }
+
+    /// Read an opaque per-provider cursor. Callers use distinct keys for pull
+    /// and push state (for example, `freshrss:pull` and `freshrss:push`).
+    pub fn get_sync_cursor(&self, provider: &str) -> Result<Option<String>, CoreError> {
+        let provider = validate_sync_cursor_key(provider)?;
+        let conn = self.reader()?;
+        conn.query_row(
+            "SELECT cursor FROM sync_cursor WHERE provider = ?1",
+            [provider],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| CoreError::Db(e.to_string()))
+    }
+
+    /// Persist an opaque cursor after a provider acknowledges a completed
+    /// operation. No credential data may be passed here.
+    pub fn set_sync_cursor(&self, provider: &str, cursor: &str) -> Result<(), CoreError> {
+        let provider = validate_sync_cursor_key(provider)?;
+        if cursor.trim().is_empty() {
+            return Err(CoreError::coded(
+                ErrorCategory::InvalidInput,
+                "invalidSyncCursor",
+                None,
+            ));
+        }
+        let conn = self.writer()?;
+        conn.execute(
+            "INSERT INTO sync_cursor (provider, cursor, updated_at) VALUES (?1, ?2, datetime('now')) \
+             ON CONFLICT(provider) DO UPDATE SET cursor = excluded.cursor, updated_at = excluded.updated_at",
+            (provider, cursor),
+        )
+        .map_err(|e| CoreError::Db(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Merge a provider pull and its cursor in one transaction. Remote
+    /// additions never enter the local outbox, and remote tombstones never
+    /// delete local subscriptions or folders.
+    pub fn apply_sync_pull(
+        &self,
+        provider: &str,
+        pull: &SyncPull,
+        protected_after_sequence: i64,
+    ) -> Result<usize, CoreError> {
+        let provider = validate_sync_cursor_key(provider)?;
+        let pull_key = format!("{provider}:pull");
+        validate_sync_cursor_key(&pull_key)?;
+        if pull
+            .cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.trim().is_empty())
+        {
+            return Err(CoreError::coded(
+                ErrorCategory::Sync,
+                "invalidSyncCursor",
+                None,
+            ));
+        }
+        self.transact(|tx| {
+            let mut merged = 0;
+            for entity in [SyncEntity::Folder, SyncEntity::Feed, SyncEntity::Article] {
+                for change in pull.changes.iter().filter(|change| change.entity == entity) {
+                    if change.operation == SyncOperation::Tombstone || change.remote_id.is_empty() {
+                        continue;
+                    }
+                    let local_id = match entity {
+                        SyncEntity::Folder => {
+                            let Some(name) = change.value.as_deref().map(str::trim).filter(|name| !name.is_empty()) else { continue };
+                            let existing = tx.query_row(
+                                "SELECT id FROM folders WHERE name = ?1 COLLATE NOCASE",
+                                [name], |row| row.get::<_, i64>(0),
+                            ).optional().map_err(|error| CoreError::Db(error.to_string()))?;
+                            match existing {
+                                Some(id) => id,
+                                None => {
+                                    tx.execute("INSERT INTO folders (name, position) VALUES (?1, (SELECT COALESCE(MAX(position), 0) + 1 FROM folders))", [name])
+                                        .map_err(|error| CoreError::Db(error.to_string()))?;
+                                    merged += 1;
+                                    tx.last_insert_rowid()
+                                }
+                            }
+                        }
+                        SyncEntity::Feed => {
+                            let Some(url) = change.value.as_deref().filter(|url| url.starts_with("http://") || url.starts_with("https://")) else { continue };
+                            let existing = tx.query_row(
+                                "SELECT id FROM feeds WHERE feed_url = ?1", [url], |row| row.get::<_, i64>(0),
+                            ).optional().map_err(|error| CoreError::Db(error.to_string()))?;
+                            let id = match existing {
+                                Some(id) => id,
+                                None => {
+                                    tx.execute("INSERT INTO feeds (feed_url, title, source_type, updated_at) VALUES (?1, ?1, 'rss', datetime('now'))", [url])
+                                        .map_err(|error| CoreError::Db(error.to_string()))?;
+                                    merged += 1;
+                                    tx.last_insert_rowid()
+                                }
+                            };
+                            if let Some(folder_remote_id) = change.folder_remote_id.as_deref() {
+                                let folder_id = tx.query_row(
+                                    "SELECT local_id FROM remote_id_map WHERE provider = ?1 AND entity_type = 'folder' AND remote_id = ?2",
+                                    (provider, folder_remote_id), |row| row.get::<_, i64>(0),
+                                ).optional().map_err(|error| CoreError::Db(error.to_string()))?;
+                                if let Some(folder_id) = folder_id {
+                                    merged += tx.execute("UPDATE feeds SET folder_id = ?2 WHERE id = ?1 AND folder_id IS NULL", (id, folder_id))
+                                        .map_err(|error| CoreError::Db(error.to_string()))?;
+                                }
+                            }
+                            id
+                        }
+                        SyncEntity::Article => {
+                            let Some(url) = change.url.as_deref() else { continue };
+                            let Some(id) = tx.query_row(
+                                "SELECT id FROM articles WHERE url = ?1 LIMIT 1", [url], |row| row.get::<_, i64>(0),
+                            ).optional().map_err(|error| CoreError::Db(error.to_string()))? else { continue };
+                            if let (Some(field), Some(value)) = (change.field.as_deref(), change.value.as_deref()) {
+                                let column = match field {
+                                    "read" => "is_read",
+                                    "starred" => "is_starred",
+                                    _ => continue,
+                                };
+                                let state = match value { "1" => 1, "0" => 0, _ => continue };
+                                let pending: bool = tx.query_row(
+                                    "SELECT EXISTS(SELECT 1 FROM change_log WHERE entity = 'article' AND entity_id = ?1 AND field = ?2 AND seq > ?3)",
+                                    (id, field, protected_after_sequence), |row| row.get(0),
+                                ).map_err(|error| CoreError::Db(error.to_string()))?;
+                                if !pending {
+                                    merged += tx.execute(&format!("UPDATE articles SET {column} = ?2 WHERE id = ?1 AND {column} != ?2"), (id, state))
+                                        .map_err(|error| CoreError::Db(error.to_string()))?;
+                                }
+                            }
+                            id
+                        }
+                    };
+                    let entity_type = match entity { SyncEntity::Folder => "folder", SyncEntity::Feed => "feed", SyncEntity::Article => "article" };
+                    tx.execute(
+                        "INSERT INTO remote_id_map (provider, entity_type, local_id, remote_id) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(provider, entity_type, local_id) DO UPDATE SET remote_id = excluded.remote_id",
+                        (provider, entity_type, local_id, &change.remote_id),
+                    ).map_err(|error| CoreError::Db(error.to_string()))?;
+                }
+            }
+            if let Some(cursor) = pull.cursor.as_deref() {
+                tx.execute(
+                    "INSERT INTO sync_cursor (provider, cursor, updated_at) VALUES (?1, ?2, datetime('now')) ON CONFLICT(provider) DO UPDATE SET cursor = excluded.cursor, updated_at = excluded.updated_at",
+                    (&pull_key, cursor),
+                ).map_err(|error| CoreError::Db(error.to_string()))?;
+            }
+            Ok(merged)
+        })
+    }
+
     /// Returns all feeds that should be refreshed.
     pub fn feeds_to_refresh(&self) -> Result<Vec<FeedRefreshInfo>, CoreError> {
         let conn = self.reader()?;
@@ -2309,6 +2531,23 @@ fn ensure_changed(changed: usize, code: &'static str, id: i64) -> Result<(), Cor
     } else {
         Ok(())
     }
+}
+
+fn validate_sync_cursor_key(value: &str) -> Result<&str, CoreError> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 120
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'_' | b'-' | b'.'))
+    {
+        return Err(CoreError::coded(
+            ErrorCategory::InvalidInput,
+            "invalidSyncCursorKey",
+            None,
+        ));
+    }
+    Ok(value)
 }
 
 /// Locate a persisted highlight in current reader text. Offsets are UTF-16
@@ -2631,6 +2870,54 @@ mod tests {
         assert_eq!(entity_id, feed_id);
         assert_eq!(op, "upsert");
         assert_eq!(seq, 1);
+    }
+
+    #[test]
+    fn sync_batch_filters_local_only_changes_and_keeps_tombstones() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+        let feed_id = db.add_feed("https://example.com/feed.xml").unwrap();
+        assert_eq!(
+            db.pending_sync_changes("fake", 0, 50).unwrap()[0]
+                .url
+                .as_deref(),
+            Some("https://example.com/feed.xml")
+        );
+        db.create_tag("local only").unwrap();
+        db.delete_feed(feed_id).unwrap();
+
+        let changes = db.pending_sync_changes("fake", 0, 50).unwrap();
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0].entity, SyncEntity::Feed);
+        assert_eq!(changes[0].operation, SyncOperation::Upsert);
+        assert_eq!(changes[0].url, None);
+        assert_eq!(changes[1].entity, SyncEntity::Feed);
+        assert_eq!(changes[1].operation, SyncOperation::Tombstone);
+        assert_eq!(changes[1].url, None);
+        assert!(changes
+            .iter()
+            .all(|change| change.entity == SyncEntity::Feed));
+    }
+
+    #[test]
+    fn sync_cursor_is_opaque_and_validated() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Db::new(&tmp.path().join("test.db")).unwrap();
+
+        assert_eq!(db.get_sync_cursor("freshrss:push").unwrap(), None);
+        db.set_sync_cursor("freshrss:push", "42").unwrap();
+        assert_eq!(
+            db.get_sync_cursor("freshrss:push").unwrap().as_deref(),
+            Some("42")
+        );
+        assert_eq!(
+            db.set_sync_cursor("bad key", "42").unwrap_err().code(),
+            "invalidSyncCursorKey"
+        );
+        assert_eq!(
+            db.set_sync_cursor("freshrss:push", " ").unwrap_err().code(),
+            "invalidSyncCursor"
+        );
     }
 
     #[test]

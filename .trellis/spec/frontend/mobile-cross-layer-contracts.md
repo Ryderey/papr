@@ -196,6 +196,110 @@ const RefreshOptions(feedIds: null, force: true);
 Keep due selection and feed error isolation in Core, and keep WorkManager and
 notification permission behavior in the Android/Flutter adapter.
 
+## Scenario: FreshRSS and Miniflux reader sync
+
+### 1. Scope / Trigger
+
+- Trigger: Android syncs subscriptions, folders, read state, or stars through a
+  GReader-compatible FreshRSS or Miniflux account.
+- Why: Core must own merge and retry semantics while Flutter transports a
+  request-time Keystore credential without persisting it.
+
+### 2. Signatures
+
+```rust
+SyncProfile { provider, server_url, username, credential_ref }
+SyncStatus { profile, last_success_at, last_error_code, background_due }
+test_sync_connection(core, profile, credential) -> Result<(), PaprBridgeError>
+connect_sync_profile(core, profile, credential) -> Result<(), PaprBridgeError>
+get_sync_status(core) -> Result<SyncStatus, PaprBridgeError>
+sync_now(core, credential) -> Result<usize, PaprBridgeError>
+delete_sync_profile(core) -> Result<Option<String>, PaprBridgeError>
+Db::pending_sync_changes(provider, after_sequence, limit) -> Result<Vec<SyncChange>, CoreError>
+Db::apply_sync_pull(provider, pull, protected_after_sequence) -> Result<usize, CoreError>
+```
+
+Android plugin channel `com.papr.papr_mobile/sync_credentials` exposes
+`setSyncCredential`, `getSyncCredential`, and `deleteSyncCredential` with
+`credentialRef`; the setter also receives `secret`. It is a local Flutter
+plugin so Workmanager's separate Flutter engine registers it automatically.
+
+### 3. Contracts
+
+- `credential_ref` must match `papr.sync.[A-Za-z0-9_-]{1,80}`. The AI channel
+  accepts only `papr.ai.*`; neither namespace can read, overwrite, or delete
+  the other. Only the reference enters SQLite or an FRB DTO. The password and
+  transient GReader auth/edit tokens never do.
+- Connection probes the provider before replacing saved metadata. Flutter
+  writes a fresh Keystore alias and removes it if the probe fails; after a
+  successful replacement it removes the previous alias. A disconnect deletes
+  Core metadata and then its returned alias.
+- The local change log is a durable outbox. Advance `<credential_ref>:push`
+  only through a contiguous acknowledged prefix. Pull merges folders, feeds,
+  and article state in one transaction; article fields with a later local
+  change remain protected. A second push after pull sends article changes
+  whose remote IDs were learned during that pull.
+- GReader uses the FreshRSS `/api/greader.php` root or the Miniflux base URL.
+  Both share `ClientLogin`, `/token`, `subscription/list`, `subscription/edit`,
+  `stream/items/ids`, `stream/items/contents`, and `edit-tag`. An existing
+  uncategorized remote feed may receive a local folder through `ac=edit`;
+  an existing remote category is not overwritten. Missing remote entries
+  and local tombstones do not trigger deletion on either side.
+- The existing `papr.background.refresh` Worker refreshes feeds and handles
+  notifications before checking `background_due`. Core makes sync due six
+  hours after success; a failed attempt records only a stable error code and
+  pauses background sync until a manual retry succeeds. Sync failure does
+  not fail a completed feed refresh.
+
+### 4. Validation & Error Matrix
+
+| Condition | Stable result |
+| --- | --- |
+| URL contains credentials, query, fragment, or has no HTTP(S) host | `invalidSyncProfile`; existing connection stays |
+| Keystore credential missing or unreadable | `syncCredentialMissing` or credential store code; no secret detail |
+| Provider rejects authentication | `syncAuthFailed`; no response body |
+| Network request fails | `syncUnavailable`; outbox cursor remains retryable |
+| Provider returns an error or malformed payload | `syncProviderFailed` / `syncInvalidResponse` |
+| Snapshot exceeds 20,000 items or 100 pages | `syncTooManyItems`; no partial pull merge |
+| Push acknowledges a noncontiguous subset | only the confirmed prefix advances |
+
+### 5. Good / Base / Bad Cases
+
+- Good: local read change is initially missing a remote ID. Pull maps its URL
+  to a remote article, then the same manual pass pushes the read change.
+- Base: the remote has an uncategorized feed already present locally under
+  `Tech`; subscription edit adds that folder without duplicating the feed.
+- Bad: provider push or pull fails. Keep the local mutation, leave the
+  unconfirmed cursor unchanged, and show only a localized stable code.
+
+### 6. Tests Required
+
+- Core: Fake Provider replay, partial ack, tombstones, cursor retention,
+  conflict protection, and post-pull article-ID push; mock FreshRSS and
+  Miniflux roots/auth/endpoints and redacted authentication failures.
+- Flutter: both credential namespaces reject cross-use, the sync channel
+  receives only valid aliases, and Settings opens the connection screen.
+- Android: build/install a Debug APK, open Sync settings, verify a failed
+  connection does not save a profile, and inspect JobScheduler for one Papr
+  Worker. A real account smoke test remains needed before claiming provider
+  compatibility on a particular server version.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+// MainActivity channels are absent from Workmanager's headless FlutterEngine.
+final password = await activityOnlyChannel.invokeMethod('getSyncCredential');
+```
+
+#### Correct
+
+```dart
+// The app-owned plugin registers in both engines and checks the sync alias.
+final password = await platformService.getSyncCredential(profile.credentialRef);
+```
+
 ## Scenario: AI summary and LLM translation
 
 ### 1. Scope / Trigger

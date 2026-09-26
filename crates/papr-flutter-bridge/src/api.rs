@@ -17,7 +17,7 @@ use crate::dto::{
     ArticleSummary, DiscoveryResult, Enclosure, Feed, Folder, Highlight, HighlightInput,
     OpmlImportReport, PaprCoreConfig, Platform, ReadingSettings, RefreshError, RefreshOptions,
     RefreshReport, ResolvedHighlight, Rule, RuleInput, RulePreview, SettingsSnapshot, SourceType,
-    SummaryTemplate, Tag, TagSummary,
+    SummaryTemplate, SyncProfile, SyncProvider, SyncStatus, Tag, TagSummary,
 };
 use crate::error::PaprBridgeError;
 use crate::frb_generated::StreamSink;
@@ -623,6 +623,62 @@ pub async fn set_reading_settings(
         .await?)
 }
 
+/// Read the external sync connection metadata without its Keystore credential.
+pub async fn get_sync_profile(
+    core: &PaprCoreBridge,
+) -> Result<Option<SyncProfile>, PaprBridgeError> {
+    Ok(core
+        .inner
+        .settings_service()
+        .get_sync_profile()
+        .await?
+        .map(Into::into))
+}
+
+/// Probe a provider without changing the saved connection.
+pub async fn test_sync_connection(
+    core: &PaprCoreBridge,
+    profile: SyncProfile,
+    credential: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .sync_service()
+        .test_connection(&profile.into(), credential, Arc::clone(core.inner.http()))
+        .await?)
+}
+
+/// Save connection metadata only after the transient credential is verified.
+pub async fn connect_sync_profile(
+    core: &PaprCoreBridge,
+    profile: SyncProfile,
+    credential: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .sync_service()
+        .connect(profile.into(), credential, Arc::clone(core.inner.http()))
+        .await?)
+}
+
+pub async fn get_sync_status(core: &PaprCoreBridge) -> Result<SyncStatus, PaprBridgeError> {
+    Ok(core.inner.sync_service().status().await?.into())
+}
+
+/// Run the configured connection with a one-call Keystore credential.
+pub async fn sync_now(core: &PaprCoreBridge, credential: String) -> Result<usize, PaprBridgeError> {
+    Ok(core
+        .inner
+        .sync_service()
+        .sync_configured(credential, Arc::clone(core.inner.http()))
+        .await?)
+}
+
+/// Delete sync metadata and return its Keystore alias for platform cleanup.
+pub async fn delete_sync_profile(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
+    Ok(core.inner.settings_service().delete_sync_profile().await?)
+}
+
 /// List persistable AI profile metadata. This API never returns credentials.
 pub async fn list_ai_profiles(core: &PaprCoreBridge) -> Result<Vec<AiProfile>, PaprBridgeError> {
     Ok(core
@@ -961,6 +1017,57 @@ impl From<papr_core::ai::AiProfile> for AiProfile {
             credential_ref: profile.credential_ref,
             enabled: profile.enabled,
             default_for: profile.default_for.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<SyncProvider> for papr_core::sync::SyncProvider {
+    fn from(provider: SyncProvider) -> Self {
+        match provider {
+            SyncProvider::FreshRss => Self::FreshRss,
+            SyncProvider::Miniflux => Self::Miniflux,
+        }
+    }
+}
+
+impl From<papr_core::sync::SyncProvider> for SyncProvider {
+    fn from(provider: papr_core::sync::SyncProvider) -> Self {
+        match provider {
+            papr_core::sync::SyncProvider::FreshRss => Self::FreshRss,
+            papr_core::sync::SyncProvider::Miniflux => Self::Miniflux,
+        }
+    }
+}
+
+impl From<SyncProfile> for papr_core::sync::SyncProfile {
+    fn from(profile: SyncProfile) -> Self {
+        Self {
+            provider: profile.provider.into(),
+            server_url: profile.server_url,
+            username: profile.username,
+            credential_ref: profile.credential_ref,
+        }
+    }
+}
+
+impl From<papr_core::sync::SyncProfile> for SyncProfile {
+    fn from(profile: papr_core::sync::SyncProfile) -> Self {
+        Self {
+            provider: profile.provider.into(),
+            server_url: profile.server_url,
+            username: profile.username,
+            credential_ref: profile.credential_ref,
+        }
+    }
+}
+
+impl From<papr_core::services::sync::SyncStatus> for SyncStatus {
+    fn from(status: papr_core::services::sync::SyncStatus) -> Self {
+        Self {
+            profile: status.profile.map(Into::into),
+            last_success_at: status.last_success_at,
+            last_error_code: status.last_error_code,
+            background_due: status.background_due,
         }
     }
 }

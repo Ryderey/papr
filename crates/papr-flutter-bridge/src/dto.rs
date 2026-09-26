@@ -54,6 +54,35 @@ pub struct AiProfile {
     pub default_for: Vec<AiPurpose>,
 }
 
+/// Mobile-supported external reader service families.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[frb]
+pub enum SyncProvider {
+    FreshRss,
+    Miniflux,
+}
+
+/// Persistable sync connection metadata. Its credential lives only in Android
+/// Keystore and is referenced by `credential_ref`.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct SyncProfile {
+    pub provider: SyncProvider,
+    pub server_url: String,
+    pub username: String,
+    pub credential_ref: String,
+}
+
+/// Secret-free connection and last-sync state.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct SyncStatus {
+    pub profile: Option<SyncProfile>,
+    pub last_success_at: Option<String>,
+    pub last_error_code: Option<String>,
+    pub background_due: bool,
+}
+
 /// Supported formats for an AI-generated article summary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[frb]

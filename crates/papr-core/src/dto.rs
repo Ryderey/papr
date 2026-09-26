@@ -386,3 +386,49 @@ pub struct DiscoveryResult {
     /// it was scraped live from a page the user pasted.
     pub from_directory: bool,
 }
+
+/// A local entity whose changes can be exchanged with a feed reader service.
+///
+/// P6B deliberately limits this to subscriptions, folders, and article state.
+/// Tags, rules, highlights, and article bodies stay local for now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncEntity {
+    Folder,
+    Feed,
+    Article,
+}
+
+impl SyncEntity {
+    pub(crate) fn from_change_log(value: &str) -> Option<Self> {
+        match value {
+            "folder" => Some(Self::Folder),
+            "feed" => Some(Self::Feed),
+            "article" => Some(Self::Article),
+            _ => None,
+        }
+    }
+}
+
+/// The non-destructive form of a local mutation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncOperation {
+    Upsert,
+    Tombstone,
+}
+
+/// A durable local mutation read from the transactional change log.
+///
+/// `sequence` is strictly increasing. A provider cursor may advance only over
+/// an unbroken sequence of acknowledged changes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyncChange {
+    pub sequence: i64,
+    pub entity: SyncEntity,
+    pub local_id: i64,
+    pub operation: SyncOperation,
+    pub field: Option<String>,
+    pub value: Option<String>,
+    pub remote_id: Option<String>,
+    pub url: Option<String>,
+    pub folder: Option<String>,
+}

@@ -11,6 +11,7 @@ pub mod extraction;
 pub mod ingestion;
 pub mod opml;
 pub mod services;
+pub mod sync;
 pub mod translate;
 
 use std::sync::Arc;
@@ -19,7 +20,7 @@ use db::Db;
 use error::CoreError;
 use services::{
     AiService, ArticleService, FeedService, FolderService, IngestionService, OpmlService,
-    SettingsService,
+    SettingsService, SyncService,
 };
 
 /// The root handle for all Papr business operations.
@@ -38,6 +39,7 @@ pub struct PaprCore {
     ingestion_service: IngestionService,
     opml_service: OpmlService,
     settings_service: SettingsService,
+    sync_service: SyncService,
 }
 
 impl PaprCore {
@@ -75,6 +77,7 @@ impl PaprCore {
             ingestion_service: IngestionService::new(Arc::clone(&db), Arc::clone(&http)),
             opml_service: OpmlService::new(Arc::clone(&db)),
             settings_service: SettingsService::new(Arc::clone(&db)),
+            sync_service: SyncService::new(Arc::clone(&db)),
             _db: db,
             http,
             config,
@@ -120,5 +123,9 @@ impl PaprCore {
 
     pub fn settings_service(&self) -> &SettingsService {
         &self.settings_service
+    }
+
+    pub fn sync_service(&self) -> &SyncService {
+        &self.sync_service
     }
 }
