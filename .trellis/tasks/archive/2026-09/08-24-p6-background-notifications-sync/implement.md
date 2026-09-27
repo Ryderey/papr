@@ -6,7 +6,7 @@
 4. [x] 暴露 FRB 手动刷新/同步/状态 API，先完成 Flutter 前台闭环。
 5. [x] 接入 Keystore、WorkManager、通知权限/渠道/汇总与唯一任务。
 6. [x] 实现最小设置、错误重试、重置与清除数据 UI。
-7. [ ] 运行全量门禁并执行断网、Doze、杀进程、重复唤醒和权限拒绝设备测试。
+7. [x] 运行全量门禁并执行断网、Doze、杀进程、重复唤醒和权限拒绝设备测试。
 
 ## Progress — 2026-09-27
 
@@ -53,10 +53,16 @@
   `SUCCESS` at 05:05:43 and again left one next-period job. The article list
   still held 60 items, and no Papr notification was active, so the required
   nonzero-new-article notification and quiet-hour suppression remain unproven.
-- Remaining acceptance: observe a due new-article notification and quiet-hour
-  suppression after process reclaim; exercise live FreshRSS and Miniflux
-  accounts when credentials are available. Keep this parent task open until
-  device and release checks have evidence.
+- User-reported acceptance (2026-09-27): a real new-article notification,
+  night quiet-hour suppression, and external synchronization all passed.
+  These observations were performed by the user after the agent's 05:05 run;
+  device logs and provider-specific details were not supplied to this record.
+- Doze check on `emulator-5554`: forced deep idle made
+  `DEVICE_NOT_DOZING` unsatisfied for the single Papr job. Releasing idle
+  restored the constraint; the emulator returned to `ACTIVE`. The user
+  confirmed the remaining live notification and external-sync acceptance;
+  provider and scenario logs were not attached, so the sign-off is recorded
+  as user-reported rather than agent-observed.
 
 ## Rollback
 

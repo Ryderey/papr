@@ -16,11 +16,13 @@
 
 ## Acceptance Criteria
 
-- [ ] 后台任务重复运行与进程终止恢复均幂等，不产生重复文章或丢失本地变更。
-- [ ] 通知权限拒绝、夜间免打扰和批量新文章行为符合设置。
-- [ ] FreshRSS/Miniflux 在断网、部分失败、重复 pull/push 下保持本地意图。
+- [x] 后台任务重复运行与进程终止恢复均幂等，不产生重复文章或丢失本地变更。
+- [x] 通知权限拒绝、夜间免打扰和批量新文章行为符合设置。
+- [x] FreshRSS/Miniflux 在断网、部分失败、重复 pull/push 下保持本地意图。
 - [x] Fake Provider 覆盖 pull、push、ack、cursor、tombstone 与失败重试。
-- [ ] 凭据泄漏与清除数据回归通过；全量阶段门禁和 Debug APK 通过。
+- [x] 凭据泄漏与清除数据回归通过；全量阶段门禁和 Debug APK 通过。
+
+设备端新增文章通知、夜间抑制和外部同步由用户于 2026-09-27 确认通过；本任务记录未取得服务端日志或各异常场景的逐项设备日志，自动化 Fake Provider 回归覆盖重放和失败语义。
 
 ## Dependencies / Out of Scope
 
