@@ -218,3 +218,41 @@ Added Media3 playback service, Flutter playback controls, and unified Android pl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: P6B FreshRSS and Miniflux sync
+
+**Date**: 2026-09-27
+**Task**: P6B FreshRSS and Miniflux sync
+**Branch**: `feat/flutter-android-rearchitecture`
+
+### Summary
+
+Completed Core GReader sync, FRB APIs, Android Keystore plugin, Flutter settings and low-frequency background sync. Core 101 tests and Flutter 29 tests passed; FRB check, Flutter analyze and Debug APK passed. Real-server smoke testing remains.
+
+### Main Changes
+
+- Added durable Core outbox and GReader adapters for FreshRSS and Miniflux, then exposed sync APIs through FRB.
+- Added Android Keystore access for background sync and localized Flutter connection controls.
+- Archived the P6B task after validating its context paths and acceptance criteria.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `92e700b` | (see git log) |
+| `82bfdc8` | (see git log) |
+
+### Testing
+
+- Core: 101 tests passed. Flutter: 29 tests passed.
+- FRB check, Flutter analyze, targeted Rust formatting, Debug APK build, and emulator launch passed.
+- Full-repository `cargo fmt --check` still reports unrelated existing `src-tauri` formatting differences.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Smoke-test both providers against real servers when credentials are available.
