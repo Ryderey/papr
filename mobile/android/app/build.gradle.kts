@@ -1,24 +1,7 @@
-import java.io.FileInputStream
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-}
-
-val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    FileInputStream(keystorePropertiesFile).use(keystoreProperties::load)
-}
-if (gradle.startParameter.taskNames.any { it.substringAfterLast(':').contains("Release", ignoreCase = true) }) {
-    val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
-    if (required.any { keystoreProperties.getProperty(it).isNullOrBlank() } ||
-        !file(keystoreProperties.getProperty("storeFile") ?: "").isFile
-    ) {
-        throw GradleException("Release signing requires a valid android/key.properties and keystore")
-    }
 }
 
 android {
@@ -43,18 +26,10 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
-            storePassword = keystoreProperties.getProperty("storePassword")
-        }
-    }
-
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Internal RC only; plan production signing when store distribution is needed.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }

@@ -2,7 +2,7 @@
 
 ## Goal
 
-以 `docs/desktop-mobile-porting-feature-analysis.md` 为范围判断依据，按更新后的 `docs/flutter-android-phased-development-plan.md` 推进 P0→P7，把 Flutter Android 端从「可用性验证」提升到「可进入 Google Play 内测的 Release Candidate」，不追求桌面交互与半成品功能的数量对齐。
+以 `docs/desktop-mobile-porting-feature-analysis.md` 为范围判断依据，按更新后的 `docs/flutter-android-phased-development-plan.md` 推进 P0→P7，把 Flutter Android 端从「可用性验证」提升到「可供内部安装验收的 Release Candidate」，不追求桌面交互与半成品功能的数量对齐。
 
 父任务持有源需求、子任务映射与跨阶段验收规则；实现落到各子任务，本任务不直接实现。
 
@@ -33,9 +33,9 @@
 | P4 | 翻译与 AI 摘要 | AI/翻译/SSE 下沉 core、BYOK、Keystore 存 Key、摘要与翻译引擎 |
 | P5 | Podcast 与 Android 原生播放 | Podcast 播放器、MediaSession、前台服务、锁屏/蓝牙控制 |
 | P6 | 后台刷新、通知与外部同步 | WorkManager、通知、FreshRSS/Miniflux、SyncPort、凭据安全、最小重置/清除能力 |
-| P7 | 功能矩阵验收与可发布 RC | 功能矩阵、无障碍/窄屏、多设备、Release AAB、隐私说明 |
+| P7 | 功能矩阵验收与内部 RC | 功能矩阵、无障碍/窄屏、多设备、内部 APK、隐私说明 |
 
-P0–P6 已归档；P7 正在执行范围、兼容、升级与发布验收。各阶段独立验证，P6 最终通知与外部同步设备结果由用户确认，细节记录见 P6 归档任务。
+P0–P6 已归档；P7 正在执行范围、兼容、升级与内部验收。各阶段独立验证，P6 最终通知与外部同步设备结果由用户确认，细节记录见 P6 归档任务。
 
 ## 明确排除
 
@@ -66,7 +66,7 @@ flutter analyze
 flutter build apk --debug
 ```
 
-涉及桌面适配时追加：`cargo test -p papr`、`pnpm test`、`pnpm build`。P6 起增加 Release AAB 构建与真实设备验证。
+涉及桌面适配时追加：`cargo test -p papr`、`pnpm test`、`pnpm build`。P7 增加内部 Release APK 构建与真实设备验证。
 
 ## Acceptance Criteria（父任务层面）
 
@@ -74,10 +74,10 @@ flutter build apk --debug
 - [ ] Rust、Flutter、FRB、桌面回归全部通过。
 - [ ] 从正式 Alpha schema 连续升级到 RC，未再次依赖清库。
 - [ ] 无阻塞级崩溃、数据丢失、密钥泄露、迁移问题。
-- [ ] Release AAB 可安装、升级、启动并完成订阅到阅读全链路。
+- [ ] 内部 Release APK 可安装、从同证书 Alpha 原位升级、启动并完成订阅到阅读全链路。
 
 ## Out of Scope
 
 - `docs/desktop-mobile-porting-feature-analysis.md` 档位一、档位三中标记“砍/不照搬”的桌面能力，以及档位四低价值半成品。
 - iOS 保持可移植性，但不进入本计划验收矩阵。
-- Google Play 商店运营材料不属于本计划。
+- 正式签名、AAB、Google Play 上架及商店运营材料不属于本计划，未来有分发需求时另行规划。

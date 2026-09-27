@@ -1,6 +1,6 @@
 # Papr Android data and privacy notes
 
-These notes describe the current Android app behavior for RC review. They are a product data-flow summary, not a completed store privacy declaration.
+These notes describe the current Android app behavior for internal RC review.
 
 | Data / action | Where it goes |
 | --- | --- |
@@ -12,4 +12,4 @@ These notes describe the current Android app behavior for RC review. They are a 
 
 Android may back up other app-private data under the current manifest rules; the credential preference file is explicitly excluded. A restore onto another device can therefore require re-entering AI or sync credentials. Users can disconnect a sync account or delete an AI profile in Settings. **Reset preferences** keeps content and credentials. **Clear all data** requests Android to erase the app's local database, cache, preferences and Keystore entries and closes the app; it does not erase content already exported through the system document picker or data held by a feed, AI, or sync provider. Uninstalling the app also removes its local app data under Android's normal behavior.
 
-Before publishing a store privacy declaration, confirm actual backup behavior on supported OS versions, third-party endpoints used by the configured providers, and the final release build's included SDKs.
+Before distributing the internal RC, confirm actual backup behavior on supported OS versions, third-party endpoints used by the configured providers, and the internal APK's included SDKs.

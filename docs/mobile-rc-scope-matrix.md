@@ -19,4 +19,4 @@ The following desktop capabilities remain excluded from this RC: tray/window/tas
 - Localization keys are present in English, Chinese and Japanese; translated wording, TalkBack, font scaling, contrast, reduced motion, dark mode and touch targets still need device review.
 - The current local Android emulator is API 37. Android 10, an intermediate API level, a tablet size and a physical device still need recorded runs.
 - Cold start, large data, long article/audio, background recovery and Alpha-to-RC migration still need recorded results.
-- Release signing and a distributable AAB remain pending until a protected upload key and Alpha upgrade baseline are available. See [release procedure](mobile-rc-release.md).
+- The internal RC APK build, matching-certificate version 1→2 emulator installation and cold launch are recorded in the [RC procedure](mobile-rc-release.md). Formal Alpha data retention and the full device flow remain unverified.

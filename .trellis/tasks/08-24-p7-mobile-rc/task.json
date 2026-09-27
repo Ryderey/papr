@@ -1,8 +1,8 @@
 {
   "id": "p7-mobile-rc",
   "name": "p7-mobile-rc",
-  "title": "P7 移动范围验收与可发布 RC",
-  "description": "按精简移动范围完成质量、设备、升级、Release AAB 和隐私验收。",
+  "title": "P7 移动范围验收与内部 RC",
+  "description": "按精简移动范围完成质量、设备、升级、内部 APK 和隐私验收。",
   "status": "in_progress",
   "dev_type": null,
   "scope": null,

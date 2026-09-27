@@ -1,4 +1,4 @@
-# Design: P7 移动范围验收与可发布 RC
+# Design: P7 移动范围验收与内部 RC
 
 ## Evidence Model
 
@@ -10,7 +10,7 @@
 
 ## Artifact and Secrets
 
-Debug APK 用于迭代验收；最终 Release APK/AAB 使用本地或 CI 注入签名。仓库只记录构建步骤、版本和校验信息，不记录密钥。
+Debug APK 用于迭代验收；内部 RC 使用 Debug 签名的 Release APK。仓库只记录构建步骤、版本、校验值和证书指纹，不记录密钥。正式签名与商店分发留待后续任务规划。
 
 ## Rollback
 

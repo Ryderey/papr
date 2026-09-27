@@ -2,7 +2,7 @@
 
 > 状态：2026-08-24 按移动端适配分析重新收敛，可拆分为 Trellis 子任务执行
 > 目标平台：Android 10+  
-> 最终交付：可进入 Google Play 内测的 Release Candidate  
+> 最终交付：可供内部安装验收的 Release Candidate
 > 适用对象：负责 `papr-core`、Flutter Rust Bridge、Flutter UI、Android 平台集成和质量检查的 Agent
 
 ## 1. 目标与当前基线
@@ -237,7 +237,7 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 - 清除数据同时删除数据库、缓存和 Papr 在 Keystore 中的凭据。
 - Fake Sync Provider 完整演示 pull、push、ack、cursor、tombstone 和失败重试。
 
-## P7：功能矩阵验收与可发布 RC
+## P7：功能矩阵验收与内部 RC
 
 ### 实施内容
 
@@ -246,7 +246,7 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 - 完成 TalkBack、触控目标、颜色对比、减少动画和深色模式检查。
 - 测试 Android 10、一个中间版本和当前稳定版本，以及至少一种平板尺寸。
 - 执行冷启动、大数据库、长文章、长音频和后台刷新稳定性测试。
-- 生成签名 Release APK/AAB；签名材料仅存在本地安全环境或 CI Secret。
+- 生成内部测试 Release APK，记录版本、校验值和证书指纹；本阶段可使用 Android Debug 签名。
 - 验证从正式 Alpha schema 连续升级到 RC，禁止再次依赖清库。
 - 整理隐私说明：本地数据、Feed 请求、AI/翻译第三方请求、凭据和删除方式。
 
@@ -255,8 +255,8 @@ P0 → P1 → P2 → P3 → P4 → P5 → P6 → P7
 - Rust、Flutter、FRB 和桌面回归全部通过。
 - 无阻塞级崩溃、数据丢失、密钥泄露和迁移问题。
 - 核心业务场景在真实设备上完成端到端验收。
-- Release AAB 可安装、升级、启动并完成订阅到阅读全链路。
-- 达到 Google Play 内测准备状态；商店运营材料不属于本计划。
+- 内部 Release APK 可安装、从同证书 Alpha 原位升级、启动并完成订阅到阅读全链路。
+- 正式签名、AAB、Google Play 上架与商店运营材料留待未来有分发需求时规划。
 
 ## 4. 公共接口与数据契约
 
@@ -335,7 +335,7 @@ pnpm test
 pnpm build
 ```
 
-P6 起增加 Release AAB 构建和真实设备验证。无法执行某项检查时，任务交接必须说明原因，不能写成已通过。
+P7 增加内部 Release APK 构建和真实设备验证。无法执行某项检查时，任务交接必须说明原因，不能写成已通过。
 
 高风险场景必须有回归：重复订阅、迁移中断、断网、部分刷新失败、长正文、恶意 HTML、同步重放、规则批量执行、AI 流中断、凭据删除和后台任务重复唤醒。
 
