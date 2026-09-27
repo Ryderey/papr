@@ -2807,6 +2807,66 @@ mod tests {
     }
 
     #[test]
+    fn mobile_alpha_v16_database_upgrades_without_clearing_articles() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("alpha.db");
+        {
+            let mut conn = Connection::open(&path).unwrap();
+            Migrations::new(migrations().into_iter().take(16).collect())
+                .to_latest(&mut conn)
+                .unwrap();
+            conn.execute(
+                "INSERT INTO feeds (id, feed_url, title) VALUES (1, 'https://example.com/feed.xml', 'Alpha feed')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO articles (id, feed_id, guid, title, body_text, ai_summary) VALUES (1, 1, 'alpha-1', 'Alpha article', 'Retained body', 'Retained summary')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('theme', 'dark')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let db = Db::new(&path).unwrap();
+        let writer = db.writer().unwrap();
+        let (title, body, summary, template, language): (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+        ) = writer
+            .query_row(
+                "SELECT title, body_text, ai_summary, ai_summary_template, ai_summary_lang FROM articles WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (title.as_str(), body.as_str(), summary.as_str()),
+            ("Alpha article", "Retained body", "Retained summary")
+        );
+        assert_eq!((template, language), (None, None));
+        let theme: String = writer
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'theme'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(theme, "dark");
+        let version: i64 = writer
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version as usize, migrations().len());
+    }
+
+    #[test]
     fn reopening_does_not_clear_data() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join("test.db");

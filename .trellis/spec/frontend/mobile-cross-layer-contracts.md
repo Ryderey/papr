@@ -659,3 +659,75 @@ await File(databasePath).delete(); // Leaves sidecars, cache, and credentials.
 ```dart
 if (confirmed) await platformService.clearApplicationData();
 ```
+
+## Scenario: Android RC signing and Alpha database upgrade
+
+### 1. Scope / Trigger
+
+- Trigger: building an Android release variant or opening a database created by
+  the formal mobile Alpha schema (v16). These are separate gates: a schema test
+  cannot prove an APK upgrade across Android signing certificates.
+
+### 2. Signatures
+
+```text
+mobile/android/key.properties: storeFile, storePassword, keyAlias, keyPassword
+mobile/android/app/build.gradle.kts: signingConfigs.release
+Db::new(path) -> Result<Db, CoreError>
+```
+
+### 3. Contracts
+
+- `key.properties` and the keystore remain outside version control. Release
+  builds use the supplied upload key and never fall back to the debug signing
+  config. Debug builds do not require release signing material.
+- Core migrations are append-only. A v16 Alpha database opens under the latest
+  sequence without clearing articles, settings or other user state. The
+  one-time reset applies only to the older validation schema lacking FTS5.
+- Direct APK upgrade requires the installed Alpha and RC APK to share the same
+  app-signing certificate and RC to have a higher version code. An upload key
+  for Play may differ from the app-signing key delivered by Play.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+| --- | --- |
+| Release task lacks a valid `key.properties` or keystore | Gradle configuration fails with a release-signing error; no new AAB is produced |
+| Debug task lacks release signing material | Debug task remains buildable |
+| v16 database contains an article, cached summary and setting | Upgrade to latest migration keeps all values and adds v17 summary metadata columns |
+| Installed Alpha uses a different signing certificate | Direct APK upgrade is blocked by Android; do not clear data as a workaround |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a protected upload key signs the RC; a matching-certificate Alpha APK
+  upgrades in place and the retained article opens.
+- Base: local development has no upload key. Debug builds pass and Release
+  fails early with a clear error.
+- Bad: a Release AAB silently inherits the debug key or a migration test starts
+  from an empty database and claims to prove data retention.
+
+### 6. Tests Required
+
+- Core: `mobile_alpha_v16_database_upgrades_without_clearing_articles` applies
+  exactly the first 16 migrations, seeds an article, summary and setting, then
+  asserts the latest version and unchanged values after `Db::new`.
+- Gradle: without key material, `bundleRelease` must fail explicitly while
+  `assembleDebug` succeeds. With protected key material, build a signed AAB
+  and verify its signer, SHA-256, bundle 16 KiB page alignment and generated
+  APK/ELF alignment.
+- Android: install matching-certificate Alpha, then RC without uninstalling;
+  assert existing subscriptions/articles and credential behavior after launch.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```kotlin
+release { signingConfig = signingConfigs.getByName("debug") }
+```
+
+#### Correct
+
+```kotlin
+release { signingConfig = signingConfigs.getByName("release") }
+```
