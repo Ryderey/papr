@@ -1,0 +1,3 @@
+{"file": "docs/flutter-android-phased-development-plan.md", "reason": "P6 scope, security, scheduling, and acceptance requirements."}
+{"file": "docs/desktop-mobile-porting-feature-analysis.md", "reason": "Mobile-specific exclusions and Keystore/sync constraints."}
+{"file": "src-tauri/src/sync.rs", "reason": "Existing GReader behavior to preserve selectively while avoiding desktop-only persistence."}
