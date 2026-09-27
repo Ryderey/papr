@@ -579,3 +579,83 @@ For optimistic article state, update the visible row immediately, call the repos
 Do not implement a second rule matcher in Dart or use Dart string offsets as Rust byte offsets. Send the typed rule input unchanged and persist selection offsets as UTF-16 code units; Core owns both matching and anchor recovery.
 
 For persisted highlights, resolve in Core and use a DOM parser to split only affected text nodes. Do not use `String.replaceAll` or raw-HTML regular expressions: they can match markup, damage entities, and paint the wrong occurrence.
+
+## Scenario: Reset preferences and clear Android app data
+
+### 1. Scope / Trigger
+
+- Trigger: the user confirms a reset from Settings. Preference reset keeps
+  articles, subscriptions, AI profiles, and sync connections. Clear all data
+  requests removal of every local Papr database, cache, preference, and
+  credential record.
+
+### 2. Signatures
+
+```text
+AppearanceController.resetPreferences() -> Future<void>
+PlatformService.clearApplicationData() -> Future<bool>
+Android channel com.papr.papr_mobile/platform:
+  clearApplicationData(no arguments) -> Boolean
+ActivityManager.clearApplicationUserData() -> Boolean
+```
+
+### 3. Contracts
+
+- Reset preferences reuses the typed Core setters for theme, language, reading,
+  and background settings. It does not delete content or credentials. A failed
+  setter reports failure; the user can retry to finish a partial reset.
+- Clear all data requires a separate, explicit confirmation describing that
+  the app will close. Android's app-data API owns deletion so an open SQLite
+  handle, cache files, preferences, and platform credential storage are not
+  deleted by competing Dart file operations. The platform result says whether
+  Android accepted the request, not whether a still-running Flutter process
+  observed completion. The system may terminate the process immediately.
+- This operation covers local app data. It does not revoke a remote service
+  account or remove files the user previously exported through Storage Access
+  Framework. Android also revokes app permissions and clears notifications.
+- See the [Android ActivityManager contract](https://developer.android.com/reference/android/app/ActivityManager#clearApplicationUserData()).
+  The [AOSP package manager implementation](https://android.googlesource.com/platform/frameworks/base/+/c8f7613bbd04a1cc78d3891f0928d27a602e38f9/services/core/java/com/android/server/pm/PackageManagerService.java#5009)
+  clears app storage, runtime permissions, and the app UID's Keystore data.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+| --- | --- |
+| User cancels either dialog | No setter or platform call |
+| A preference setter fails | Show localized reset failure; keep content and credentials |
+| Android returns `false`, throws, or lacks the method | Show localized clear failure; keep the app usable |
+| Android accepts data clear | Allow the system to end the app process; do not report an in-process completion |
+
+### 5. Good / Base / Bad Cases
+
+- Good: confirming clear requests Android app-data erasure once, then the next
+  launch starts with an empty database and no readable Papr credentials.
+- Base: resetting preferences restores display and background defaults while
+  subscriptions and connected profiles remain.
+- Bad: clearing only `papr.db` leaves SQLite sidecars, cache, preferences, or
+  Keystore-backed credentials behind; never implement that shortcut.
+
+### 6. Tests Required
+
+- Flutter channel test: a `true`/`false` native response is passed through;
+  missing plugin and platform failure return `false`.
+- Widget test: both dialogs cancel without action and confirm exactly once.
+- Android acceptance on disposable or explicitly authorized data: after clear, relaunch and assert an
+  empty subscription list, absent cached files and credential ciphertext,
+  unavailable prior AI/sync credentials, and reset notification permission.
+  Do not run this destructive test against an existing user dataset without
+  explicit authorization.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+await File(databasePath).delete(); // Leaves sidecars, cache, and credentials.
+```
+
+#### Correct
+
+```dart
+if (confirmed) await platformService.clearApplicationData();
+```

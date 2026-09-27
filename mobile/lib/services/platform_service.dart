@@ -149,6 +149,16 @@ class PlatformService {
     }
   }
 
+  Future<bool> clearApplicationData() async {
+    try {
+      return await _channel.invokeMethod<bool>('clearApplicationData') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   static bool isValidAiCredentialRef(String value) {
     return _aiCredentialRefPattern.hasMatch(value);
   }

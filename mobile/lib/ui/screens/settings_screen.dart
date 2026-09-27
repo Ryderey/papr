@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/l10n.dart';
 import '../../repositories/settings_repository.dart';
 import '../../services/background_refresh_service.dart';
+import '../../services/platform_service.dart';
 import 'ai_profiles_screen.dart';
 import 'highlights_screen.dart';
 import 'organization_screen.dart';
@@ -322,6 +323,19 @@ class SettingsScreen extends ConsumerWidget {
                                 ),
                           ),
                 ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.restart_alt),
+                  title: Text(l10n.resetPreferences),
+                  onTap: appearance.isLoading
+                      ? null
+                      : () => _resetPreferences(context, ref),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_forever_outlined),
+                  title: Text(l10n.clearAllData),
+                  onTap: () => _clearAllData(context),
+                ),
               ],
             ),
           ),
@@ -374,6 +388,76 @@ class SettingsScreen extends ConsumerWidget {
           ),
         );
       }
+    }
+  }
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required String action,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(context.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(action),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _resetPreferences(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    if (!await _confirm(
+      context,
+      title: l10n.resetPreferencesTitle,
+      message: l10n.resetPreferencesMessage,
+      action: l10n.resetPreferences,
+    )) {
+      return;
+    }
+    try {
+      await ref.read(appearanceProvider.notifier).resetPreferences();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.resetPreferencesDone)),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.resetPreferencesFailed)),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearAllData(BuildContext context) async {
+    final l10n = context.l10n;
+    if (!await _confirm(
+      context,
+      title: l10n.clearAllDataTitle,
+      message: l10n.clearAllDataMessage,
+      action: l10n.clearAllData,
+    )) {
+      return;
+    }
+    final requested = await platformService.clearApplicationData();
+    if (!requested && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.clearAllDataFailed)),
+      );
     }
   }
 }

@@ -99,6 +99,37 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notification permission was not granted.';
 
   @override
+  String get resetPreferences => 'Reset preferences';
+
+  @override
+  String get resetPreferencesTitle => 'Reset preferences?';
+
+  @override
+  String get resetPreferencesMessage =>
+      'Restore theme, language, reading and background settings to their defaults? Subscriptions and accounts will remain.';
+
+  @override
+  String get resetPreferencesDone => 'Preferences reset.';
+
+  @override
+  String get resetPreferencesFailed =>
+      'Could not reset preferences. Try again.';
+
+  @override
+  String get clearAllData => 'Clear all data';
+
+  @override
+  String get clearAllDataTitle => 'Clear all app data?';
+
+  @override
+  String get clearAllDataMessage =>
+      'Delete local subscriptions, articles, settings, cached files and stored credentials? The app will close. This cannot be undone.';
+
+  @override
+  String get clearAllDataFailed =>
+      'Could not clear app data. Try again in Android settings.';
+
+  @override
   String minutes(int count) {
     return '$count min';
   }

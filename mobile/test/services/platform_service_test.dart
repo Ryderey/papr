@@ -106,6 +106,31 @@ void main() {
     expect(callCount, 0);
   });
 
+  test('clear application data reports whether Android accepted the request',
+      () async {
+    var calls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'clearApplicationData');
+      calls += 1;
+      return calls == 1;
+    });
+    final service = PlatformService();
+
+    expect(await service.clearApplicationData(), isTrue);
+    expect(await service.clearApplicationData(), isFalse);
+    expect(calls, 2);
+  });
+
+  test('clear application data handles a missing or failing native method',
+      () async {
+    final service = PlatformService();
+    expect(await service.clearApplicationData(), isFalse);
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      throw PlatformException(code: 'clearDataFailed');
+    });
+    expect(await service.clearApplicationData(), isFalse);
+  });
+
   test('playback commands validate inputs and use the platform contract',
       () async {
     final calls = <MethodCall>[];

@@ -89,6 +89,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationPermissionDenied => '未授予通知权限。';
 
   @override
+  String get resetPreferences => '重置偏好设置';
+
+  @override
+  String get resetPreferencesTitle => '重置偏好设置？';
+
+  @override
+  String get resetPreferencesMessage => '将主题、语言、阅读和后台设置恢复默认值？订阅和账号会保留。';
+
+  @override
+  String get resetPreferencesDone => '偏好设置已重置。';
+
+  @override
+  String get resetPreferencesFailed => '无法重置偏好设置，请重试。';
+
+  @override
+  String get clearAllData => '清除全部数据';
+
+  @override
+  String get clearAllDataTitle => '清除全部应用数据？';
+
+  @override
+  String get clearAllDataMessage => '删除本地订阅、文章、设置、缓存文件和已存凭据？应用将关闭，且无法撤销。';
+
+  @override
+  String get clearAllDataFailed => '无法清除应用数据，请在 Android 设置中重试。';
+
+  @override
   String minutes(int count) {
     return '$count 分钟';
   }

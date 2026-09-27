@@ -89,6 +89,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get notificationPermissionDenied => '通知権限が許可されていません。';
 
   @override
+  String get resetPreferences => '設定をリセット';
+
+  @override
+  String get resetPreferencesTitle => '設定をリセットしますか？';
+
+  @override
+  String get resetPreferencesMessage =>
+      'テーマ、言語、閲覧、バックグラウンドの設定を初期値に戻しますか？購読とアカウントは残ります。';
+
+  @override
+  String get resetPreferencesDone => '設定をリセットしました。';
+
+  @override
+  String get resetPreferencesFailed => '設定をリセットできませんでした。もう一度お試しください。';
+
+  @override
+  String get clearAllData => 'すべてのデータを消去';
+
+  @override
+  String get clearAllDataTitle => 'アプリの全データを消去しますか？';
+
+  @override
+  String get clearAllDataMessage =>
+      'ローカルの購読、記事、設定、キャッシュ、保存済みの認証情報を削除しますか？アプリは終了し、元に戻せません。';
+
+  @override
+  String get clearAllDataFailed =>
+      'アプリのデータを消去できませんでした。Android の設定からもう一度お試しください。';
+
+  @override
   String minutes(int count) {
     return '$count 分';
   }

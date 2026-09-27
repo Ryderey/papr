@@ -256,6 +256,60 @@ abstract class AppLocalizations {
   /// **'Notification permission was not granted.'**
   String get notificationPermissionDenied;
 
+  /// No description provided for @resetPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset preferences'**
+  String get resetPreferences;
+
+  /// No description provided for @resetPreferencesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset preferences?'**
+  String get resetPreferencesTitle;
+
+  /// No description provided for @resetPreferencesMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore theme, language, reading and background settings to their defaults? Subscriptions and accounts will remain.'**
+  String get resetPreferencesMessage;
+
+  /// No description provided for @resetPreferencesDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences reset.'**
+  String get resetPreferencesDone;
+
+  /// No description provided for @resetPreferencesFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reset preferences. Try again.'**
+  String get resetPreferencesFailed;
+
+  /// No description provided for @clearAllData.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all data'**
+  String get clearAllData;
+
+  /// No description provided for @clearAllDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all app data?'**
+  String get clearAllDataTitle;
+
+  /// No description provided for @clearAllDataMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete local subscriptions, articles, settings, cached files and stored credentials? The app will close. This cannot be undone.'**
+  String get clearAllDataMessage;
+
+  /// No description provided for @clearAllDataFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not clear app data. Try again in Android settings.'**
+  String get clearAllDataFailed;
+
   /// No description provided for @minutes.
   ///
   /// In en, this message translates to:

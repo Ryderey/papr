@@ -1,6 +1,7 @@
 package com.papr.papr_mobile
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -66,6 +67,14 @@ class MainActivity : FlutterActivity() {
                         call.argument<String>("credentialRef"),
                         result,
                     )
+                    "clearApplicationData" -> {
+                        try {
+                            val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                            result.success(manager.clearApplicationUserData())
+                        } catch (_: Exception) {
+                            result.error("clearDataFailed", null, null)
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

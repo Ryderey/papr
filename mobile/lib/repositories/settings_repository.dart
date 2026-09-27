@@ -142,6 +142,18 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
   Future<void> setNotificationQuietHours(bool enabled) =>
       _setBackground(notificationQuietHours: enabled);
 
+  Future<void> resetPreferences() async {
+    const defaults = AppearanceState.defaults();
+    await setTheme(defaults.theme);
+    await setLanguage(defaults.language);
+    await setReading(defaults.reading);
+    await _setBackground(
+      refreshIntervalMin: defaults.refreshIntervalMin,
+      notificationsEnabled: defaults.notificationsEnabled,
+      notificationQuietHours: defaults.notificationQuietHours,
+    );
+  }
+
   Future<void> _setBackground({
     int? refreshIntervalMin,
     bool? notificationsEnabled,
