@@ -19,7 +19,7 @@
 - [ ] 后台任务重复运行与进程终止恢复均幂等，不产生重复文章或丢失本地变更。
 - [ ] 通知权限拒绝、夜间免打扰和批量新文章行为符合设置。
 - [ ] FreshRSS/Miniflux 在断网、部分失败、重复 pull/push 下保持本地意图。
-- [ ] Fake Provider 覆盖 pull、push、ack、cursor、tombstone 与失败重试。
+- [x] Fake Provider 覆盖 pull、push、ack、cursor、tombstone 与失败重试。
 - [ ] 凭据泄漏与清除数据回归通过；全量阶段门禁和 Debug APK 通过。
 
 ## Dependencies / Out of Scope

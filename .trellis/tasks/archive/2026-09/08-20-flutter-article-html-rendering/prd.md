@@ -25,10 +25,10 @@
 - [x] 宽图片在正文区域内无横向溢出。
 - [x] 空正文显示 `No content`。
 - [x] Widget 回归测试、`flutter test`、`flutter analyze` 和 Debug APK 构建通过。
-- [ ] Android 模拟器使用 `https://www.ithome.com/rss/` 验证正文和内联图片正常显示。
+- [x] Android 模拟器使用 `https://www.ithome.com/rss/` 验证正文和内联图片正常显示。
 - [x] 在模拟器通过宿主机夹具加载同一 IT 之家真实图片，验证 APK 级 HTML、粗体、网络图片及响应式布局链路。
 
-在线验收项受测试 AVD 网络环境阻塞：AVD 没有默认路由，`ping 8.8.8.8` 返回 `Network is unreachable`，刷新记录为 `network error`。这不是应用代码失败。
+2026-09-27 模拟器网络恢复后，直接添加上述在线订阅，获取 60 篇文章；打开首篇文章确认正文段落、粗体和内联图片正常显示，图片未横向溢出。
 
 ## Out of Scope
 

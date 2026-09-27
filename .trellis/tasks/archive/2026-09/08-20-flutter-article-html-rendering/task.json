@@ -3,7 +3,7 @@
   "name": "flutter-article-html-rendering",
   "title": "修复 Flutter 文章正文图片渲染",
   "description": "在 Flutter Android 文章详情页正确渲染已清洗的 HTML 正文与内联图片。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "wx_channels_download",
   "assignee": "wx_channels_download",
   "createdAt": "2026-08-20",
-  "completedAt": null,
+  "completedAt": "2026-09-27",
   "branch": null,
   "base_branch": "feat/flutter-android-rearchitecture",
   "worktree_path": null,
@@ -26,6 +26,6 @@
     "mobile/pubspec.yaml",
     "mobile/pubspec.lock"
   ],
-  "notes": "Implementation and offline APK-level IT Home image verification passed. Live RSS verification is blocked because the local AVD has no external network route.",
+  "notes": "Implementation, offline APK-level image verification, and live IT Home RSS/article rendering on emulator-5554 passed on 2026-09-27.",
   "meta": {}
 }

@@ -3,7 +3,7 @@
   "name": "p6-background-notifications-sync",
   "title": "P6 后台刷新、通知与外部同步",
   "description": "使用 WorkManager、Android 通知和 Keystore，完成 FreshRSS/Miniflux 与 SyncPort。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

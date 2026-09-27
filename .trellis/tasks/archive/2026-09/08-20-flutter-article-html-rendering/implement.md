@@ -28,4 +28,4 @@ flutter build apk --debug
 - `flutter analyze`：无问题。
 - `flutter build apk --debug`：成功生成 `build/app/outputs/flutter-apk/app-debug.apk`；仅有既存 FRB cfg 警告。
 - 模拟器：正文标签不再裸露、`strong` 正常加粗、真实 IT 之家图片正常显示且未超出正文宽度。
-- 环境限制：两个本地 AVD 均无可用外网默认路由，live RSS 刷新无法作为在线验收证据。
+- 2026-09-27 在线补验：`emulator-5554` 网络恢复后，直接添加 `https://www.ithome.com/rss/`，订阅列表显示 60 篇文章；首篇详情正文段落和粗体正常，内联图片成功加载并保持在正文宽度内。在线验收完成。
