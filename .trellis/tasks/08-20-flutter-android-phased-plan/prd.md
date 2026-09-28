@@ -66,18 +66,19 @@ flutter analyze
 flutter build apk --debug
 ```
 
-涉及桌面适配时追加：`cargo test -p papr`、`pnpm test`、`pnpm build`。P7 增加内部 Release APK 构建与真实设备验证。
+涉及桌面适配时追加：`cargo test -p papr`、`pnpm test`、`pnpm build`。P7 增加内部 Release APK 构建、模拟器与 Widget 验证。
 
 ## Acceptance Criteria（父任务层面）
 
-- [ ] P0–P7 精简范围的全部子任务完成并归档，每个子任务的退出条件都有代码/测试/真实设备证据。
+- [ ] P0–P7 精简范围的全部子任务完成并归档，每个子任务的退出条件都有代码、测试或适用设备证据。
 - [ ] Rust、Flutter、FRB、桌面回归全部通过。
-- [ ] 从正式 Alpha schema 连续升级到 RC，未再次依赖清库。
+- [ ] Core 自动化测试证明正式 Alpha schema 连续迁移到当前版本且不清库。
 - [ ] 无阻塞级崩溃、数据丢失、密钥泄露、迁移问题。
-- [ ] 内部 Release APK 可安装、从同证书 Alpha 原位升级、启动并完成订阅到阅读全链路。
+- [ ] 内部 Release APK 可安装、从同证书测试包升级并启动；模拟器及自动化测试覆盖订阅到阅读主链路。
 
 ## Out of Scope
 
 - `docs/desktop-mobile-porting-feature-analysis.md` 档位一、档位三中标记“砍/不照搬”的桌面能力，以及档位四低价值半成品。
 - iOS 保持可移植性，但不进入本计划验收矩阵。
+- 当前仅自用，实体机验收与正式 Alpha APK 原位升级不属于 P7；Core Alpha schema 自动化迁移测试仍保留。
 - 正式签名、AAB、Google Play 上架及商店运营材料不属于本计划，未来有分发需求时另行规划。

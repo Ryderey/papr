@@ -16,7 +16,7 @@ The following desktop capabilities remain excluded from this RC: tray/window/tas
 
 ## Remaining RC evidence
 
-- Localization keys are present in English, Chinese and Japanese; translated wording, TalkBack, font scaling, contrast, reduced motion, dark mode and touch targets still need device review.
-- The current local Android emulator is API 37. Android 10, an intermediate API level, a tablet size and a physical device still need recorded runs.
-- Cold start, large data, long article/audio, background recovery and Alpha-to-RC migration still need recorded results.
-- The internal RC APK build, matching-certificate version 1→2 emulator installation and cold launch are recorded in the [RC procedure](mobile-rc-release.md). Formal Alpha data retention and the full device flow remain unverified.
+- Localization keys are present in English, Chinese and Japanese; translated wording, TalkBack, font scaling, contrast, reduced motion, dark mode and touch targets still need review. The AI profile delete action now has a localized accessibility label and a narrow-screen Japanese Widget test.
+- The recorded Android emulator run is API 37. Android 10, an intermediate API level and a tablet size still need simulated runs; physical-device testing is outside the current self-use scope.
+- Cold start, large data, long article/audio and background recovery still need recorded results. Core v16 Alpha schema migration has an automated data-retention test; formal Alpha APK upgrade is outside scope.
+- The internal RC APK build, matching-certificate version 1→2 emulator installation and cold launch are recorded in the [RC procedure](mobile-rc-release.md). Credential deletion and the full simulated flow remain unverified.

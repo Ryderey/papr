@@ -6,7 +6,7 @@
 
 ## Release Matrix
 
-按 Android 版本、手机/平板、浅色/深色、系统字体倍率和首次安装/连续升级组织验证。数据安全、迁移和凭据删除为阻断项；视觉小瑕疵按严重度分级。
+按 Android 版本、手机/平板尺寸、浅色/深色、系统字体倍率和首次安装/测试包连续升级组织模拟器及 Widget 验证。Core Alpha schema 迁移、数据安全和凭据删除为阻断项；实体机与正式 Alpha APK 原位升级不在本轮范围。
 
 ## Artifact and Secrets
 

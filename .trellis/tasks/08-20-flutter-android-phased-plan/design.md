@@ -11,7 +11,7 @@
 - P4 只交付翻译和 AI 摘要，排除 Ask/RAG/Digest。
 - P5 只交付 Podcast 与原生后台播放，排除 Newsletter/IMAP。
 - P6 交付 WorkManager 刷新、通知、FreshRSS/Miniflux 与最小安全运维能力。
-- P7 按移动端范围矩阵、内部 APK 安装升级和设备验收条件收口。
+- P7 按移动端范围矩阵、内部 APK 测试包升级、模拟器和自动化验收条件收口。
 
 ## 3. 架构边界
 

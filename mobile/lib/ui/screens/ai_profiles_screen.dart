@@ -83,6 +83,7 @@ class AiProfilesScreen extends ConsumerWidget {
                               : const Icon(Icons.network_check_outlined),
                         ),
                         IconButton(
+                          tooltip: context.l10n.delete,
                           onPressed: () => _delete(context, ref, profile),
                           icon: const Icon(Icons.delete_outline),
                         ),

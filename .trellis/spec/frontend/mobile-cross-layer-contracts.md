@@ -660,13 +660,13 @@ await File(databasePath).delete(); // Leaves sidecars, cache, and credentials.
 if (confirmed) await platformService.clearApplicationData();
 ```
 
-## Scenario: Android internal RC artifact and Alpha database upgrade
+## Scenario: Android internal RC artifact and Alpha schema migration
 
 ### 1. Scope / Trigger
 
 - Trigger: building an internal Android RC APK or opening a database created by
-  the formal mobile Alpha schema (v16). These are separate gates: a schema test
-  cannot prove an APK upgrade across Android signing certificates.
+  the formal mobile Alpha schema (v16). For the current self-use scope, test
+  schema migration in Core and APK installation with an internal test package.
 
 ### 2. Signatures
 
@@ -683,8 +683,9 @@ Db::new(path) -> Result<Db, CoreError>
 - Core migrations are append-only. A v16 Alpha database opens under the latest
   sequence without clearing articles, settings or other user state. The
   one-time reset applies only to the older validation schema lacking FTS5.
-- Direct APK upgrade requires the installed Alpha and RC APK to share the same
-  app-signing certificate and RC to have a higher version code.
+- Internal test APK upgrade requires matching signing certificates and a higher
+  RC version code. Formal Alpha APK upgrade and physical-device testing are
+  outside P7; neither is inferred from the Core migration test.
 
 ### 4. Validation & Error Matrix
 
@@ -692,12 +693,12 @@ Db::new(path) -> Result<Db, CoreError>
 | --- | --- |
 | No formal signing material is available | Internal Release APK and Debug APK remain buildable with Debug signing |
 | v16 database contains an article, cached summary and setting | Upgrade to latest migration keeps all values and adds v17 summary metadata columns |
-| Installed Alpha uses a different signing certificate | Direct APK upgrade is unavailable; record it as unverified and use a separate fresh-install test |
+| Installed test APK uses a different signing certificate | Direct APK upgrade is unavailable; record it as unverified and use a separate fresh-install test |
 
 ### 5. Good / Base / Bad Cases
 
-- Good: the internal RC APK uses the recorded Debug certificate; a matching
-  Alpha APK upgrades in place and the retained article opens.
+- Good: the internal RC APK uses the recorded Debug certificate, a matching
+  test APK upgrades in place, and the separate Core v16 migration test keeps data.
 - Base: no formal upload key exists. Internal Release and Debug APKs build.
 - Bad: a Debug-signed RC is called production signed, or a migration test starts
   from an empty database and claims to prove data retention.
@@ -709,8 +710,9 @@ Db::new(path) -> Result<Db, CoreError>
   asserts the latest version and unchanged values after `Db::new`.
 - Gradle: build the internal Release APK without formal key material. Verify
   its signer, SHA-256 and APK/ELF 16 KiB alignment.
-- Android: install matching-certificate Alpha, then RC without uninstalling;
-  assert existing subscriptions/articles and credential behavior after launch.
+- Android emulator: install a matching-certificate test APK, then RC without
+  uninstalling; assert launch and the app data/credential behavior available
+  in the simulated test. Do not claim formal Alpha APK migration evidence.
 
 ### 7. Wrong vs Correct
 
