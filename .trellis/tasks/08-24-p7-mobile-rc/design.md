@@ -6,7 +6,7 @@
 
 ## Release Matrix
 
-按 Android 版本、手机/平板尺寸、浅色/深色、系统字体倍率和首次安装/测试包连续升级组织模拟器及 Widget 验证。Core Alpha schema 迁移、数据安全和凭据删除为阻断项；实体机与正式 Alpha APK 原位升级不在本轮范围。
+当前自用 RC 的设备证据限于 API 37 手机、浅/深主题与日文设置、窄屏/平板 Widget 布局、内部测试包升级、临时 AI 凭据删除和应用内清除数据。Core Alpha schema 迁移由自动化测试覆盖。多 Android 版本、平板模拟器、完整无障碍/压力/业务链路及更深的数据安全检查转入 `09-28-mobile-deferred-acceptance`；实体机与正式 Alpha APK 原位升级不在本轮范围。
 
 ## Artifact and Secrets
 

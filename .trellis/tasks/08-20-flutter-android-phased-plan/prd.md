@@ -33,9 +33,9 @@
 | P4 | 翻译与 AI 摘要 | AI/翻译/SSE 下沉 core、BYOK、Keystore 存 Key、摘要与翻译引擎 |
 | P5 | Podcast 与 Android 原生播放 | Podcast 播放器、MediaSession、前台服务、锁屏/蓝牙控制 |
 | P6 | 后台刷新、通知与外部同步 | WorkManager、通知、FreshRSS/Miniflux、SyncPort、凭据安全、最小重置/清除能力 |
-| P7 | 功能矩阵验收与内部 RC | 功能矩阵、无障碍/窄屏、多设备、内部 APK、隐私说明 |
+| P7 | 功能矩阵验收与自用内部 RC | 范围矩阵、已有窄屏/平板 Widget 回归、API 37 手机烟测、内部 APK、隐私说明；扩展验收另列 |
 
-P0–P6 已归档；P7 正在执行范围、兼容、升级与内部验收。各阶段独立验证，P6 最终通知与外部同步设备结果由用户确认，细节记录见 P6 归档任务。
+P0–P6 已归档；P7 的自用内部 RC 范围已完成，扩展验收转入独立 planning 任务 `09-28-mobile-deferred-acceptance`。各阶段独立验证，P6 最终通知与外部同步设备结果由用户确认，细节记录见 P6 归档任务。
 
 ## 明确排除
 
@@ -70,15 +70,16 @@ flutter build apk --debug
 
 ## Acceptance Criteria（父任务层面）
 
-- [ ] P0–P7 精简范围的全部子任务完成并归档，每个子任务的退出条件都有代码、测试或适用设备证据。
-- [ ] Rust、Flutter、FRB、桌面回归全部通过。
-- [ ] Core 自动化测试证明正式 Alpha schema 连续迁移到当前版本且不清库。
-- [ ] 无阻塞级崩溃、数据丢失、密钥泄露、迁移问题。
-- [ ] 内部 Release APK 可安装、从同证书测试包升级并启动；模拟器及自动化测试覆盖订阅到阅读主链路。
+- [x] P0–P6 已归档，P7 自用内部 RC 的实现与已约定门禁完成；本轮延期的验收项均在 `09-28-mobile-deferred-acceptance` 中跟踪。
+- [x] Rust、Flutter、FRB、桌面回归通过，结果见 P7 `implement.md`。
+- [x] Core 自动化测试证明 Alpha v16 schema 连续迁移到当前版本且不清库。
+- [x] 内部 Release APK 可安装、从同证书测试包升级并启动，API 37 模拟器冷启动与基本设置、凭据删除/清除数据烟测通过。
+- [x] 完整订阅到同步主链路及更广兼容、安全、无障碍验收明确延期；本自用 RC 不声称已覆盖这些项目。
 
 ## Out of Scope
 
 - `docs/desktop-mobile-porting-feature-analysis.md` 档位一、档位三中标记“砍/不照搬”的桌面能力，以及档位四低价值半成品。
 - iOS 保持可移植性，但不进入本计划验收矩阵。
 - 当前仅自用，实体机验收与正式 Alpha APK 原位升级不属于 P7；Core Alpha schema 自动化迁移测试仍保留。
+- 完整业务链路、多版本/平板、全面无障碍、压力和深度安全验收留给独立任务 `09-28-mobile-deferred-acceptance`，不阻断当前自用 RC。
 - 正式签名、AAB、Google Play 上架及商店运营材料不属于本计划，未来有分发需求时另行规划。

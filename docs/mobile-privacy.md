@@ -18,4 +18,4 @@ AI deletion check on 2026-09-28: a temporary profile with a placeholder secret w
 
 App-data-clear check on 2026-09-28: a second temporary AI profile and Japanese language setting were present before the in-app confirmation. Android ended the process and the app-private preferences directory was absent. A cold relaunch succeeded, language returned to English, the AI profile list was empty, and the credential preference file was absent. The database file, Keystore alias and sync credential behavior were not directly inspected.
 
-Before distributing the internal RC, confirm actual backup behavior on supported OS versions, third-party endpoints used by the configured providers, and the internal APK's included SDKs.
+Before sharing the RC beyond personal use, confirm actual backup behavior on supported OS versions, third-party endpoints used by the configured providers, and the internal APK's included SDKs. Track those checks in `09-28-mobile-deferred-acceptance`.

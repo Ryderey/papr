@@ -1,6 +1,6 @@
 # Android RC scope matrix
 
-Status as of 2026-09-27. “Implemented” means a code path exists; it does not replace the P7 device and release acceptance tests. The product boundary follows [the phased plan](flutter-android-phased-development-plan.md) and the archived P0–P6 tasks.
+Status as of 2026-09-28. “Implemented” means a code path exists; it does not imply the deferred acceptance checks passed. The product boundary follows [the phased plan](flutter-android-phased-development-plan.md) and the archived P0–P6 tasks.
 
 | Area | Implemented mobile path | Android replacement / RC boundary | Evidence |
 | --- | --- | --- | --- |
@@ -14,7 +14,9 @@ Status as of 2026-09-27. “Implemented” means a code path exists; it does not
 
 The following desktop capabilities remain excluded from this RC: tray/window/taskbar behavior, startup and in-app updater, desktop shortcuts/command palette, hover/right-click/desktop drag, focus mode, scroll-to-mark-read, embedded YouTube iframe, Send to Kindle, global Ask/RAG, Digest, Newsletter/IMAP, experimental deduplication, custom RSSHub instance setup, and advanced proxy/concurrency/storage maintenance panels. Basic RSSHub URL support remains. This is the exclusion decision in [the phased plan](flutter-android-phased-development-plan.md#11-明确不做), not a claim that every desktop command has been ported.
 
-## Remaining RC evidence
+## Deferred acceptance
+
+The checks below are tracked in [Android deferred acceptance](../.trellis/tasks/09-28-mobile-deferred-acceptance/prd.md). They do not block the current self-use internal RC.
 
 - Localization keys are present in English, Chinese and Japanese; translated wording, TalkBack, font scaling, contrast, reduced motion, dark mode and touch targets still need review. The AI profile delete action now has a localized accessibility label and a narrow-screen Japanese Widget test.
 - API 37 `Medium_Phone` simulator runs cover a test-package upgrade, cold start, retained language/theme and settings appearance. Android 10, an intermediate API level and a tablet simulator still need runs; physical-device testing is outside the current self-use scope.
