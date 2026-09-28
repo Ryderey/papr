@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-09-27
+- **Total Sessions**: 8
+- **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~254 | Active |
+| `journal-1.md` | ~290 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-09-28 | P7 自用 RC 收尾与扩展验收延期 | `e0ae02b` | `feat/flutter-android-rearchitecture` |
 | 7 | 2026-09-27 | P6B FreshRSS and Miniflux sync | `92e700b`, `82bfdc8` | `feat/flutter-android-rearchitecture` |
 | 6 | 2026-08-29 | P5 Android podcast playback | `efe6cd6` | `feat/flutter-android-rearchitecture` |
 | 5 | 2026-08-29 | Complete P4 AI summary and translation | `7b78193` | `feat/flutter-android-rearchitecture` |

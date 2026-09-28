@@ -256,3 +256,37 @@ Completed Core GReader sync, FRB APIs, Android Keystore plugin, Flutter settings
 ### Next Steps
 
 - Smoke-test both providers against real servers when credentials are available.
+
+
+## Session 8: P7 自用 RC 收尾与扩展验收延期
+
+**Date**: 2026-09-28
+**Task**: P7 自用 RC 收尾与扩展验收延期
+
+### Summary
+
+将 P7 余项拆为按需扩展验收任务；自用 RC 与父计划完成并归档，保留未验证边界。
+
+### Main Changes
+
+- 将 P7 与父计划收口为仅自用的内部 RC，记录自动化和 API 37 模拟器证据边界。
+- 新建独立 planning 任务 `09-28-mobile-deferred-acceptance`，承接完整业务链路、多版本/平板、无障碍、压力和深度安全验收。
+- 归档 P7 和 Flutter Android 父计划。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e0ae02b` | (see git log) |
+
+### Testing
+
+- `task.py validate` 对父计划、P7 和延期任务均通过；`git diff --check` 通过。本次仅调整文档和 Trellis 任务，未重新运行代码测试。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 扩大自用场景或分发前，启动 `09-28-mobile-deferred-acceptance` 并完成适用矩阵。
