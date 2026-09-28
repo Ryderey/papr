@@ -26,7 +26,8 @@
 - 用户确认当前仅自用，跳过实体机验收和正式 Alpha APK 原位升级；保留 Core v16→当前的自动化数据迁移门禁。此前记录的正式 Alpha 包/实体机待验不再阻断 P7。
 - 内部 APK 构建、版本 1→2 同证书模拟器安装和启动证据已满足步骤 6。AI 配置删除按钮补充本地化辅助功能标签；320×640、2 倍日文字体 Widget 测试通过。
 - Flutter 34 项测试、`flutter analyze --no-pub`、Dart 格式检查和 Core v16 Alpha 数据保留迁移测试通过。`docs/mobile-privacy.md` 补记内部 APK 权限与凭据备份排除规则的静态核对；设备恢复行为仍未验证。
-- 本机 SDK 仅安装 Android 37.1 系统镜像，当前 `adb devices` 无在线设备；Android 10/中间版本模拟器矩阵暂缺系统镜像。现有 Widget 测试覆盖 320×640 窄屏与 800×1000 平板导航布局，不能代替 Android 版本和完整端到端验收。
+- 本机 SDK 仅安装 Android 37.1 系统镜像；Android 10/中间版本模拟器矩阵暂缺系统镜像。现有 Widget 测试覆盖 320×640 窄屏与 800×1000 平板导航布局，不能代替 Android 版本和完整端到端验收。
+- 复用 `Medium_Phone`（API 37、1080×2400、420 dpi）验证：已装版本 1 与内部 RC 的 Debug 证书 SHA-256 相同，`adb install -r` 升级到版本 2 成功；冷启动 `Status: ok`（1619 ms）。设置页浅/深主题与日文切换可见且无溢出；强制停止后冷启动 `Status: ok`（1028 ms），日文和深色设置仍保留。模拟器无订阅数据，完整业务主链路仍待验。
 
 ## Rollback
 
