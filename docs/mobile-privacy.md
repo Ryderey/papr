@@ -14,4 +14,8 @@ Android may back up other app-private data under the current manifest rules; the
 
 Static package check on 2026-09-28: the internal `0.1.0+2` APK declares Internet, network state, wake lock, vibration, boot receiver, notification and media/short foreground-service permissions. The manifest points to backup rules that exclude `papr_ai_credentials.xml` from cloud backup and device transfer; the credential store uses the matching `papr_ai_credentials` preference name. These checks inspect the package and source rules; restore behavior has not been exercised on a device.
 
+AI deletion check on 2026-09-28: a temporary profile with a placeholder secret was created in the API 37 `Medium_Phone` emulator. Its app-private credential preference file had one entry before in-app deletion and zero afterward; the profile list returned to empty. This did not inspect the Android Keystore alias directly or test sync credential deletion.
+
+App-data-clear check on 2026-09-28: a second temporary AI profile and Japanese language setting were present before the in-app confirmation. Android ended the process and the app-private preferences directory was absent. A cold relaunch succeeded, language returned to English, the AI profile list was empty, and the credential preference file was absent. The database file, Keystore alias and sync credential behavior were not directly inspected.
+
 Before distributing the internal RC, confirm actual backup behavior on supported OS versions, third-party endpoints used by the configured providers, and the internal APK's included SDKs.
