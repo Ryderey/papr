@@ -304,7 +304,9 @@ Integrated both clients, implemented shared GitHub sync with secure Windows/Andr
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- Integrated desktop fixes and the Android workspace at 71176d7.
+- Added shared protocol, transactional outbox/import, non-force GitHub publication and durable recovery at 537b2e4.
+- Added Windows/Android secure credential adapters, settings and scheduling; documented implementation and A25 limits.
 
 ### Git Commits
 
@@ -315,12 +317,15 @@ Integrated both clients, implemented shared GitHub sync with secure Windows/Andr
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Rust serial regression: desktop 265, Core 137 (34 GitHub tests), Bridge 3 pass.
+- Frontend 88 tests and production build; Flutter analyze and 34 tests; Windows debug and all four Android ABI/APK builds pass.
+- Isolated emulator foreground/headless Worker Keystore and Core bridge smoke pass.
+- Real GitHub app publication/convergence and physical Android/background acceptance are pending, not claimed as tested.
 
 ### Status
 
-[OK] **Completed**
+**Implementation committed; task remains in_progress pending A25 acceptance.**
 
 ### Next Steps
 
-- None - task complete
+- Configure scoped device tokens in the apps and complete the manual acceptance checklist in docs/github-sync-implementation-2026-10-05.md before merging the feature into optimize-bugfix.
