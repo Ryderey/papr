@@ -1798,6 +1798,7 @@ pub fn clear_all_data(conn: &Connection) -> AppResult<()> {
         "github_files",
         "github_entity_map",
         "github_suppressed",
+        "github_article_confirmations",
         "github_attempt",
         "github_rejections",
         "github_connections",

@@ -150,6 +150,10 @@ impl GitHubTransport {
     }
 
     fn record_headers(&mut self, headers: &HeaderMap) {
+        self.record_headers_at(headers, Utc::now());
+    }
+
+    fn record_headers_at(&mut self, headers: &HeaderMap, received_at: DateTime<Utc>) {
         let server_now = headers
             .get("date")
             .and_then(|h| h.to_str().ok())
@@ -190,7 +194,7 @@ impl GitHubTransport {
             self.retry_at = i64::try_from(seconds)
                 .ok()
                 .and_then(chrono::Duration::try_seconds)
-                .and_then(|d| server_now.unwrap_or_else(Utc::now).checked_add_signed(d))
+                .and_then(|d| received_at.checked_add_signed(d))
                 .map(|d| d.to_rfc3339());
         }
     }
@@ -746,14 +750,53 @@ mod tests {
         let first = transport.get::<Value>(&[], None).await.unwrap_err();
         assert_eq!(first.code(), "githubRateLimited");
         assert_eq!(first.detail(), None);
-        assert_eq!(
-            transport.retry_at(),
-            Some("2026-10-05T00:02:00+00:00".into())
-        );
+        let retry = DateTime::parse_from_rfc3339(&transport.retry_at().unwrap()).unwrap();
+        assert!((retry.with_timezone(&Utc) - Utc::now()).num_seconds() >= 119);
         assert_eq!(
             transport.get::<Value>(&[], None).await.unwrap_err().code(),
             "githubRateLimited"
         );
         assert_eq!(task.await.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn persisted_rate_deadline_uses_receiving_clock_for_both_limit_headers() {
+        let received = DateTime::parse_from_rfc3339("2026-10-05T00:10:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        for server_date in [
+            "Mon, 05 Oct 2026 00:00:00 GMT",
+            "Mon, 05 Oct 2026 00:20:00 GMT",
+        ] {
+            for reset_header in [false, true] {
+                let profile = GitHubProfile {
+                    repository_id: 1,
+                    owner: "owner".into(),
+                    repo: "repo".into(),
+                    branch: "main".into(),
+                    credential_ref: "papr.sync.test".into(),
+                };
+                let mut transport =
+                    GitHubTransport::new(Arc::new(Client::new()), profile, "test").unwrap();
+                let mut headers = HeaderMap::new();
+                headers.insert("date", HeaderValue::from_str(server_date).unwrap());
+                if reset_header {
+                    let server = DateTime::parse_from_rfc2822(server_date).unwrap();
+                    headers.insert("x-ratelimit-remaining", HeaderValue::from_static("0"));
+                    headers.insert(
+                        "x-ratelimit-reset",
+                        HeaderValue::from_str(&(server.timestamp() + 120).to_string()).unwrap(),
+                    );
+                } else {
+                    headers.insert("retry-after", HeaderValue::from_static("120"));
+                }
+                transport.record_headers_at(&headers, received);
+                assert_eq!(
+                    transport.retry_at(),
+                    Some("2026-10-05T00:12:00+00:00".into())
+                );
+                assert!(transport.blocked_until.unwrap() > tokio::time::Instant::now());
+            }
+        }
     }
 }

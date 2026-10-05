@@ -559,6 +559,16 @@ fn migrations() -> Vec<M<'static>> {
                  AND NOT EXISTS(SELECT 1 FROM github_files WHERE connection_id=github_connections.id)
                  AND EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=github_connections.id
                    AND seq=1 AND json_extract(payload,'$.kind')='seed_initial');"),
+        // v20: confirmed article age survives cloud catalog expiration.
+        M::up("CREATE TABLE github_article_confirmations (
+                 connection_id INTEGER NOT NULL REFERENCES github_connections(id),
+                 entity_key TEXT NOT NULL,
+                 first_seen_at TEXT NOT NULL,
+                 PRIMARY KEY(connection_id,entity_key));
+               INSERT INTO github_article_confirmations
+                 SELECT f.connection_id,j.key,json_extract(j.value,'$.first_seen_at')
+                 FROM github_files f,json_each(f.content) j
+                 WHERE f.path LIKE 'papr-sync/v1/articles/%.json';"),
     ]
 }
 
@@ -3816,6 +3826,80 @@ mod tests {
         assert_eq!(
             crate::sync::github::storage::checkpoint(&conn, Some(&prior)).unwrap(),
             prior
+        );
+    }
+
+
+    #[test]
+    fn github_v19_upgrade_recovers_confirmed_age_from_cached_cloud_catalog() {
+        use crate::sync::github::{model::*, storage};
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(migrations().into_iter().take(19).collect())
+            .to_latest(&mut conn)
+            .unwrap();
+        let profile = GitHubProfile {
+            repository_id: 1,
+            owner: "owner".into(),
+            repo: "repo".into(),
+            branch: "main".into(),
+            credential_ref: "papr.sync.test".into(),
+        };
+        conn.execute("INSERT INTO github_connections(profile,dataset_id,device_id,epoch,binding,checkpoint_dataset_id) VALUES (?1,?2,?3,1,'binding',?2)",rusqlite::params![serde_json::to_string(&profile).unwrap(),"d".repeat(32),"e".repeat(32)]).unwrap();
+        let mut snapshot = Snapshot::empty("d".repeat(32), "1970-01-01T00:00:00Z".into());
+        let feed = feed_key("https://example.com/feed").unwrap();
+        snapshot.subscriptions.feeds.insert(
+            feed.clone(),
+            Subscription {
+                feed_key: feed.clone(),
+                feed_url: "https://example.com/feed".into(),
+                source_type: "rss".into(),
+                display_title: "Feed".into(),
+                custom_title: false,
+                folder_id: None,
+                active: true,
+                generation: 1,
+                field_versions: Default::default(),
+            },
+        );
+        let entry = CatalogEntry {
+            feed_key: feed,
+            identity_kind: IdentityKind::Guid,
+            identity_value: "guid".into(),
+            guid: "guid".into(),
+            title: "Article".into(),
+            url: None,
+            published_at: None,
+            first_seen_at: "2026-01-01T00:00:00Z".into(),
+        };
+        let key = entry.key();
+        snapshot.articles.insert(key.clone(), entry);
+        for (path, content) in snapshot.files().unwrap() {
+            conn.execute(
+                "INSERT INTO github_files VALUES (1,?1,'sha',?2)",
+                rusqlite::params![path, content],
+            )
+            .unwrap();
+        }
+        conn.execute("INSERT INTO settings VALUES ('theme','dark')", [])
+            .unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(
+            storage::confirmed_times(&conn, 1).unwrap()[&key],
+            "2026-01-01T00:00:00Z"
+        );
+        assert_eq!(
+            conn.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap(),
+            "dark"
+        );
+        assert_eq!(
+            storage::connection(&conn)
+                .unwrap()
+                .unwrap()
+                .checkpoint_dataset_id,
+            "d".repeat(32)
         );
     }
 

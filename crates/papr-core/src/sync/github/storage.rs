@@ -124,7 +124,7 @@ pub fn initial_data(conn: &Connection) -> Result<InitialData, CoreError> {
         );
     }
     let mut feeds = conn
-        .prepare("SELECT subscription FROM github_feed_capture")
+        .prepare("SELECT subscription FROM github_feed_capture ORDER BY id")
         .map_err(db)?;
     for row in feeds.query_map([], |r| r.get::<_, String>(0)).map_err(db)? {
         let mut subscription: Subscription =
@@ -132,9 +132,10 @@ pub fn initial_data(conn: &Connection) -> Result<InitialData, CoreError> {
         subscription.generation = 1;
         data.subscriptions
             .feeds
-            .insert(subscription.feed_key.clone(), subscription);
+            .entry(subscription.feed_key.clone())
+            .or_insert(subscription);
     }
-    let mut articles = conn.prepare("SELECT c.entry,a.is_read,a.is_starred,a.read_later FROM github_article_capture c JOIN articles a ON a.id=c.id WHERE c.entry IS NOT NULL").map_err(db)?;
+    let mut articles = conn.prepare("SELECT c.entry,a.is_read,a.is_starred,a.read_later FROM github_article_capture c JOIN articles a ON a.id=c.id WHERE c.entry IS NOT NULL ORDER BY a.id").map_err(db)?;
     for row in articles
         .query_map([], |r| {
             Ok((
@@ -150,24 +151,11 @@ pub fn initial_data(conn: &Connection) -> Result<InitialData, CoreError> {
         let entry: CatalogEntry =
             serde_json::from_str(&entry).map_err(|_| error("githubInvalidArticle"))?;
         let key = entry.key();
-        data.articles.insert(key.clone(), entry);
-        data.states.insert(
-            key,
-            ArticleState {
-                read: Flag {
-                    value: read,
-                    version: None,
-                },
-                starred: Flag {
-                    value: starred,
-                    version: None,
-                },
-                read_later: Flag {
-                    value: later,
-                    version: None,
-                },
-            },
-        );
+        data.articles.entry(key.clone()).or_insert(entry);
+        let state = data.states.entry(key).or_default();
+        state.read.value |= read;
+        state.starred.value |= starred;
+        state.read_later.value |= later;
     }
     Ok(data)
 }
@@ -213,8 +201,8 @@ pub fn connect(
         [info.id],
     )
     .map_err(db)?;
-    conn.execute("INSERT INTO github_entity_map SELECT ?1,'feed',entity_key,id,NULL FROM github_feed_capture",[info.id]).map_err(db)?;
-    conn.execute("INSERT INTO github_entity_map SELECT ?1,'article',papr_article_key(entry),id,entry FROM github_article_capture WHERE entry IS NOT NULL",[info.id]).map_err(db)?;
+    conn.execute("INSERT OR IGNORE INTO github_entity_map SELECT ?1,'feed',entity_key,id,NULL FROM github_feed_capture ORDER BY id",[info.id]).map_err(db)?;
+    conn.execute("INSERT OR IGNORE INTO github_entity_map SELECT ?1,'article',papr_article_key(entry),id,entry FROM github_article_capture WHERE entry IS NOT NULL ORDER BY id",[info.id]).map_err(db)?;
     connection(conn)?.ok_or_else(|| error("githubNotConnected"))
 }
 
@@ -267,6 +255,14 @@ fn save_files(
     }
     Ok(())
 }
+pub fn confirmed_times(conn: &Connection, id: i64) -> Result<BTreeMap<String, String>, CoreError> {
+    let mut statement = conn.prepare("SELECT entity_key,first_seen_at FROM github_article_confirmations WHERE connection_id=?1").map_err(db)?;
+    let rows = statement
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(db)?;
+    rows.collect::<Result<BTreeMap<_, _>, _>>().map_err(db)
+}
+
 pub fn operations(
     conn: &Connection,
     info: &ConnectionInfo,
@@ -328,6 +324,44 @@ pub fn adopt_initial_dataset(
     let info = connection(conn)?
         .filter(|i| i.id == id)
         .ok_or_else(|| error("githubConnectionChanged"))?;
+    validate_initial_adoption(conn, &info, snapshot)?;
+    conn.execute(
+        "UPDATE github_connections SET dataset_id=?2,epoch=?3,initializing=0 WHERE id=?1",
+        params![id, snapshot.manifest.dataset_id, snapshot.manifest.epoch],
+    )
+    .map_err(db)?;
+    connection(conn)?.ok_or_else(|| error("githubNotConnected"))
+}
+
+pub fn validate_credential_snapshot(
+    conn: &Connection,
+    id: i64,
+    snapshot: Option<&Snapshot>,
+) -> Result<(), CoreError> {
+    let info = connection(conn)?
+        .filter(|i| i.id == id)
+        .ok_or_else(|| error("githubConnectionChanged"))?;
+    match snapshot {
+        Some(snapshot)
+            if snapshot.manifest.dataset_id != info.dataset_id
+                || snapshot.manifest.epoch != info.epoch =>
+        {
+            validate_initial_adoption(conn, &info, snapshot)
+        }
+        None if info.ack_seq > 0 || !files(conn, id)?.is_empty() => {
+            Err(error("githubDatasetMissing"))
+        }
+        _ => Ok(()),
+    }
+}
+
+fn validate_initial_adoption(
+    conn: &Connection,
+    info: &ConnectionInfo,
+    snapshot: &Snapshot,
+) -> Result<(), CoreError> {
+    snapshot.validate()?;
+    let id = info.id;
     let cached: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM github_files WHERE connection_id=?1)",
@@ -348,15 +382,11 @@ pub fn adopt_initial_dataset(
     {
         return Err(error("githubDatasetChanged"));
     }
-    conn.execute(
-        "UPDATE github_connections SET dataset_id=?2,epoch=?3,initializing=0 WHERE id=?1",
-        params![id, snapshot.manifest.dataset_id, snapshot.manifest.epoch],
-    )
-    .map_err(db)?;
-    connection(conn)?.ok_or_else(|| error("githubNotConnected"))
+    Ok(())
 }
 
-/// Persist a remote receipt before another publication can replace it.
+/// Persist rejection receipts and confirmed catalog age before publication
+/// can replace the receipt or retention can remove the catalog entry.
 pub fn save_rejections(
     conn: &Connection,
     id: i64,
@@ -381,6 +411,13 @@ pub fn save_rejections(
             )
             .map_err(db)?;
         }
+    }
+    for (key, entry) in &snapshot.articles {
+        conn.execute(
+            "INSERT OR IGNORE INTO github_article_confirmations VALUES (?1,?2,?3)",
+            params![id, key, entry.first_seen_at],
+        )
+        .map_err(db)?;
     }
     Ok(())
 }
@@ -570,7 +607,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
                 conn.last_insert_rowid()
             }
         };
-        conn.execute("UPDATE feeds SET title=?2,custom_title=?3,folder_id=?4,subscription_active=?5,github_generation=?6 WHERE id=?1",params![local,feed.display_title,feed.custom_title,folder,feed.active,feed.generation]).map_err(db)?;
+        conn.execute("UPDATE feeds SET title=?2,custom_title=?3,folder_id=?4,subscription_active=?5,github_generation=?6 WHERE id=?1 OR id IN (SELECT id FROM github_feed_capture WHERE entity_key=?7)",params![local,feed.display_title,feed.custom_title,folder,feed.active,feed.generation,key]).map_err(db)?;
         feed_ids.insert(key.clone(), local);
         map_entity(conn, id, "feed", key, local, None)?;
     }
@@ -583,8 +620,8 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
     for (key, local) in known {
         if !snapshot.articles.contains_key(&key) {
             conn.execute(
-                "UPDATE articles SET is_starred=0,read_later=0 WHERE id=?1",
-                [local],
+                "UPDATE articles SET is_starred=0,read_later=0 WHERE id=?1 OR id IN (SELECT id FROM github_article_capture WHERE papr_article_key(entry)=?2)",
+                params![local,key],
             )
             .map_err(db)?;
         }
@@ -598,8 +635,8 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         let feed_id = feed_ids[&entry.feed_key];
         let mut local = mapped(conn, id, "article", key)?.filter(|local| {
             conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM articles WHERE id=?1 AND feed_id=?2)",
-                params![local, feed_id],
+                "SELECT EXISTS(SELECT 1 FROM articles a JOIN github_feed_capture f ON f.id=a.feed_id WHERE a.id=?1 AND f.entity_key=?2)",
+                params![local, entry.feed_key],
                 |r| r.get::<_, bool>(0),
             )
             .unwrap_or(false)
@@ -607,8 +644,8 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         if local.is_none() && !entry.guid.is_empty() {
             local = conn
                 .query_row(
-                    "SELECT id FROM articles WHERE feed_id=?1 AND guid=?2",
-                    params![feed_id, entry.guid],
+                    "SELECT a.id FROM articles a JOIN github_feed_capture f ON f.id=a.feed_id WHERE f.entity_key=?1 AND a.guid=?2 ORDER BY a.id LIMIT 1",
+                    params![entry.feed_key, entry.guid],
                     |r| r.get(0),
                 )
                 .optional()
@@ -633,12 +670,13 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
             }
         };
         conn.execute(
-            "UPDATE articles SET is_read=?2,is_starred=?3,read_later=?4 WHERE id=?1",
+            "UPDATE articles SET is_read=?2,is_starred=?3,read_later=?4 WHERE id=?1 OR id IN (SELECT id FROM github_article_capture WHERE papr_article_key(entry)=?5)",
             params![
                 local,
                 state.read.value,
                 state.starred.value,
-                state.read_later.value
+                state.read_later.value,
+                key
             ],
         )
         .map_err(db)?;
@@ -851,7 +889,10 @@ pub fn register(conn: &Connection) -> Result<(), CoreError> {
             title,
             url,
             published_at: published.and_then(|s| date(&s)),
-            first_seen_at: date(&fetched)
+            first_seen_at: mapped
+                .as_ref()
+                .map(|entry| entry.first_seen_at.clone())
+                .or_else(|| date(&fetched))
                 .or_else(|| date(&now))
                 .unwrap_or_else(|| "1970-01-01T00:00:00Z".into()),
         };
@@ -1646,5 +1687,134 @@ mod tests {
         }
         let old_key = initial.subscriptions.folder_order.first().unwrap();
         assert!(mapped(&conn, info.id, "folder", old_key).unwrap().is_none());
+    }
+
+    #[test]
+    fn canonical_duplicate_sources_connect_and_preserve_all_local_copies() {
+        let (conn, old, base) = setup();
+        disconnect(&conn).unwrap();
+        conn.execute("INSERT INTO feeds(feed_url,title) VALUES ('https://example.com/feed#other','Duplicate')",[]).unwrap();
+        conn.execute("INSERT INTO articles(feed_id,guid,title,body_text,is_starred) VALUES (2,'guid','Cached twin','twin body',1)",[]).unwrap();
+        conn.execute("INSERT INTO articles(feed_id,guid,title,body_text,read_later) VALUES (2,'unique','Unique cached','unique body',1)",[]).unwrap();
+        conn.execute(
+            "INSERT INTO highlights(article_id,quote,note) VALUES (2,'quote','local note')",
+            [],
+        )
+        .unwrap();
+        let data = initial_data(&conn).unwrap();
+        assert_eq!(data.subscriptions.feeds.len(), 1);
+        assert_eq!(data.articles.len(), 2);
+        assert!(data.states.values().any(|s| s.starred.value));
+        let tx = conn.unchecked_transaction().unwrap();
+        let info = connect(
+            &tx,
+            &old.profile,
+            &remote(base.clone()),
+            "installation:path",
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        let ops = operations(&conn, &info, 0, 500).unwrap();
+        let mut accepted = super::super::merge::merge(&base, &ops, None)
+            .unwrap()
+            .snapshot;
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        let tx = conn.unchecked_transaction().unwrap();
+        finish(&tx, info.id, &lease, &remote(accepted.clone())).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM articles", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM articles WHERE guid='guid' AND is_starred=1",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            2
+        );
+        assert_eq!(
+            conn.query_row("SELECT body_text FROM articles WHERE id=3", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "unique body"
+        );
+        assert_eq!(
+            conn.query_row("SELECT article_id FROM highlights", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        let key = accepted
+            .articles
+            .iter()
+            .find(|(_, a)| a.guid == "guid")
+            .unwrap()
+            .0
+            .clone();
+        accepted.states.get_mut(&key).unwrap().starred.value = false;
+        accepted
+            .subscriptions
+            .feeds
+            .values_mut()
+            .next()
+            .unwrap()
+            .active = false;
+        let tx = conn.unchecked_transaction().unwrap();
+        finish(&tx, info.id, &lease, &remote(accepted)).unwrap();
+        tx.commit().unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM feeds WHERE subscription_active=1",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM articles WHERE guid='guid' AND is_starred=1",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        assert_eq!(connection(&conn).unwrap().unwrap().next_seq, 2);
+    }
+
+    #[test]
+    fn credential_validation_allows_only_eligible_peer_initializer_without_mutation() {
+        let (conn, old, _) = setup();
+        disconnect(&conn).unwrap();
+        let mut empty = remote(Snapshot::empty(
+            "a".repeat(32),
+            "1970-01-01T00:00:00Z".into(),
+        ));
+        empty.snapshot = None;
+        empty.files.clear();
+        let info = connect(&conn, &old.profile, &empty, "installation:path").unwrap();
+        let before = checkpoint(&conn, None).unwrap();
+        let peer = Snapshot::empty("b".repeat(32), "1970-01-01T00:00:00Z".into());
+        validate_credential_snapshot(&conn, info.id, Some(&peer)).unwrap();
+        assert_eq!(
+            connection(&conn).unwrap().unwrap().dataset_id,
+            info.dataset_id
+        );
+        assert_eq!(checkpoint(&conn, Some(&before)).unwrap(), before);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        adopt_initial_dataset(&conn, info.id, &lease, &peer).unwrap();
+        validate_credential_snapshot(&conn, info.id, Some(&peer)).unwrap();
+        let replacement = Snapshot::empty("c".repeat(32), "1970-01-01T00:00:00Z".into());
+        assert_eq!(
+            validate_credential_snapshot(&conn, info.id, Some(&replacement))
+                .unwrap_err()
+                .code(),
+            "githubDatasetChanged"
+        );
     }
 }

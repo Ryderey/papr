@@ -69,11 +69,14 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
   bool _loading = false;
   bool _hasMore = true;
   int _generation = 0;
+  int _pendingWrites = 0;
+  bool _syncRefreshPending = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    ref.listenManual(articleRepositoryProvider, (_, __) => _queueSyncRefresh());
     _load(reset: true);
   }
 
@@ -93,12 +96,21 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
     if (_scrollController.position.extentAfter < 360) _load();
   }
 
-  Future<void> _load({bool reset = false}) async {
+  void _queueSyncRefresh() {
+    _syncRefreshPending = true;
+    Future<void>.microtask(() {
+      if (!mounted || _pendingWrites > 0 || !_syncRefreshPending) return;
+      _syncRefreshPending = false;
+      _load(reset: true, preserveItems: true);
+    });
+  }
+
+  Future<void> _load({bool reset = false, bool preserveItems = false}) async {
     if ((!reset && _loading) || (!reset && !_hasMore)) return;
     if (reset) {
       _generation++;
       setState(() {
-        _items = const [];
+        if (!preserveItems) _items = const [];
         _error = null;
         _hasMore = true;
       });
@@ -109,16 +121,25 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
       final pageFilter = _withOffset(
         widget.filter,
         reset ? 0 : _items.length,
+        // Probe one additional row so a previously exhausted list stays
+        // exhausted when sync leaves its loaded range unchanged.
+        limit: preserveItems
+            ? (_items.length > articlePageSize
+                    ? _items.length
+                    : articlePageSize) +
+                1
+            : articlePageSize,
       );
       final page = await ref.read(articlePageProvider(pageFilter).future);
       if (!mounted || generation != _generation) return;
       final byId = <int, bridge.ArticleSummary>{
-        for (final item in _items) item.id.toInt(): item,
+        if (!reset)
+          for (final item in _items) item.id.toInt(): item,
         for (final item in page) item.id.toInt(): item,
       };
       setState(() {
         _items = byId.values.toList(growable: false);
-        _hasMore = page.length == articlePageSize;
+        _hasMore = page.length == pageFilter.limit;
         _error = null;
       });
     } catch (error) {
@@ -194,6 +215,7 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
       _ArticleAction.saveLater => _copyArticle(previous, readLater: true),
       _ArticleAction.removeLater => _copyArticle(previous, readLater: false),
     };
+    _pendingWrites++;
     setState(() => _items[index] = next);
     try {
       final repo = ref.read(articleRepositoryProvider);
@@ -215,7 +237,8 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
       ref.invalidate(articleCountProvider);
       widget.onArticleChanged?.call();
       if (_doesNotMatch(next, widget.filter)) {
-        setState(() => _items.removeAt(index));
+        final current = _items.indexWhere((item) => item.id == previous.id);
+        if (mounted && current >= 0) setState(() => _items.removeAt(current));
       }
     } catch (error) {
       if (!mounted) return;
@@ -224,6 +247,9 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.localizeError(error))),
       );
+    } finally {
+      _pendingWrites--;
+      if (_syncRefreshPending) _queueSyncRefresh();
     }
   }
 }
@@ -396,13 +422,14 @@ class _MessageState extends StatelessWidget {
   }
 }
 
-bridge.ArticleFilter _withOffset(bridge.ArticleFilter filter, int offset) {
+bridge.ArticleFilter _withOffset(bridge.ArticleFilter filter, int offset,
+    {int limit = articlePageSize}) {
   return bridge.ArticleFilter(
     kind: filter.kind,
     search: filter.search,
     unreadOnly: filter.unreadOnly,
     oldestFirst: filter.oldestFirst,
-    limit: articlePageSize,
+    limit: limit,
     offset: offset,
   );
 }

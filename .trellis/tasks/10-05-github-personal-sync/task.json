@@ -31,9 +31,10 @@
     "docs/github-sync-implementation-2026-10-05.md",
     "docs/github-sync-review-fixes-2026-10-05.md",
     "src/lib/readingQueries.ts",
-    "mobile/test/services/github_sync_credentials_test.dart"
+    "mobile/test/services/github_sync_credentials_test.dart",
+    "mobile/test/ui/screens/github_sync_refresh_test.dart"
   ],
-  "notes": "Eight review findings fixed with regressions. Rust 265/143/3, frontend 89, Flutter 35/analyze, FRB reproducibility, Windows/Android all-ABI builds and refreshed isolated emulator foreground/Worker smoke pass. A25 actual GitHub/physical-device acceptance remains open; original checkout preserved; no push or remote sync write.",
+  "notes": "All six second-pass findings fixed; append-only v20. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows and Android all four ABI/APK builds pass. Standard artifacts refreshed and hashes verified. A25 real GitHub/physical acceptance remains open; original checkout preserved; no push/remote sync write.",
   "meta": {
     "sync_repository": {
       "owner": "Ryderey",

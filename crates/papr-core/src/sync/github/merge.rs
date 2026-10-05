@@ -134,6 +134,16 @@ pub fn merge(
     operations: &[Operation],
     cutoff_at: Option<&str>,
 ) -> Result<MergeReport, CoreError> {
+    merge_with_confirmed_times(remote, operations, cutoff_at, &BTreeMap::new())
+}
+
+/// Only confirmed history, never a local fetch clock, can restore an old age.
+pub fn merge_with_confirmed_times(
+    remote: &Snapshot,
+    operations: &[Operation],
+    cutoff_at: Option<&str>,
+    confirmed_times: &BTreeMap<String, String>,
+) -> Result<MergeReport, CoreError> {
     remote.validate()?;
     if operations.len() > BATCH_SIZE {
         return Err(error("githubCapacityExceeded"));
@@ -227,8 +237,13 @@ pub fn merge(
         let trusted_now = new_cutoff + chrono::Duration::days(90);
         // Local fetch clocks do not define first cloud confirmation time.
         for (key, entry) in &mut report.snapshot.articles {
-            if !remote.articles.contains_key(key) || parse_date(&entry.first_seen_at)? > trusted_now
-            {
+            if !remote.articles.contains_key(key) {
+                entry.first_seen_at = confirmed_times
+                    .get(key)
+                    .filter(|date| parse_date(date).is_ok_and(|date| date <= trusted_now))
+                    .cloned()
+                    .unwrap_or_else(|| trusted_now.to_rfc3339());
+            } else if parse_date(&entry.first_seen_at)? > trusted_now {
                 entry.first_seen_at = trusted_now.to_rfc3339();
             }
         }
@@ -1284,5 +1299,58 @@ mod tests {
                 .starred
                 .value
         );
+    }
+
+    #[test]
+    fn restored_dateless_saved_article_keeps_confirmed_age_after_unsaving() {
+        let mut initial = base();
+        let key = initial.articles.keys().next().unwrap().clone();
+        let mut article = initial.articles[&key].clone();
+        article.published_at = None;
+        article.first_seen_at = "2026-01-01T00:00:00Z".into();
+        initial.articles.insert(key.clone(), article.clone());
+        let times = BTreeMap::from([(key.clone(), article.first_seen_at.clone())]);
+        let expired = merge(&initial, &[], Some("2026-01-02T00:00:00Z"))
+            .unwrap()
+            .snapshot;
+        assert!(!expired.articles.contains_key(&key));
+        let saved = merge_with_confirmed_times(
+            &expired,
+            &[op(
+                'b',
+                1,
+                Intent::SetArticleState {
+                    entry: article.clone(),
+                    field: StateField::Starred,
+                    value: true,
+                    base_version: None,
+                },
+            )],
+            Some("2026-01-03T00:00:00Z"),
+            &times,
+        )
+        .unwrap()
+        .snapshot;
+        assert_eq!(saved.articles[&key].first_seen_at, article.first_seen_at);
+        let version = saved.states[&key].starred.version.clone();
+        let unsaved = merge_with_confirmed_times(
+            &saved,
+            &[op(
+                'b',
+                2,
+                Intent::SetArticleState {
+                    entry: article,
+                    field: StateField::Starred,
+                    value: false,
+                    base_version: version,
+                },
+            )],
+            Some("2026-01-04T00:00:00Z"),
+            &times,
+        )
+        .unwrap()
+        .snapshot;
+        assert!(!unsaved.articles.contains_key(&key));
+        assert!(!unsaved.states.contains_key(&key));
     }
 }

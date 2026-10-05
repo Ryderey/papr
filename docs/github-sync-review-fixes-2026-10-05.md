@@ -34,6 +34,32 @@ Back up data before the v19 upgrade; do not open the upgraded database with an o
 
 ## Updated artifacts
 
-- Standard Android APK: `mobile/build/github-sync/papr-sync-debug.apk` (com.papr.papr_mobile, 0.1.0+1); SHA256 02f78d0a2556fdcb20cb09ad9588e5d684a380caae169ff92582832fe51f11e2.
-- Windows executable: `target/debug/papr.exe`; SHA256 eb6ebcbb1c7aea6a4d2070c239fe2d5790a2e0721a643bbf0d811dd839f5786a.
-- Default Gradle output was subsequently replaced by the isolated smoke package; use the preserved standard APK above.
+- Standard Android APK: `mobile/build/github-sync/papr-sync-debug.apk` (com.papr.papr_mobile, 0.1.0+1); SHA256 a4e03ccaf4e6cbdac9a546893575cf4e57d3e1a55ae495a14a1a7405a5c02afa.
+- Windows executable: `target/debug/papr.exe`; SHA256 16107dc8a32eb4bc3cb6630e45b0f6264429351e37dcec3bfe391e125a43eb18.
+- The preserved standard APK above has been refreshed after the second-pass fixes; use it for the normal package.
+
+
+## Second static-review fixes
+
+Review baseline: 71176d7; reviewed head: 9320c07. All six second-pass findings are corrected.
+
+| Finding | Correction | Regression |
+| --- | --- | --- |
+| Mounted Android lists/readers retain old data | Listen to repository replacement, refresh the current loaded range, and reload reader state without auto-marking remotely unread articles read. Defer refresh until optimistic writes complete. Probe one extra list row to detect an exhausted range. | Five Widget tests cover empty/populated lists, removal, pagination/scroll retention, remote reader flags and overlapping list/reader writes. |
+| Canonically duplicate local feeds prevent connection | Deterministically choose one cloud mapping; OR initial flags for duplicate identities. Mirror cloud subscription fields and article flags across canonical local copies, preserving every cached row, body and highlight. Local duplicate rows remain available; no destructive deduplication is performed. | Duplicate source fragments and duplicate GUIDs connect successfully; unique cached articles, both local copies, highlight linkage, false states and unsubscribe survive. |
+| Saving an expired dateless article resets its age | Persist confirmed article age separately from the expiring cloud catalog; the reducer receives that confirmed history. Save it before another publication can expire the entry. Recaptured metadata retains mapped age. | Reducer test and actual service/outbox/import rounds exercise expiration, star restoration and unstar expiration, preserving local cached body. |
+| Peer initializer blocks valid token replacement | Credential verification shares the exact initial-adoption eligibility checks, without mutating the dataset/checkpoint. Actual adoption still requires the sync lease. | Eligible initial peer verification leaves identity/checkpoint untouched; confirmed/replacement dataset validation remains strict. |
+| Repaired private-repository access leaves schedulers paused | Successful verified secure credential replacement also clears githubRepositoryUnavailable for the same active reference. History/identity errors remain blocked. | Existing scheduling regression now covers repaired 404 access and both eligibility paths, alongside unrelated fatal-error preservation. |
+| Rate-limit persistence mixes clocks | Calculate the waiting duration using server headers, then persist received-local-time plus that duration. Server Date still supplies trusted retention time and reset-duration calculation. | Both Retry-After and primary reset headers yield the same receiving-clock deadline with server clocks ten minutes ahead/behind. |
+
+### Local schema and compatibility
+
+Append-only v20 adds github_article_confirmations (connection ID, stable key, first confirmed time only). Upgrade backfills available article ages from the validated cached cloud files; it does not invent confirmation evidence from ordinary local fetch timestamps. New receipts retain confirmation evidence after catalog expiration. The local clear-data transaction deletes this table before its parent connections. Wire protocol, existing v18/v19 migrations, credentials, dependencies and signing configuration remain unchanged. Back up the database before upgrade; an older binary must not open the upgraded database.
+
+### Second-pass verification
+
+- Final Rust serial regression: desktop 265, Core 149, Bridge 3 pass. Includes populated v19 upgrade, canonical duplicate preservation, credential validation, both clock-skew headers and the complete expiration/restoration round trip.
+- Frontend 89 tests, TypeScript and production build pass. Flutter analyze reports no issues; all 40 tests pass.
+- The initial new pagination regression exposed an exhausted-range loading indicator; the extra-row probe fixes it and the final regression passes.
+- Windows debug executable builds successfully. Android all four release ABIs and the standard Debug APK build pass (12m 48s, 215 tasks). The final Flutter paging correction is included in a subsequent standard-package rebuild using those verified native libraries (8s, 207 tasks). Repeat FRB generation changes no generated Rust/Dart hashes.
+- No actual GitHub app publication, new physical-device/background acceptance, push or main-branch merge is performed. A25 remains open; emulator evidence from the previous pass is not claimed as newly rerun.

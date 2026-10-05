@@ -1,7 +1,7 @@
 //! Shared orchestration. Network awaits never hold a SQLite writer lock.
 use super::{
     error,
-    merge::{merge, Intent, Operation},
+    merge::{merge, merge_with_confirmed_times, Intent, Operation},
     model::*,
     storage,
     transport::{CachedFile, GitHubTransport, Publication, RemoteSnapshot, SnapshotTransport},
@@ -237,12 +237,11 @@ impl<S: LocalStore> GitHubService<S> {
             .ok_or_else(|| error("githubNotConnected"))?;
         let mut transport = GitHubTransport::new(Arc::clone(&self.client), info.profile, token)?;
         let remote = transport.read(&BTreeMap::new()).await?;
-        if remote.snapshot.as_ref().is_some_and(|s| {
-            s.manifest.dataset_id != info.dataset_id || s.manifest.epoch != info.epoch
-        }) {
-            return Err(error("githubDatasetChanged"));
-        }
-        Ok(())
+        self.store
+            .with(move |conn| {
+                storage::validate_credential_snapshot(conn, info.id, remote.snapshot.as_ref())
+            })
+            .await
     }
 
     /// Call only after verification and successful secure-store replacement.
@@ -253,7 +252,7 @@ impl<S: LocalStore> GitHubService<S> {
             if info.profile.credential_ref != credential_ref {
                 return Err(error("githubConnectionChanged"));
             }
-            conn.execute("UPDATE github_connections SET last_error_code=NULL,retry_at=NULL WHERE id=?1 AND last_error_code IN ('githubAuthenticationFailed','githubPermissionDenied','githubInvalidCredential','syncCredentialMissing','credentialReadFailed','credentialWriteFailed')",[info.id]).map_err(sql)?;
+            conn.execute("UPDATE github_connections SET last_error_code=NULL,retry_at=NULL WHERE id=?1 AND last_error_code IN ('githubAuthenticationFailed','githubPermissionDenied','githubInvalidCredential','githubRepositoryUnavailable','syncCredentialMissing','credentialReadFailed','credentialWriteFailed')",[info.id]).map_err(sql)?;
             Ok(())
         }).await
     }
@@ -379,13 +378,17 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
         }
         let lease_owned = lease.to_string();
         let receipt = snapshot.clone();
-        store
-            .with(move |conn| storage::save_rejections(conn, id, &lease_owned, &receipt))
+        let confirmed_times = store
+            .with(move |conn| {
+                storage::save_rejections(conn, id, &lease_owned, &receipt)?;
+                storage::confirmed_times(conn, id)
+            })
             .await?;
-        let report = merge(
+        let report = merge_with_confirmed_times(
             &snapshot,
             &batch,
             cutoff(remote.trusted_now.as_deref()).as_deref(),
+            &confirmed_times,
         )?;
         let files = report.snapshot.files()?;
         let publication_due = store
@@ -1094,6 +1097,32 @@ mod tests {
         let status = service.status().await.unwrap();
         assert!(status.automatic_due && status.background_due);
         assert!(status.last_error_code.is_none() && status.retry_at.is_none());
+        store.with(|conn| {conn.execute("UPDATE github_connections SET last_error_code='githubRepositoryUnavailable',retry_at=datetime('now','+10 minutes')",[]).map_err(sql)?;Ok(())}).await.unwrap();
+        let remote = store
+            .with(|conn| {
+                let info = storage::connection(conn)?.unwrap();
+                Ok(Snapshot::empty(
+                    info.dataset_id,
+                    "1970-01-01T00:00:00Z".into(),
+                ))
+            })
+            .await
+            .unwrap();
+        let remote_owned = remote.clone();
+        store
+            .with(move |conn| {
+                let info = storage::connection(conn)?.unwrap();
+                storage::validate_credential_snapshot(conn, info.id, Some(&remote_owned))
+            })
+            .await
+            .unwrap();
+        service
+            .credential_updated("papr.sync.test".into())
+            .await
+            .unwrap();
+        let status = service.status().await.unwrap();
+        assert!(status.automatic_due && status.background_due);
+        assert!(status.last_error_code.is_none() && status.retry_at.is_none());
         store
             .with(|conn| {
                 conn.execute(
@@ -1123,5 +1152,81 @@ mod tests {
                 .code(),
             "githubConnectionChanged"
         );
+    }
+    #[tokio::test]
+    async fn expired_article_restoration_uses_durable_confirmation_history() {
+        let (_dir, store, mut transport) = fixture().await;
+        store
+            .with(|conn| {
+                conn.execute(
+                    "UPDATE articles SET fetched_at='1900-01-01 00:00:00',body_text='cached body'",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        transport.remote.trusted_now = Some("2026-01-01T00:00:00Z".into());
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        let key = transport
+            .remote
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .articles
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        let confirmed = transport.remote.snapshot.as_ref().unwrap().articles[&key]
+            .first_seen_at
+            .clone();
+        for (date, starred, should_exist) in [
+            ("2026-04-02T00:00:00Z", None, false),
+            ("2026-04-03T00:00:00Z", Some(true), true),
+            ("2026-04-04T00:00:00Z", Some(false), false),
+        ] {
+            store
+                .with(move |conn| {
+                    conn.execute("UPDATE github_connections SET last_publish_at=NULL", [])
+                        .map_err(sql)?;
+                    if let Some(starred) = starred {
+                        conn.execute("UPDATE articles SET is_starred=?1", [starred])
+                            .map_err(sql)?;
+                    }
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            transport.remote.trusted_now = Some(date.into());
+            attempt(&store, &mut transport, Cancellation::default())
+                .await
+                .unwrap();
+            let cloud = transport.remote.snapshot.as_ref().unwrap();
+            assert_eq!(cloud.articles.contains_key(&key), should_exist);
+            if should_exist {
+                assert_eq!(cloud.articles[&key].first_seen_at, confirmed);
+            }
+        }
+        let key_owned = key.clone();
+        let (age, body) = store
+            .with(move |conn| {
+                let info = storage::connection(conn)?.unwrap();
+                let times = storage::confirmed_times(conn, info.id)?;
+                Ok((
+                    times[&key_owned].clone(),
+                    conn.query_row("SELECT body_text FROM articles WHERE id=1", [], |r| {
+                        r.get::<_, String>(0)
+                    })
+                    .map_err(sql)?,
+                ))
+            })
+            .await
+            .unwrap();
+        assert_eq!(age, confirmed);
+        assert_eq!(body, "cached body");
     }
 }

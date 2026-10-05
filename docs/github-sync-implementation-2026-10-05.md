@@ -15,7 +15,7 @@ The app accepts repository coordinates in settings; this user's account is not h
 
 ## Set up both clients
 
-1. Export an OPML backup and keep a backup of each device's pre-upgrade database before opening the new client. The append-only schema migration upgrades to v19; an older binary must not open that upgraded database. A rollback uses the old database backup.
+1. Export an OPML backup and keep a backup of each device's pre-upgrade database before opening the new client. The append-only schema migration upgrades to v20; an older binary must not open that upgraded database. A rollback uses the old database backup.
 2. Create a fine-grained personal access token, preferably one per device, with resource owner `Ryderey`, repository access limited to `papr-sync`, and repository **Contents: Read and write**. Metadata read access is included by GitHub. Choose an expiry you can maintain. No Actions, workflow, or administration permission is needed. See [GitHub token guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) and [Git reference permissions](https://docs.github.com/en/rest/git/refs?apiVersion=2026-03-10).
 3. In Papr's synchronization settings, disconnect any GReader backend, then enter owner `Ryderey`, repository `papr-sync`, branch `main`, and the token. The form takes the repository name, not its `.git` URL.
 4. Preview the local/remote counts and exclusions, then confirm connection. Preview and confirmation read GitHub; the first sync performs the initial publication. Saved states are initially combined, while an existing cloud unsubscribe is preserved.
@@ -102,4 +102,7 @@ Review artifacts are local, untracked build outputs: target/debug/papr.exe and m
 
 ## Static-review follow-up
 
-The eight findings and their corrections/regressions are recorded in [the review-fix report](github-sync-review-fixes-2026-10-05.md). The local schema is now v19; the repository protocol remains v1. Real A25 account/device acceptance remains open.
+The eight findings and their corrections/regressions are recorded in [the review-fix report](github-sync-review-fixes-2026-10-05.md). The local schema is now v20; the repository protocol remains v1. Real A25 account/device acceptance remains open.
+
+
+Second review: six additional findings are fixed; see the second-pass section of the review-fix report. v20 preserves confirmed article age independently of cloud expiration. Canonical duplicate local copies remain intact while sharing one cloud entity and mirrored flags. Android mounted lists/readers follow synchronization without interrupting optimistic writes or treating a remote unread state as a new opening of the article. Rust final counts are 265/149/3; frontend 89 and Flutter 40/analyze pass. A25 still requires actual account/device evidence.

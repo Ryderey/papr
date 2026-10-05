@@ -37,3 +37,12 @@ A25 real repository publication and physical-device/background convergence remai
 - [x] Updated Android APK and final artifact verification recorded.
 
 See docs/github-sync-review-fixes-2026-10-05.md. A25 remains independently pending.
+
+
+## Second static-review follow-up
+
+- [x] Fix all six second-pass findings: mounted Android projections, canonical duplicate connection, restored catalog age, initializer credential validation, repaired repository-access scheduling and persisted rate-limit clock consistency.
+- [x] Targeted regressions and full Rust/frontend/Flutter gates pass, including pagination/exhaustion and optimistic editing protection.
+- [x] Refresh native artifacts and record the final generation/build gates.
+
+A25 actual GitHub/account and physical-device acceptance remains independently pending.

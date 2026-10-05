@@ -39,14 +39,41 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   List<bridge.ResolvedHighlight> _resolvedHighlights = const [];
   String? _highlightedHtml;
   String _selectedText = '';
+  int _pendingStateWrites = 0;
+  int _detailGeneration = 0;
+  bool _syncRefreshPending = false;
 
   @override
   void initState() {
     super.initState();
+    ref.listenManual(articleRepositoryProvider, (_, __) => _queueSyncRefresh());
     _load();
   }
 
+  void _queueSyncRefresh() {
+    _syncRefreshPending = true;
+    Future<void>.microtask(() async {
+      if (!mounted || _pendingStateWrites > 0 || !_syncRefreshPending) return;
+      _syncRefreshPending = false;
+      final generation = ++_detailGeneration;
+      try {
+        final detail =
+            await ref.read(articleDetailProvider(widget.articleId).future);
+        if (!mounted || generation != _detailGeneration) return;
+        setState(() {
+          _detail = detail;
+          _loading = false;
+          _error = null;
+        });
+        await _loadHighlights();
+      } catch (_) {
+        // Keep the readable cached content; sync status reports import failures.
+      }
+    });
+  }
+
   Future<void> _load() async {
+    final generation = ++_detailGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -54,12 +81,13 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     try {
       var detail =
           await ref.read(articleDetailProvider(widget.articleId).future);
-      if (!mounted) return;
+      if (!mounted || generation != _detailGeneration) return;
       setState(() {
         _detail = detail;
         _loading = false;
       });
       await _loadHighlights();
+      if (!mounted || generation != _detailGeneration) return;
       if (!detail.isRead) {
         await _setState(_ArticleState.read, true);
         detail = _detail ?? detail;
@@ -437,6 +465,9 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   Future<void> _setState(_ArticleState field, bool value) async {
     final previous = _detail;
     if (previous == null) return;
+    _pendingStateWrites++;
+    _syncRefreshPending = true;
+    _detailGeneration++;
     setState(() => _detail = _copyDetail(previous, field, value));
     try {
       final repo = ref.read(articleRepositoryProvider);
@@ -458,6 +489,9 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.localizeError(error))),
       );
+    } finally {
+      _pendingStateWrites--;
+      if (_syncRefreshPending) _queueSyncRefresh();
     }
   }
 

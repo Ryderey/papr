@@ -41,8 +41,8 @@ Initial `flutter build apk --debug --no-pub` failed in WorkManager Kotlin compil
 
 ## Review artifacts
 
-- Windows executable: target/debug/papr.exe — SHA256 eb6ebcbb1c7aea6a4d2070c239fe2d5790a2e0721a643bbf0d811dd839f5786a.
-- Standard Android APK: mobile/build/github-sync/papr-sync-debug.apk — package com.papr.papr_mobile, version 0.1.0+1; SHA256 02f78d0a2556fdcb20cb09ad9588e5d684a380caae169ff92582832fe51f11e2.
+- Windows executable: target/debug/papr.exe — SHA256 16107dc8a32eb4bc3cb6630e45b0f6264429351e37dcec3bfe391e125a43eb18.
+- Standard Android APK: mobile/build/github-sync/papr-sync-debug.apk — package com.papr.papr_mobile, version 0.1.0+1; SHA256 a4e03ccaf4e6cbdac9a546893575cf4e57d3e1a55ae495a14a1a7405a5c02afa.
 - Independent emulator test APK: mobile/build/github-sync/papr-sync-emulator-smoke.apk; this is a different package/entrypoint and is not the user's install artifact.
 - Emulator UI screenshot: mobile/build/github-sync/android-github-settings.png.
 - Debug APK signing/version may differ from the user's installed app. Do not uninstall the real app to resolve an upgrade mismatch; preserve its database and finish the existing signing/version release work separately.
@@ -57,3 +57,12 @@ Initial `flutter build apk --debug --no-pub` failed in WorkManager Kotlin compil
 - Original checkout unchanged; no remote write/push. A25 real account/device acceptance remains pending.
 - Updated independent emulator package launches against its existing test database and passes foreground/headless Worker Keystore/Core bridge smoke again; both pass markers observed, no runtime exceptions. Original com.papr.papr_mobile untouched. The default Gradle output is now the isolated smoke APK; deliver the preserved standard artifact only.
 - After formatting the new test, the v18-to-v19 migration regression passes again.
+
+
+## Second static-review fixes
+
+- [x] All six findings fixed; no new dependencies or wire protocol changes. Append-only v20 stores confirmed article age and supports cached v19 upgrade.
+- [x] Final full serial Rust: desktop 265, Core 149, Bridge 3. Frontend 89/build; Flutter 40/analyze pass.
+- [x] Mounted Android empty/populated/paged lists and readers refresh without replacing pending optimistic edits. An initial pagination regression caught the exhausted-range spinner and the final test passes.
+- [x] Repeat FRB generation changes no generated Rust/Dart hashes. Windows debug build passes. Android all four ABIs/standard APK pass (12m 48s); final Flutter-only standard rebuild using verified native libraries passes (8s). Standard package metadata and both artifact SHA256 values verified; preserved artifacts refreshed.
+- A25 remains open. No actual remote sync write, push, physical-device acceptance or main-branch merge in this pass.
