@@ -18,6 +18,16 @@ SHA = "a" * 40
 
 class ReleaseSafety(unittest.TestCase):
     def setUp(self):
+        # Release counters can advance without changing these boundary fixtures.
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        previous = Path.cwd()
+        os.chdir(temporary.name)
+        self.addCleanup(os.chdir, previous)
+        Path("src-tauri").mkdir()
+        Path("mobile").mkdir()
+        Path("src-tauri/tauri.conf.json").write_text('{"version": "0.9.0"}')
+        Path("mobile/pubspec.yaml").write_text("version: 0.1.0+1\n")
         self.environment = patch.dict(os.environ, {"RELEASE_TAG": "papr-build-20261006-01", "BUILD_SHA": SHA,
             "PLATFORMS": "both", "ANDROID_BUILD_NUMBER": "2", "GITHUB_REPOSITORY": "example/papr"})
         self.environment.start()
@@ -57,6 +67,19 @@ class ReleaseSafety(unittest.TestCase):
         result = subprocess.CompletedProcess([], 1, "", "Not Found (HTTP 404)")
         with patch.object(subprocess, "run", return_value=result):
             self.assertIsNone(release.api("example", optional=True))
+
+    def test_draft_lookup_paginates_and_checks_target_without_a_tag(self):
+        cfg = release.config()
+        draft = {"tag_name": cfg["tag"], "draft": True, "target_commitish": SHA, "assets": []}
+        page = [{"tag_name": f"other-{index}"} for index in range(100)]
+        with patch.object(release, "tag_commit", return_value=None), \
+             patch.object(release, "api", side_effect=[None, page, [draft]]) as api:
+            self.assertEqual(release.preflight(cfg), draft)
+            self.assertTrue(api.call_args.args[0].endswith("page=2"))
+        with patch.object(release, "tag_commit", return_value=None), \
+             patch.object(release, "api", side_effect=[None, [{**draft, "target_commitish": "b" * 40}]]):
+            with self.assertRaisesRegex(ValueError, "draft targets a different commit"):
+                release.preflight(cfg)
 
     def test_annotated_tag_is_peeled_to_its_actual_commit(self):
         with patch.object(release, "api", side_effect=[{"object": {"type": "tag", "sha": "b" * 40}},
@@ -126,12 +149,15 @@ class ReleaseSafety(unittest.TestCase):
             exe.write_bytes(b"MZfixture")
             (folder / "windows-build-info.json").write_text(json.dumps({**cfg, "platform": "windows",
                 "assets": {exe.name: {"size": exe.stat().st_size, "sha256": release.sha256(exe)}}}))
-            remote = {"draft": True, "assets": []}
+            remote = None
             writes = []
 
             def fake_command(*args):
+                nonlocal remote
                 writes.append(args)
-                if args[2] == "upload":
+                if args[2] == "create":
+                    remote = {"tag_name": cfg["tag"], "target_commitish": SHA, "draft": True, "assets": []}
+                elif args[2] == "upload":
                     for name, path in [(p.name, p) for p in folder.iterdir()]:
                         remote["assets"].append({"name": name, "size": path.stat().st_size, "digest": "sha256:" + release.sha256(path)})
                 elif args[2] == "edit":
@@ -139,12 +165,18 @@ class ReleaseSafety(unittest.TestCase):
                     remote["draft"] = False
                 return ""
 
+            def fake_api(path, **kwargs):
+                if "/releases/tags/" in path:
+                    # Match GitHub: the by-tag endpoint cannot find a draft.
+                    return remote if remote and not remote["draft"] else None
+                return [remote] if remote else []
+
             env = {"RUNNER_TEMP": temporary, "GITHUB_RUN_ID": "123", "PUBLISH_PRERELEASE": "true",
                    "GITHUB_STEP_SUMMARY": str(Path(temporary) / "summary.md")}
             try:
                 os.chdir(temporary)
-                with patch.dict(os.environ, env), patch.object(release, "preflight", side_effect=[None, remote]), \
-                     patch.object(release, "api", return_value=remote), patch.object(release, "tag_commit", return_value=SHA), \
+                with patch.dict(os.environ, env), patch.object(release, "api", side_effect=fake_api), \
+                     patch.object(release, "tag_commit", side_effect=lambda *args: SHA if remote and not remote["draft"] else None), \
                      patch.object(release, "command", side_effect=fake_command):
                     release.publish(cfg)
             finally:

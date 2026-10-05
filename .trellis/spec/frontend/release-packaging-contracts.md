@@ -75,6 +75,12 @@ bounds, tag conflicts, API errors, annotated tags, partial/tampered assets and
 draft conflicts. Real signing setup, cloud builds, download/install and in-place
 updates require separate owner/device evidence.
 
+Release lookup tests must model the real API: `releases/tags/{tag}` only returns
+published releases. Find drafts through the paginated releases list and require
+their `target_commitish` to equal the immutable build SHA. A draft's Git tag may
+not exist until publication; recheck existing tag conflicts before publishing,
+then verify the resulting tag after publication.
+
 ## 7. Wrong vs Correct
 
 Wrong: release workflow writes key.properties but Gradle always picks Debug.

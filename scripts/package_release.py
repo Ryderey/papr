@@ -75,8 +75,25 @@ def preflight(cfg):
     if commit is not None and commit != cfg["sha"]:
         raise ValueError("Existing tag points to a different commit; use a new tag")
     release = api(f"repos/{repo}/releases/tags/{cfg['tag']}", optional=True)
+    # The by-tag endpoint only finds published releases. Drafts are in the list,
+    # and their tag may not exist until publication.
+    if release is None:
+        page = 1
+        while True:
+            releases = api(f"repos/{repo}/releases?per_page=100&page={page}")
+            matches = [item for item in releases if item["tag_name"] == cfg["tag"]]
+            if len(matches) > 1:
+                raise ValueError("Multiple releases use this tag; resolve the ambiguity first")
+            if matches:
+                release = matches[0]
+                break
+            if len(releases) < 100:
+                break
+            page += 1
     if release is not None and not release["draft"]:
         raise ValueError("Release is already published; use a new tag instead of replacing assets")
+    if release is not None and release["target_commitish"] != cfg["sha"]:
+        raise ValueError("Existing draft targets a different commit; use a new tag")
     return release
 
 
@@ -216,17 +233,21 @@ def publish(cfg):
         if prerelease:
             args.append("--prerelease")
         command(*args)
-        release = api(f"repos/{repo}/releases/tags/{cfg['tag']}")
+        release = preflight(cfg)
+        if release is None:
+            raise ValueError("Created release draft could not be found")
     remote = check_remote_assets(release, files, complete=False)
     missing = [str(path) for name, path in files.items() if name not in remote]
     if missing:
         command("gh", "release", "upload", cfg["tag"], *missing, "--repo", repo)
     release = preflight(cfg)
-    if release is None or tag_commit(repo, cfg["tag"]) != cfg["sha"]:
+    if release is None:
         raise ValueError("Release/tag changed before publication")
     check_remote_assets(release, files, complete=True)
     command("gh", "release", "edit", cfg["tag"], "--repo", repo, "--draft=false", "--latest=false",
             f"--prerelease={str(prerelease).lower()}", "--notes-file", str(notes))
+    if tag_commit(repo, cfg["tag"]) != cfg["sha"]:
+        raise ValueError("Published tag does not match the verified build commit")
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
         summary.write(f"[Download Papr {cfg['tag']}](https://github.com/{repo}/releases/tag/{cfg['tag']})\n\nCommit: `{cfg['sha']}`\n")
 
