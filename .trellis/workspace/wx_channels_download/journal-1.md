@@ -408,3 +408,37 @@ Fixed all six second-pass review findings. Added durable confirmed retention age
 ### Next Steps
 
 - Complete actual GitHub two-device and physical/background acceptance before merging into optimize-bugfix. Back up databases before v20; keep original signing/release work intact.
+
+
+## Session 12: GitHub sync delivery and cleanup
+
+**Date**: 2026-10-05
+**Task**: GitHub sync delivery and cleanup
+**Branch**: `optimize-bugfix`
+
+### Summary
+
+User confirmed desktop/mobile validation. README Token setup committed, GitHub sync fast-forwarded into optimize-bugfix and pushed normally; remote 0b81c4d verified. Archived delivered implementation task, transferred unconfirmed GitHub-connected background/Doze/reboot and actual Token-expiry checks to existing Android deferred acceptance task. Cleanup preserves standard Windows/APK artifacts and original uncommitted signing/release files; no new builds or live sync tests claimed.
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0b81c4d` | (see git log) |
+| `bd7708c` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
