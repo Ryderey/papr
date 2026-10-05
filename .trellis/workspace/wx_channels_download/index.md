@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-10-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~331 | Active |
+| `journal-1.md` | ~370 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-10-05 | GitHub sync static-review fixes | `0173f5c` | `codex/github-personal-sync` |
 | 9 | 2026-10-05 | Desktop/Android integration and private GitHub sync | `71176d7`, `537b2e4` | `codex/github-personal-sync` |
 | 8 | 2026-09-28 | P7 自用 RC 收尾与扩展验收延期 | `e0ae02b` | `feat/flutter-android-rearchitecture` |
 | 7 | 2026-09-27 | P6B FreshRSS and Miniflux sync | `92e700b`, `82bfdc8` | `feat/flutter-android-rearchitecture` |

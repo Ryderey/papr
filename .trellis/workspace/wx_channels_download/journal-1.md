@@ -329,3 +329,42 @@ Integrated both clients, implemented shared GitHub sync with secure Windows/Andr
 ### Next Steps
 
 - Configure scoped device tokens in the apps and complete the manual acceptance checklist in docs/github-sync-implementation-2026-10-05.md before merging the feature into optimize-bugfix.
+
+
+## Session 10: GitHub sync static-review fixes
+
+**Date**: 2026-10-05
+**Task**: GitHub sync static-review fixes
+**Branch**: `codex/github-personal-sync`
+
+### Summary
+
+Fixed all eight static-review findings with regressions and append-only local migration v19. Rust desktop/Core/Bridge 265/143/3, frontend 89, Flutter 35/analyze, FRB reproducibility, Windows and Android all-ABI builds, isolated emulator foreground/Worker smoke pass. Task remains active pending A25 real GitHub/physical-device acceptance. Original checkout preserved; no push or remote sync write.
+
+### Main Changes
+
+- Fixed credential error normalization and recovery, desktop query refresh and archived counts.
+- Fixed competing initialization, lost-response rejection receipts, stable folder identity and future-date retention; added local migration v19 and regenerated bridge bindings.
+- Added regression coverage and documented the eight fixes in docs/github-sync-review-fixes-2026-10-05.md.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0173f5c` | (see git log) |
+
+### Testing
+
+- Full serial Rust: desktop 265, Core 143, Bridge 3 pass; final v18-to-v19 migration regression rerun passes.
+- Frontend 89 tests, TypeScript and production build pass; Flutter analyze and 35 tests pass.
+- FRB regeneration is reproducible; Windows debug and Android all four ABI/standard APK builds pass.
+- Isolated emulator foreground/headless Worker Keystore/Core bridge smoke passes.
+- Staged whitespace, task-context validation and secret/artifact scan pass. Real GitHub app round trips and physical Android acceptance were not run.
+
+### Status
+
+**Eight review fixes committed; parent task remains in_progress pending A25 acceptance.**
+
+### Next Steps
+
+- Complete A25 actual GitHub two-device and physical/background acceptance before merging into optimize-bugfix; back up databases before the v19 upgrade.
