@@ -1,0 +1,234 @@
+name: Package Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: Platforms to build and archive in one Release
+        type: choice
+        options: [both, windows, android]
+        default: both
+      release_tag:
+        description: Unique tag, e.g. papr-build-20261006-01
+        type: string
+        required: true
+      prerelease:
+        description: Mark this download as a prerelease
+        type: boolean
+        default: true
+      android_build_number:
+        description: Android versionCode (greater than installed code and pubspec code; required for Android)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag }}
+  PLATFORMS: ${{ inputs.platforms }}
+  ANDROID_BUILD_NUMBER: ${{ inputs.android_build_number }}
+  BUILD_SHA: ${{ github.sha }}
+  PUBLISH_PRERELEASE: ${{ inputs.prerelease }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.prepare.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate inputs and existing release
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/package_release.py prepare
+
+  checks:
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  windows:
+    if: inputs.platforms == 'windows' || inputs.platforms == 'both'
+    needs: [prepare, checks]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          shared-key: windows-release
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tauri build --bundles nsis
+      - run: python scripts/package_release.py collect windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  android:
+    if: inputs.platforms == 'android' || inputs.platforms == 'both'
+    needs: [prepare, checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FLUTTER_VERSION: "3.44.5"
+      NDK_VERSION: "30.0.14904198"
+      ORG_GRADLE_PROJECT_paprAndroidAbis: arm64-v8a,armeabi-v7a
+      ORG_GRADLE_PROJECT_paprRequireReleaseSigning: "true"
+      ANDROID_SIGNING_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate signing prerequisites
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for name in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD ANDROID_SIGNING_CERT_SHA256; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing signing prerequisite: $name. Run scripts/configure-android-signing.ps1 locally."
+              exit 1
+            fi
+          done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          # sdkmanager may stop reading before yes exits; supply finite license input.
+          printf 'y\ny\ny\ny\ny\ny\ny\ny\ny\ny\n' > "$RUNNER_TEMP/android-license-input"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses < "$RUNNER_TEMP/android-license-input" > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          echo "APKSIGNER=$ANDROID_HOME/build-tools/36.0.0/apksigner" >> "$GITHUB_ENV"
+          echo "AAPT=$ANDROID_HOME/build-tools/36.0.0/aapt" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          shared-key: android-release
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle.kts', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+      - name: Configure Android native compilers
+        run: |
+          set -euo pipefail
+          toolchain="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          {
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$toolchain/aarch64-linux-android21-clang"
+            echo "CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=$toolchain/armv7a-linux-androideabi21-clang"
+            echo "CC_aarch64_linux_android=$toolchain/aarch64-linux-android21-clang"
+            echo "AR_aarch64_linux_android=$toolchain/llvm-ar"
+            echo "CC_armv7_linux_androideabi=$toolchain/armv7a-linux-androideabi21-clang"
+            echo "AR_armv7_linux_androideabi=$toolchain/llvm-ar"
+          } >> "$GITHUB_ENV"
+      - name: Fetch Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+      - name: Build APKs with the persistent signing key
+        working-directory: mobile
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PAPR_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/papr-release.keystore
+          PAPR_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          PAPR_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PAPR_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$PAPR_ANDROID_KEYSTORE_PATH"
+          flutter build apk --release --no-pub --split-per-abi --target-platform android-arm,android-arm64 --build-number "$ANDROID_BUILD_NUMBER"
+      - name: Verify APK versions, ABIs and certificate
+        run: python scripts/package_release.py collect android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-android
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Remove runner signing material
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/papr-release.keystore"
+
+  publish:
+    needs: [prepare, checks, windows, android]
+    # A deliberately unselected platform is skipped; a failed selected one blocks publication.
+    if: >-
+      ${{ always() && !cancelled() && needs.prepare.result == 'success' && needs.checks.result == 'success'
+          && (inputs.platforms == 'android' || needs.windows.result == 'success')
+          && (inputs.platforms == 'windows' || needs.android.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          merge-multiple: true
+          path: release-assets
+      - name: Publish complete GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/package_release.py publish

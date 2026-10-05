@@ -36,6 +36,9 @@ dist-ssr
 # Test coverage
 coverage/
 
+# Release helper Python caches
+scripts/**/__pycache__/
+
 # Stray compiler scratch output
 a.out
 
@@ -75,4 +78,3 @@ devtools_ws.cjs
 nul
 window_dump.xml
 papr-release.keystore
-

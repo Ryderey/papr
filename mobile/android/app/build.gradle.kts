@@ -1,7 +1,32 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val signingProperties = Properties().apply {
+    val propertiesFile = rootProject.file("key.properties")
+    if (propertiesFile.isFile) {
+        propertiesFile.inputStream().use { load(it) }
+    }
+}
+fun signingValue(environmentName: String, propertyName: String): String? =
+    System.getenv(environmentName) ?: signingProperties.getProperty(propertyName)
+
+val releaseStoreFile = signingValue("PAPR_ANDROID_KEYSTORE_PATH", "storeFile")
+val releaseStorePassword = signingValue("PAPR_ANDROID_STORE_PASSWORD", "storePassword")
+val releaseKeyAlias = signingValue("PAPR_ANDROID_KEY_ALIAS", "keyAlias")
+val releaseKeyPassword = signingValue("PAPR_ANDROID_KEY_PASSWORD", "keyPassword")
+val signingValues = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+val hasReleaseSigning = signingValues.all { !it.isNullOrEmpty() }
+val requireReleaseSigning = project.findProperty("paprRequireReleaseSigning")?.toString() == "true"
+if ((signingValues.any { it != null } || requireReleaseSigning) && !hasReleaseSigning) {
+    throw GradleException("Complete Android release signing configuration is required; see README.")
+}
+if (hasReleaseSigning && !rootProject.file(releaseStoreFile!!).isFile) {
+    throw GradleException("Configured Android release keystore does not exist.")
 }
 
 android {
@@ -26,10 +51,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Internal RC only; plan production signing when store distribution is needed.
-            signingConfig = signingConfigs.getByName("debug")
+            // Local internal builds may use Debug signing; CI requires a persistent key.
+            signingConfig = signingConfigs.getByName(if (hasReleaseSigning) "release" else "debug")
         }
     }
 }
@@ -55,12 +91,43 @@ dependencies {
 val repoRoot = rootDir.parentFile.parentFile
 val bridgeDir = File(repoRoot, "crates/papr-flutter-bridge")
 val targetDir = File(repoRoot, "target")
-val rustAbis = mapOf(
+val rustTargetsByAbi = mapOf(
     "arm64-v8a" to "aarch64-linux-android",
     "armeabi-v7a" to "armv7-linux-androideabi",
     "x86" to "i686-linux-android",
     "x86_64" to "x86_64-linux-android"
 )
+
+// Narrow the cross-compiled ABIs for release packaging, e.g.
+//   gradle -PpaprAndroidAbis=arm64-v8a,armeabi-v7a
+// The Flutter wrapper forwards ORG_GRADLE_PROJECT_paprAndroidAbis from the
+// environment. Unset keeps every ABI so local debug builds still cover emulators.
+val requestedAbis = (project.findProperty("paprAndroidAbis") as String?)
+    ?.split(',')
+    ?.map(String::trim)
+    ?.filter(String::isNotEmpty)
+    .orEmpty()
+if (requestedAbis.isNotEmpty()) {
+    val unknownAbis = requestedAbis.filterNot(rustTargetsByAbi::containsKey)
+    if (unknownAbis.isNotEmpty()) {
+        throw GradleException(
+            "paprAndroidAbis contains unsupported entries: ${unknownAbis.joinToString(", ")}; " +
+                "supported: ${rustTargetsByAbi.keys.joinToString(", ")}"
+        )
+    }
+}
+val rustAbis =
+    if (requestedAbis.isEmpty()) rustTargetsByAbi else rustTargetsByAbi.filterKeys { it in requestedAbis }
+
+val staleAbiDirs = (rustTargetsByAbi.keys - rustAbis.keys)
+    .filter { File(projectDir, "src/main/jniLibs/$it").listFiles().orEmpty().isNotEmpty() }
+if (staleAbiDirs.isNotEmpty()) {
+    logger.warn(
+        "paprAndroidAbis excludes ${staleAbiDirs.joinToString(", ")} but jniLibs still holds libraries " +
+            "for them; an unsplit APK would package stale binaries. Delete those directories or run " +
+            "`flutter clean` before packaging."
+    )
+}
 
 rustAbis.forEach { (androidAbi, rustTarget) ->
     val taskSuffix = androidAbi.replace("-", "")
@@ -68,7 +135,7 @@ rustAbis.forEach { (androidAbi, rustTarget) ->
         group = "build"
         description = "Build papr-flutter-bridge for $rustTarget"
         workingDir = bridgeDir
-        commandLine("cargo", "build", "--release", "-p", "papr-flutter-bridge", "--target", rustTarget)
+        commandLine("cargo", "build", "--release", "--locked", "-p", "papr-flutter-bridge", "--target", rustTarget)
         environment("CARGO_TARGET_DIR", targetDir.absolutePath)
     }
     tasks.register<Copy>("copyRustBridge$taskSuffix") {

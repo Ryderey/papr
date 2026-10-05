@@ -17,6 +17,7 @@ on:
 
 jobs:
   update-tap:
+    if: github.repository == 'l0ng-ai/papr'
     runs-on: ubuntu-latest
     steps:
       - name: Resolve tag / version

@@ -130,6 +130,35 @@ Windows 与 Android Papr 可以连接同一个 GitHub 私有仓库，双向同�
 
 Android 当前面向自用／内部测试，安装 APK 前请核对包名、版本和签名；操作步骤见 [Android RC 安装与升级说明](docs/mobile-rc-release.md)。
 
+### 按需构建并上传 GitHub Release
+
+`master` 是本仓库默认开发分支。普通 push／PR 只运行前端、Rust workspace、Flutter 和发布保护检查，不生成安装包。需要归档时，手动运行 [Package Release](https://github.com/Ryderey/papr/actions/workflows/package-release.yml)；工作流文件提交到默认分支后才会出现 **Run workflow** 入口。
+
+1. 打开 Actions → **Package Release** → **Run workflow**，分支通常选择 `master`。
+2. `platforms` 选择 `both`、`windows` 或 `android`；`release_tag` 填唯一标签，例如 `papr-build-20261006-01`。
+3. 包含 Android 时，填写 `android_build_number`：必须高于手机已安装的 versionCode 和 `mobile/pubspec.yaml` 的构建号。若之前安装的是构建号 1，可从 2 开始；后续继续递增。
+4. `prerelease` 默认开启。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
+5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。核对同一 Release 的 `SHA256SUMS.txt` 和构建说明。
+
+桌面与移动端显示版本可独立演进，发布标签用于归档同一提交的一批文件。已发布的标签/资产不会被自动覆盖；重新打包请用新标签。客户端仍需手动下载安装更新。旧的上游多平台发布和 Homebrew 工作流在本 fork 跳过；只创建标签不会触发本仓库打包。
+
+**Android 签名配置（一次性）**：直接分发 APK 也需要固定签名，无需 Google Play 或付费证书。准备好已有 keystore 的 alias、密码及私钥密码，安装并登录 [GitHub CLI](https://cli.github.com/)，在仓库根目录用 PowerShell 7 运行：
+
+```powershell
+pwsh -NoProfile -File .\scripts\configure-android-signing.ps1
+```
+
+脚本默认沿用根目录的 `papr-release.keystore`，不生成或覆盖密钥；alias 在本地输入，密码隐藏输入。其它位置可用 `-KeystorePath 'D:\secure\papr-release.keystore' -KeyAlias 'your-alias'`。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+不要把密码发到聊天或写进命令参数；keystore、密码和 `key.properties` 不提交到 Git。CI 在缺少配置或 APK 签名不匹配时失败。请将密钥和密码安全备份；第一次从 Debug 签名切换时，先核对现有安装的证书，签名不同不能直接覆盖更新，不要为了安装而直接卸载并丢失数据。
+
+安装包长期放在 Release，Actions 中转 artifacts 只保留 3 天。当前公开仓库的 Release 可供他人下载；其中不应包含个人数据库、同步 Token、AI 配置或签名密钥。云端打包不会自动删除本地已有的构建缓存；确认 Release 下载可用后，再单独清理可再生的 `target/`、`mobile/build/` 等目录，保留用户数据与密钥备份。完整机制和验收步骤见 [CI 打包设计](docs/ci-packaging-design-2026-10-05.md)。
+
 ### 上游原版（macOS／桌面）
 
 以下入口安装的是原始项目 `l0ng-ai/papr` 的发行版，不能作为本仓库改造功能的安装保证。macOS 原版可通过 [Homebrew](https://brew.sh) 安装：
@@ -251,7 +280,7 @@ for each Android ABI and bundles `libpapr_flutter_bridge.so` into the APK, so a
 plain `flutter build apk` picks up Rust changes with no extra step.
 
 - `--debug` produces a Debug-signed APK for development and device testing.
-- `--release` produces an optimized APK, but the currently committed Release configuration also uses Debug signing. It is an internal/self-use build; production signing, AAB packaging, and store distribution require separate setup. See [the Android RC procedure](docs/mobile-rc-release.md).
+- `--release` produces an optimized APK. A complete ignored `mobile/android/key.properties` or the four `PAPR_ANDROID_*` signing environment values selects the persistent signing key; without either, local internal builds use Debug signing. CI sets `paprRequireReleaseSigning=true` and refuses this fallback. See [signing setup](#按需构建并上传-github-release) and [the Android RC procedure](docs/mobile-rc-release.md).
 - `--no-pub` is suitable for repeat builds only after `flutter pub get` has completed and the dependency configuration is unchanged. A committed lockfile does not download dependencies or create `.dart_tool/package_config.json`.
 
 The APK is written to:

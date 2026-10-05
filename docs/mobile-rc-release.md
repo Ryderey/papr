@@ -1,6 +1,10 @@
 # Android internal RC procedure
 
-P7 targets an APK installed directly for internal acceptance. The Release variant currently uses Android Debug signing; formal signing, AAB and Google Play readiness are outside this task. Never describe this APK as production signed or publish it as a store artifact.
+P7's historical evidence below concerns Debug-signed internal RC APKs. Current Release builds use a persistent key when complete signing configuration is supplied; local builds without keys retain Debug signing, while Package Release CI requires the persistent key. Direct APK distribution is the current target; AAB and Google Play are outside scope. See [Release and signing setup](../README.md#按需构建并上传-github-release).
+
+For local persistent signing, use the same key as CI. Supply all four environment values (`PAPR_ANDROID_KEYSTORE_PATH`, `PAPR_ANDROID_STORE_PASSWORD`, `PAPR_ANDROID_KEY_ALIAS`, `PAPR_ANDROID_KEY_PASSWORD`) or an ignored `mobile/android/key.properties` with `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. `storeFile` is absolute or relative to `mobile/android`; Java properties require escaped backslashes on Windows (forward slashes are easier). Incomplete signing configuration fails rather than selecting Debug silently. Do not put passwords in shell command arguments or commit this file.
+
+The installed Debug certificate will usually differ from a dedicated Release key. Compare the actual certificate before the first transition, preserve/sync reading data, and plan migration if necessary. A locally generated Release key is free; it must be kept for future versions and securely backed up. The archived RC checks do not establish compatibility with that new signing identity.
 
 1. Confirm the package ID, `mobile/pubspec.yaml` version and Core Alpha schema migration fixture. Record the signing certificate fingerprint of the installed internal test APK. An in-place test upgrade requires the installed and RC APKs to have the same certificate and the RC version code to be higher.
 2. Build from `mobile/` with `flutter build apk --release --build-number=<higher-number>`. The current source version code is `1`; choose a code higher than the installed test APK.

@@ -21,6 +21,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 | [Mobile Cross-Layer Contracts](./mobile-cross-layer-contracts.md) | Core, FRB, Flutter, and Android integration contracts | Active |
+| [Release Packaging Contracts](./release-packaging-contracts.md) | Manual CI packaging, persistent Android signing and guarded publication | Active |
 
 ---
 

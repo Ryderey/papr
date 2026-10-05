@@ -785,15 +785,16 @@ Wrong: add a workspace while leaving `[profile.release]` in `src-tauri/Cargo.tom
 ### 2. Signatures
 
 ```text
-mobile/android/app/build.gradle.kts: buildTypes.release -> signingConfigs.debug
+mobile/android/app/build.gradle.kts: buildTypes.release -> release key when configured, otherwise local debug
 Db::new(path) -> Result<Db, CoreError>
 ```
 
 ### 3. Contracts
 
-- P7 internal Release APKs use Android Debug signing without `key.properties`.
-  Record the certificate fingerprint; formal signing and store distribution
-  require a separate future plan.
+- Historical P7 internal Release APKs used Android Debug signing without
+  `key.properties`. Current local internal builds retain that fallback when
+  no signing material is supplied. Manual Package Release CI requires the
+  persistent key; store distribution remains outside scope.
 - Core migrations are append-only. A v16 Alpha database opens under the latest
   sequence without clearing articles, settings or other user state. The
   one-time reset applies only to the older validation schema lacking FTS5.
