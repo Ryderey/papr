@@ -163,7 +163,7 @@ GitHub 官方目前允许单个 Release 最多 1000 个资产，每个文件小�
 
 公开仓库发布的 Release 也可被其他人下载。归档安装包只包含程序，不打包本地订阅数据库、同步 Token、AI 配置或签名密钥。
 
-云端构建可减少以后本地发布产生的大量临时文件，但不会自动释放已有 `target/`、`mobile/build/`、Gradle 或 SDK 缓存。首轮 Release 下载并验证可安装后，可另行清理确定可再生的本地构建目录；本轮不删除任何本地文件。保留源代码、用户数据和签名密钥备份。
+云端构建可减少以后本地发布产生的大量临时文件，但不会自动释放已有 `target/`、`mobile/build/`、Gradle 或 SDK 缓存。首轮 Release 下载并验证可安装后，可另行清理确定可再生的本地构建目录；本轮只清理实施生成的临时校验工具、测试密钥及下载文件。保留源代码、用户数据和签名密钥备份。
 
 ## 10. 实施与验收顺序
 
@@ -181,9 +181,13 @@ GitHub 官方目前允许单个 Release 最多 1000 个资产，每个文件小�
 - 已实现复用 CI 的手动工作流、统一发布保护、APK 证书/版本/ABI 检查和隐藏输入的签名配置脚本。
 - owner 确认沿用已有 `papr-release.keystore`；该文件保持原样，尚未输入密码或写入实际签名 Secrets。
 - 前端构建和 89 项测试通过；Flutter analyze 和 40 项测试通过。
-- 9 项发布保护回归通过，覆盖注入/标签拒绝、构建号、HTTP 错误、标签冲突、APK 证书/版本/ABI、资产完整性及草稿上传后才发布。
+- 10 项发布保护回归通过，覆盖注入/标签拒绝、构建号、HTTP 错误、标签冲突、APK 证书/版本/ABI、资产完整性及草稿上传后才发布。测试使用独立版本 fixture，日常调整应用版本不会改变边界测试的输入。
 - actionlint 1.7.12 验证修改的工作流通过；PowerShell 语法检查通过。
 - Gradle Kotlin 配置编译通过；缺少强制签名配置会失败；临时测试密钥的配置绑定与 signingReport 成功。测试没有使用用户发布密钥或生成 APK。
 - 使用一次性 PKCS12 测试密钥验证 keytool 隐藏环境密码输入；若 keytool 忽略独立私钥密码，脚本会保存实际用于签名的 store 密码。
-- GitHub Actions 已开启；真实仓库只读发布预检通过。尚未实际云端打包、上传安装包或验证固定密钥的设备覆盖升级。
+- GitHub Actions 已开启，默认分支为 master；真实仓库只读发布预检通过。Android 实际云端打包、固定密钥安装及设备覆盖升级仍待签名配置后验收。
 - 首次云端运行发现原 CI 的 pnpm 9 不兼容当前 workspace 配置；已固定为本地验证使用的 pnpm 11.5.0，同时用 packageManager 字段声明版本，修复后重新验收。
+- 首轮 Windows 安装包构建成功，但发布脚本错误地用按标签查询的接口读取草稿，停止在空草稿阶段。已改为分页查询草稿、核对 target_commitish，并在发布后验证最终标签 SHA；[GitHub 文档](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name)说明按标签接口只返回已发布 Release。回归测试模拟这个实际 API 行为。
+- 修复后的[普通 CI](https://github.com/Ryderey/papr/actions/runs/37345156802)全部通过，没有打包；[Windows 手动运行](https://github.com/Ryderey/papr/actions/runs/37345208121)全部通过，Android job 按选项跳过。
+- [预发布 papr-build-20261006-02](https://github.com/Ryderey/papr/releases/tag/papr-build-20261006-02)包含 Windows x64 安装器和三份校验/构建信息文件，标签指向 `361a06f0d5a7f4681817fd836a7c797936a37f34`。安装器大小为 5,977,589 字节。尚未执行安装器或验证 Windows 安装启动。
+- 已下载全部四个资产并核对 GitHub 的 digest、字节数、SHA256SUMS 和构建 SHA，全部一致。确认新 Release 完整后，清理了失败验收留下的空草稿；临时验证文件也随本轮收尾清理。

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/release-packaging-contracts.md", "reason": "Static checks, release regression guards and real acceptance boundaries"}
+{"file": "docs/ci-packaging-design-2026-10-05.md", "reason": "Selected platform behavior, complete asset publication and pending signing prerequisites"}

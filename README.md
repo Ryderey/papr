@@ -148,7 +148,7 @@ Android 当前面向自用／内部测试，安装 APK 前请核对包名、版�
 pwsh -NoProfile -File .\scripts\configure-android-signing.ps1
 ```
 
-脚本默认沿用根目录的 `papr-release.keystore`，不生成或覆盖密钥；alias 在本地输入，密码隐藏输入。其它位置可用 `-KeystorePath 'D:\secure\papr-release.keystore' -KeyAlias 'your-alias'`。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
+脚本默认沿用根目录的 `papr-release.keystore`，不生成或覆盖密钥；只有一个 alias 时自动读取，多个 alias 时在本地选择，密码隐藏输入。其它位置可用 `-KeystorePath 'D:\secure\papr-release.keystore' -KeyAlias 'your-alias'`。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
 
 - `ANDROID_KEYSTORE_BASE64`
 - `ANDROID_KEYSTORE_PASSWORD`
