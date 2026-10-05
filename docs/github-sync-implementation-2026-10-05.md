@@ -67,7 +67,7 @@ Tests use temporary databases and fake transports or loopback HTTP fixtures. The
 | A22: bulk/rules/OPML/cache | `core_business_writes_capture_rules_bulk_read_and_resubscription`, folder/bulk SQL capture, and local-cleanup suppression. OPML reuses the tested feed/folder writer path; no additional network-dependent OPML import fixture was run for GitHub mode. |
 | A23: exclusions | Outbox payload assertions exclude bodies/local private configuration; strict wire fields exclude token/unknown fields; transport errors omit credential and response content. Windows isolated secure-storage round trip succeeds and removes its test item. |
 | A24: no empty commits | `unchanged_head_has_no_commit_and_cooldown_keeps_edits_pending`, `a_new_maintenance_clock_without_changes_does_not_create_a_commit`. |
-| A25: real network and background | **Partially validated; real acceptance pending.** Repository privacy/ID/default branch verified read-only. An isolated Android emulator package passes foreground and headless WorkManager Keystore/Core bridge smoke checks and renders the GitHub form. No real PAT entered, no app-level remote publication, no production GitHub-connected Worker, no physical Android/Doze/reboot test, and no simultaneous Windows/Android network round trip yet. |
+| A25: real network and background | **Partially validated.** On 2026-10-05 the user reported that desktop and mobile validation passed. This records user-confirmed two-client validation, without inventing a per-scenario result or claiming an agent-run live test. Earlier isolated emulator foreground/headless Worker credential/Core smoke also passed. Production GitHub-connected background/Doze/reboot convergence has not been explicitly confirmed. |
 
 Final build/test counts and artifact paths are recorded in the active Trellis task's `implement.md`. Existing warnings include FRB `frb_expand` cfg warnings, Gradle deprecations, and the desktop bundle-size advisory.
 
@@ -106,3 +106,9 @@ The eight findings and their corrections/regressions are recorded in [the review
 
 
 Second review: six additional findings are fixed; see the second-pass section of the review-fix report. v20 preserves confirmed article age independently of cloud expiration. Canonical duplicate local copies remain intact while sharing one cloud entity and mirrored flags. Android mounted lists/readers follow synchronization without interrupting optimistic writes or treating a remote unread state as a new opening of the article. Rust final counts are 265/149/3; frontend 89 and Flutter 40/analyze pass. A25 still requires actual account/device evidence.
+
+## User validation and README setup — 2026-10-05
+
+The user confirmed that desktop and mobile validation passed. This supersedes the earlier lack of two-client user acceptance recorded in the development passes above. The user did not provide a detailed scenario log or explicitly confirm production background synchronization, Doze/reboot behavior, or actual token-expiry testing; those remain unconfirmed. No new live account/device tests were run by the agent for this documentation update.
+
+The root README now documents private repository initialization, fine-grained PAT creation with repository-scoped Contents read/write permission, all four connection fields, first synchronization on both devices, initial merge behavior, and credential renewal. PAT instructions were checked against GitHub's official documentation. This update changes documentation and task evidence only.

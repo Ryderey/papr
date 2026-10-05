@@ -32,9 +32,10 @@
     "docs/github-sync-review-fixes-2026-10-05.md",
     "src/lib/readingQueries.ts",
     "mobile/test/services/github_sync_credentials_test.dart",
-    "mobile/test/ui/screens/github_sync_refresh_test.dart"
+    "mobile/test/ui/screens/github_sync_refresh_test.dart",
+    "README.md"
   ],
-  "notes": "All six second-pass findings fixed; append-only v20. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows and Android all four ABI/APK builds pass. Standard artifacts refreshed and hashes verified. A25 real GitHub/physical acceptance remains open; original checkout preserved; no push/remote sync write.",
+  "notes": "All six second-pass findings fixed; append-only v20. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows and Android all four ABI/APK builds pass. Standard artifacts refreshed and hashes verified. A25 real GitHub/physical acceptance remains open; original checkout preserved; no push/remote sync write. On 2026-10-05 the user confirmed desktop and mobile validation passed. README now includes fine-grained PAT setup and both-client connection instructions. Production background/Doze/reboot acceptance is not explicitly confirmed and remains open; this documentation pass ran no new live sync tests.",
   "meta": {
     "sync_repository": {
       "owner": "Ryderey",

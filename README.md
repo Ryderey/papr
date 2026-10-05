@@ -19,7 +19,8 @@ A fast, native RSS reader for the desktop.
 - **AI** — summaries with inline follow-up Q&A, ask-the-article Q&A, and digests. Bring your own API key.
 - **Audio** — a built-in player that follows you from article to article.
 - **FreshRSS sync** — keep read state in step with a FreshRSS server.
-- **Local-first** — everything in a local SQLite database. No account, no cloud.
+- **GitHub sync** — synchronize Windows and Android through your own private repository; see [setup instructions](#github-私有仓库同步).
+- **Local-first** — reading data lives in local SQLite; cloud synchronization is optional.
 - **Localized** — English, Japanese, and Simplified Chinese.
 
 ## 基于原仓库的修改
@@ -53,6 +54,60 @@ A fast, native RSS reader for the desktop.
 - **多 LLM 配置规格**：新增 `docs/multi-llm-provider-adapter-spec.md`，记录多供应商 LLM 配置层的目标架构、兼容策略和后续演进方向。
 - **协作规则文档**：新增 `AGENTS.md` 以及 `docs/agents/*`，记录本仓库的 Agent 协作规则、Issue 追踪方式、标签约定和领域说明。
 - **TLS 排障记录**：新增 `tls.md`，记录 Windows / 代理 / 证书链相关的 Tauri 打包排障过程和建议操作。
+
+## GitHub 私有仓库同步
+
+Windows 与 Android Papr 可以连接同一个 GitHub 私有仓库，双向同步订阅、文件夹、文章标题和链接，以及已读、星标和稍后读状态。普通文章目录保留 90 天，星标或稍后读条目长期保留。正文由各端自行获取；主题、字体、AI 配置等保留在本地。个人使用无需部署服务器或 GitHub Actions。
+
+### 1. 准备私有仓库
+
+在自己的 GitHub 账号下创建一个专用 **Private** 仓库，例如 `papr-sync`，并勾选添加 README，使默认分支已有首次提交。已有初始化的私有仓库可直接使用。
+
+### 2. 获取 GitHub 精细权限 Token
+
+1. 登录拥有同步仓库的 GitHub 账号，打开 [创建精细权限 Token 页面](https://github.com/settings/personal-access-tokens/new)。也可以从头像菜单依次进入 **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**。
+2. **Token name**：填写便于识别的名称，例如电脑端 `Papr-Windows`、手机端 `Papr-Android`。
+3. **Expiration**：选择有效期，建议先用 90 天；到期后需生成新 Token 并在 Papr 中更新。这与普通文章目录的 90 天保留期是两个独立设置。
+4. **Resource owner**：选择拥有同步仓库的账号。
+5. **Repository access**：选择 **Only select repositories**，在 **Selected repositories** 中只勾选同步仓库，例如 `papr-sync`。
+6. **Permissions → Repository permissions**：将 **Contents** 设置为 **Read and write**。保留自动包含的 **Metadata: Read-only**，无需额外开启 Actions、Workflows 或 Administration 权限。
+7. 点击 **Generate token**，立即复制完整 Token，并粘贴到 Papr 的 Token 输入框。生成结果只显示一次；遗失时需重新生成。
+
+建议每台设备使用独立 Token，便于单独更换或撤销；两端共用一个 Token 也可以。不要把 Token 写入仓库、文档、截图或聊天。Windows 使用系统凭据管理器保存 Token，Android 使用 Keystore 保护的凭据存储。
+
+参考：[GitHub 官方 Token 创建说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token)、[GitHub Git 引用写入权限](https://docs.github.com/en/rest/git/refs#update-a-reference)。
+
+### 3. 在 Papr 中填写并连接
+
+进入 **设置 → 同步 → GitHub**。如果已连接其他同步服务，先断开该服务，再连接 GitHub。
+
+以仓库 `https://github.com/YOUR_USERNAME/papr-sync.git` 为例：
+
+| 字段 | 填写内容 |
+|---|---|
+| 仓库所有者 | `YOUR_USERNAME`，替换为自己的 GitHub 用户名 |
+| 私有仓库名称 | `papr-sync`，只填名称，不带 URL 或 `.git` |
+| 分支 | 留空使用默认分支；也可以填写实际分支名，例如 `main` |
+| GitHub 精细权限 Token | 刚生成的完整 Token，不是 GitHub 登录密码 |
+
+例如仓库为 `Ryderey/papr-sync` 时，所有者填写 `Ryderey`，仓库名称填写 `papr-sync`，分支填写 `main` 或留空。
+
+先点击 **预览连接**，核对本地与云端订阅、文章数量及排除提示，再点击 **确认连接**，然后点击 **立即同步**，等待成功。预览只读取仓库；首次同步成功才能确认 Token 的写入权限正常。
+
+### 4. 连接另一台设备与首次合并
+
+先让已有资料的电脑端完成一次同步，再在手机端填写相同的所有者、仓库名称和分支，使用手机端 Token 预览、确认并立即同步。
+
+- 全新安装且本地为空的手机会恢复云端资料。本地缺少条目不会被当作删除云端条目的操作。
+- 如果另一端已有资料，首次连接会合并双方数据。同一订阅保留已有云端设置；同一文章的已读、星标和稍后读状态，首次合并时任一端为真就保留为真。
+- 后续明确取消星标、稍后读、已读或订阅会正常传播。两端都可以修改；每次同步先读取云端，再合并本地待上传操作。
+- 首次加入可能产生设备登记与进度提交，即使手机本地没有资料，也可能看到新的 GitHub 提交。
+
+### 5. Token 到期或更换
+
+按上述最小权限设置重新生成 Token，在已连接的 Papr 同步设置中填写新 Token，点击 **更新 Token**，然后立即同步。无需断开并重新连接；到期或网络失败期间，本地待上传操作会保留。
+
+遇到仓库不可访问时，检查账号、仓库名称和 Token 的仓库选择；遇到写入失败时，检查 **Contents: Read and write** 及分支保护规则。连接和同步都需要设备能够访问 GitHub。
 
 ## Installation
 

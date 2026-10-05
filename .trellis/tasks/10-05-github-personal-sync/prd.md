@@ -28,7 +28,7 @@ The user approved the GitHub design and the order: integrate first, then develop
 
 ## Remaining manual acceptance
 
-A25 real repository publication and physical-device/background convergence remain open. The emulator smoke confirms platform credential/bridge availability, not a real GitHub round trip. Keep the task active until those checks are recorded.
+On 2026-10-05 the user confirmed that desktop and mobile validation passed. Record this as user-confirmed two-client acceptance, without claiming agent-run live testing or individual unreported scenarios. Production GitHub-connected background synchronization and Doze/reboot behavior remain unconfirmed; keep the task active for the remaining background acceptance.
 
 ## Static-review follow-up
 
@@ -36,7 +36,7 @@ A25 real repository publication and physical-device/background convergence remai
 - [x] Full Rust/frontend/Flutter checks pass and generated bridge reproducibility passes.
 - [x] Updated Android APK and final artifact verification recorded.
 
-See docs/github-sync-review-fixes-2026-10-05.md. A25 remains independently pending.
+See docs/github-sync-review-fixes-2026-10-05.md. A25 background acceptance remains independently pending.
 
 
 ## Second static-review follow-up
@@ -45,4 +45,9 @@ See docs/github-sync-review-fixes-2026-10-05.md. A25 remains independently pendi
 - [x] Targeted regressions and full Rust/frontend/Flutter gates pass, including pagination/exhaustion and optimistic editing protection.
 - [x] Refresh native artifacts and record the final generation/build gates.
 
-A25 actual GitHub/account and physical-device acceptance remains independently pending.
+User-confirmed desktop/mobile validation is recorded above. A25 production background acceptance remains independently pending.
+
+## Setup documentation follow-up
+
+- [x] Add private-repository setup, fine-grained PAT creation, field examples, two-client first synchronization and Token renewal to the root README.
+- [x] Record the user's desktop/mobile validation confirmation separately from agent-run checks.
