@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.9.0",
   "type": "module",
+  "packageManager": "pnpm@11.5.0",
   "scripts": {
     "dev": "node scripts/free-port.mjs 1430 && vite",
     "build": "tsc && vite build",

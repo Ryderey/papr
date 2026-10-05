@@ -19,6 +19,9 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
 
 - Every job validates/builds the same full SHA. Reuse `ci.yml` with `workflow_call`
   and its `ref` input; do not use a branch's moving HEAD in downstream jobs.
+- Pin pnpm 11.5.0 in package.json; setup actions read that single source, matching local validation.
+  The build-script allowlist in pnpm-workspace.yaml is incompatible with the old
+  pnpm 9 setup, which failed `pnpm store path` with a missing packages-field error.
 - Validate `papr-build-*` tags with both a restricted alphabet and Git ref rules;
   Android versionCode is explicit, > pubspec code and <= 2100000000.
 - GitHub API 404 may mean missing; authentication, quota and server failures

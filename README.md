@@ -174,7 +174,7 @@ brew install --cask l0ng-ai/papr/papr
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) — Node 20.x requires 20.19.0 or newer; Node 22 and later require 22.12.0 or newer. Node 22 matches the desktop CI configuration. These bounds follow the locked Vite dependency.
-- [pnpm](https://pnpm.io/) (v9+)
+- [pnpm](https://pnpm.io/) 11.5.0, matching `package.json` and CI. The workspace's build-script allowlist needs this configuration support; do not use the former pnpm 9 CI setup.
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable via rustup)
 - **Windows only**: WebView2 runtime (usually pre-installed), Visual Studio C++ Build Tools with the Windows SDK, and the Rust MSVC toolchain installed through rustup.
 - **Linux only**: WebKitGTK 4.1 development libraries, AppIndicator, librsvg, and patchelf; see the package list in [the desktop release workflow](.github/workflows/release.yml).

@@ -186,3 +186,4 @@ GitHub 官方目前允许单个 Release 最多 1000 个资产，每个文件小�
 - Gradle Kotlin 配置编译通过；缺少强制签名配置会失败；临时测试密钥的配置绑定与 signingReport 成功。测试没有使用用户发布密钥或生成 APK。
 - 使用一次性 PKCS12 测试密钥验证 keytool 隐藏环境密码输入；若 keytool 忽略独立私钥密码，脚本会保存实际用于签名的 store 密码。
 - GitHub Actions 已开启；真实仓库只读发布预检通过。尚未实际云端打包、上传安装包或验证固定密钥的设备覆盖升级。
+- 首次云端运行发现原 CI 的 pnpm 9 不兼容当前 workspace 配置；已固定为本地验证使用的 pnpm 11.5.0，同时用 packageManager 字段声明版本，修复后重新验收。
