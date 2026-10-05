@@ -290,3 +290,37 @@ Completed Core GReader sync, FRB APIs, Android Keystore plugin, Flutter settings
 ### Next Steps
 
 - 扩大自用场景或分发前，启动 `09-28-mobile-deferred-acceptance` 并完成适用矩阵。
+
+
+## Session 9: Desktop/Android integration and private GitHub sync
+
+**Date**: 2026-10-05
+**Task**: Desktop/Android integration and private GitHub sync
+**Branch**: `codex/github-personal-sync`
+
+### Summary
+
+Integrated both clients, implemented shared GitHub sync with secure Windows/Android credentials and durable recovery. Rust desktop/Core/Bridge 265/137/3, frontend 88, Flutter 34/analyze, Windows and all Android ABI/APK builds pass. Isolated emulator foreground/headless Worker secure-storage bridge smoke passes. Private Ryderey/papr-sync metadata verified read-only. A25 actual GitHub two-device and physical/background acceptance pending; task stays active. Original checkout preserved; no push or remote sync write. Guide: docs/github-sync-implementation-2026-10-05.md.
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `71176d7` | (see git log) |
+| `537b2e4` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

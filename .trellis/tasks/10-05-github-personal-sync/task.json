@@ -15,7 +15,7 @@
   "branch": "codex/github-personal-sync",
   "base_branch": "optimize-bugfix",
   "worktree_path": "C:/Users/Ryder/.codex/worktrees/integrate-desktop-mobile/papr",
-  "commit": null,
+  "commit": "537b2e4",
   "pr_url": null,
   "subtasks": [],
   "children": [],
