@@ -9,6 +9,168 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get githubScope =>
+      'Sync subscriptions, folders, article titles and links, read, starred and read-later states. Ordinary articles: 90 days; saved articles: retained indefinitely. Bodies and app settings stay local.';
+
+  @override
+  String get githubLoading => 'Loading…';
+
+  @override
+  String githubPending(int count) {
+    return 'Pending uploads: $count';
+  }
+
+  @override
+  String githubLastSuccess(String time) {
+    return 'Last sync: $time';
+  }
+
+  @override
+  String get githubNever => 'Never';
+
+  @override
+  String githubRejected(int count) {
+    return 'Operations requiring attention: $count';
+  }
+
+  @override
+  String get githubUncertain =>
+      'The last publication result is uncertain. Retry to check the cloud before sending again.';
+
+  @override
+  String githubRetryAt(String time) {
+    return 'Retry after $time';
+  }
+
+  @override
+  String get githubCancel => 'Cancel';
+
+  @override
+  String get githubToken => 'GitHub fine-grained token';
+
+  @override
+  String get githubUpdateToken => 'Update token';
+
+  @override
+  String get githubCredentialUpdated => 'Token updated';
+
+  @override
+  String get githubCompleted => 'Sync completed';
+
+  @override
+  String get githubOwner => 'Repository owner';
+
+  @override
+  String get githubRepo => 'Private repository name';
+
+  @override
+  String get githubBranch => 'Branch (blank uses default)';
+
+  @override
+  String get githubOtherBackend =>
+      'Disconnect the existing sync provider before connecting GitHub.';
+
+  @override
+  String get githubSetup =>
+      'Create an initialized private repository and a fine-grained token with Contents: read and write for this repository only.';
+
+  @override
+  String get githubPreview => 'Preview connection';
+
+  @override
+  String githubPreviewCounts(
+      int localFeeds, int remoteFeeds, int localArticles, int remoteArticles) {
+    return 'Subscriptions: local $localFeeds, cloud $remoteFeeds. Articles: local $localArticles, cloud $remoteArticles.';
+  }
+
+  @override
+  String githubPreviewExcluded(int feeds, int articles, int warnings) {
+    return 'Excluded: $feeds sources, $articles articles. Warnings: $warnings.';
+  }
+
+  @override
+  String get githubPreviewHint =>
+      'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative. No article bodies are uploaded.';
+
+  @override
+  String get githubConfirm => 'Confirm connection';
+
+  @override
+  String get githubErrorUnknown =>
+      'GitHub sync failed. Your local changes remain queued; check the connection and retry.';
+
+  @override
+  String get errorGithubAuthenticationFailed =>
+      'Token expired or invalid. Update the token.';
+
+  @override
+  String get errorGithubPermissionDenied =>
+      'Token needs Contents read and write for this private repository.';
+
+  @override
+  String get errorGithubRateLimited =>
+      'GitHub rate limit reached. Wait until the displayed retry time.';
+
+  @override
+  String get errorGithubNetwork =>
+      'Could not reach GitHub. Your changes remain queued.';
+
+  @override
+  String get errorGithubRepositoryUnavailable =>
+      'Repository or branch unavailable. Check owner, repository and token access.';
+
+  @override
+  String get errorGithubPrivateRepositoryRequired =>
+      'Use a private repository.';
+
+  @override
+  String get errorGithubOtherBackendConnected =>
+      'Disconnect the existing sync provider first.';
+
+  @override
+  String get errorGithubPreviewChanged =>
+      'Cloud changed since preview. Generate a new preview before connecting.';
+
+  @override
+  String get errorGithubSyncBusy => 'Sync is already running.';
+
+  @override
+  String get errorGithubHistoryRewritten =>
+      'Cloud history changed unexpectedly. Sync is paused; reconnect after checking the repository.';
+
+  @override
+  String get errorGithubDatasetChanged =>
+      'This repository contains a different sync dataset. Reconnect after checking the repository.';
+
+  @override
+  String get errorGithubRestoredDatabase =>
+      'A restored database was detected. Reconnect after reviewing local data.';
+
+  @override
+  String get errorGithubDatabaseCloneDetected =>
+      'This database belongs to another installation. Reconnect on this device.';
+
+  @override
+  String get errorGithubInstallationMissing =>
+      'Secure installation identity is missing. Reconnect on this device.';
+
+  @override
+  String get errorGithubCapacityExceeded =>
+      'Sync data exceeds the configured size limit.';
+
+  @override
+  String get errorGithubSyncCancelled =>
+      'Sync cancelled. Pending changes are preserved.';
+
+  @override
+  String get errorGithubConcurrentRetryLimit =>
+      'Cloud changed repeatedly. Retry later.';
+
+  @override
+  String get errorGithubWriteRejected =>
+      'GitHub rejected this write. Check branch protection and token permissions.';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

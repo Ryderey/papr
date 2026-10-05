@@ -4,5 +4,6 @@
 
 export 'api.dart';
 export 'dto.dart';
+export 'github_dto.dart';
 export 'error.dart';
 export 'frb_generated.dart';

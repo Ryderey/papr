@@ -7,6 +7,8 @@ mod commands;
 mod db;
 mod error;
 mod extraction;
+mod github_credentials;
+mod github_sync;
 mod ingestion;
 mod models;
 mod notify;
@@ -95,6 +97,7 @@ pub fn run() {
             let dark_shade = db::get_setting(&conn, "dark_shade").ok().flatten();
 
             app.manage(AppState::new(conn, readers, http));
+            github_sync::spawn_scheduler(app.handle().clone());
 
             // ── papr:// deep links (feature F6) ───────────────────────
             // Registered after `app.manage` so the handler can always reach
@@ -256,6 +259,13 @@ pub fn run() {
             commands::freshrss_disconnect,
             commands::freshrss_status,
             commands::freshrss_sync,
+            github_sync::github_status,
+            github_sync::github_preview,
+            github_sync::github_connect,
+            github_sync::github_update_credential,
+            github_sync::github_disconnect,
+            github_sync::github_sync_now,
+            github_sync::github_cancel_sync,
             commands::refresh_tray,
             commands::take_pending_deep_link,
             commands::list_tags,

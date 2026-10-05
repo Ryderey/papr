@@ -1129,7 +1129,13 @@ pub async fn clear_all_data(app: AppHandle) -> AppResult<()> {
     {
         let state = app.state::<AppState>();
         let conn = state.db.lock().await;
+        let reference = papr_core::sync::github::storage::connection(&conn)
+            .map_err(|e| AppError::code(e.code()))?
+            .map(|info| info.profile.credential_ref);
         db::clear_all_data(&conn)?;
+        if let Some(reference) = reference {
+            crate::github_credentials::delete(&reference)?;
+        }
     }
     let _ = app.emit("feeds-updated", 0);
     refresh_unread_surfaces(&app).await;

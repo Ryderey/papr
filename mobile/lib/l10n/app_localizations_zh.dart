@@ -9,6 +9,148 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get githubScope =>
+      '同步订阅、文件夹、文章标题和链接，以及已读、星标和稍后读状态。普通文章保留 90 天，星标或稍后读长期保留。正文及应用配置留在本地。';
+
+  @override
+  String get githubLoading => '加载中…';
+
+  @override
+  String githubPending(int count) {
+    return '待上传操作：$count';
+  }
+
+  @override
+  String githubLastSuccess(String time) {
+    return '上次同步：$time';
+  }
+
+  @override
+  String get githubNever => '尚未同步';
+
+  @override
+  String githubRejected(int count) {
+    return '需要关注的操作：$count';
+  }
+
+  @override
+  String get githubUncertain => '上次发布结果尚不确定。请重试，客户端会先检查云端是否已接收。';
+
+  @override
+  String githubRetryAt(String time) {
+    return '可重试时间：$time';
+  }
+
+  @override
+  String get githubCancel => '取消';
+
+  @override
+  String get githubToken => 'GitHub 精细权限 Token';
+
+  @override
+  String get githubUpdateToken => '更新 Token';
+
+  @override
+  String get githubCredentialUpdated => 'Token 已更新';
+
+  @override
+  String get githubCompleted => '同步完成';
+
+  @override
+  String get githubOwner => '仓库所有者';
+
+  @override
+  String get githubRepo => '私有仓库名称';
+
+  @override
+  String get githubBranch => '分支（留空使用默认分支）';
+
+  @override
+  String get githubOtherBackend => '请先断开现有同步服务，再连接 GitHub。';
+
+  @override
+  String get githubSetup =>
+      '使用已初始化的私有仓库，并创建仅可访问该仓库、具有 Contents 读写权限的精细权限 Token。';
+
+  @override
+  String get githubPreview => '预览连接';
+
+  @override
+  String githubPreviewCounts(
+      int localFeeds, int remoteFeeds, int localArticles, int remoteArticles) {
+    return '订阅：本地 $localFeeds，云端 $remoteFeeds。文章：本地 $localArticles，云端 $remoteArticles。';
+  }
+
+  @override
+  String githubPreviewExcluded(int feeds, int articles, int warnings) {
+    return '不上传：$feeds 个来源、$articles 篇文章。提示：$warnings 项。';
+  }
+
+  @override
+  String get githubPreviewHint => '首次同步合并订阅与保存状态；已有云端订阅设置优先。文章正文不会上传。';
+
+  @override
+  String get githubConfirm => '确认连接';
+
+  @override
+  String get githubErrorUnknown => 'GitHub 同步失败。本地操作仍在队列中，请检查连接后重试。';
+
+  @override
+  String get errorGithubAuthenticationFailed => 'Token 无效或已过期，请更新 Token。';
+
+  @override
+  String get errorGithubPermissionDenied => 'Token 需要该私有仓库的 Contents 读写权限。';
+
+  @override
+  String get errorGithubRateLimited => '已达到 GitHub 限流，请等待显示的可重试时间。';
+
+  @override
+  String get errorGithubNetwork => '无法连接 GitHub，本地操作仍在队列中。';
+
+  @override
+  String get errorGithubRepositoryUnavailable =>
+      '仓库或分支不可访问，请检查所有者、名称及 Token 权限。';
+
+  @override
+  String get errorGithubPrivateRepositoryRequired => '请选择私有仓库。';
+
+  @override
+  String get errorGithubOtherBackendConnected => '请先断开已有同步服务。';
+
+  @override
+  String get errorGithubPreviewChanged => '云端数据已变化，请重新预览后再连接。';
+
+  @override
+  String get errorGithubSyncBusy => '同步正在进行。';
+
+  @override
+  String get errorGithubHistoryRewritten => '云端历史发生异常变化，同步已停止；请检查仓库后重新连接。';
+
+  @override
+  String get errorGithubDatasetChanged => '该仓库中的同步数据集已变化，请检查后重新连接。';
+
+  @override
+  String get errorGithubRestoredDatabase => '检测到恢复的数据库，请核对本地数据后重新连接。';
+
+  @override
+  String get errorGithubDatabaseCloneDetected => '数据库来自另一个安装实例，请在当前设备重新连接。';
+
+  @override
+  String get errorGithubInstallationMissing => '安全存储中的设备身份缺失，请重新连接。';
+
+  @override
+  String get errorGithubCapacityExceeded => '同步数据超过大小限制。';
+
+  @override
+  String get errorGithubSyncCancelled => '同步已取消，待同步操作仍保留。';
+
+  @override
+  String get errorGithubConcurrentRetryLimit => '云端连续变化，请稍后重试。';
+
+  @override
+  String get errorGithubWriteRejected => 'GitHub 拒绝写入，请检查分支保护和 Token 权限。';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

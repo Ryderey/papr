@@ -26,6 +26,18 @@ import type {
 } from "./types";
 
 // ── folders ──
+export interface GitHubProfile { repository_id: number; owner: string; repo: string; branch: string; credential_ref: string }
+export interface GitHubPreview { profile: GitHubProfile; head: string; local_feeds: number; remote_feeds: number; local_articles: number; remote_articles: number; excluded_feeds: number; excluded_articles: number; warning_count: number }
+export interface GitHubStatus { profile: GitHubProfile | null; pending: number; rejected: number; metadata_only: number; last_success_at: string | null; last_error_code: string | null; retry_at: string | null; busy: boolean; uncertain_publication: boolean; background_due: boolean; automatic_due: boolean }
+export interface GitHubSyncReport { acknowledged: number; rejected: number; retries: number; pending: number }
+export const githubStatus = () => invoke<GitHubStatus>("github_status");
+export const githubPreview = (owner: string, repo: string, branch: string, token: string) => invoke<GitHubPreview>("github_preview", { owner, repo, branch: branch.trim() || null, token });
+export const githubConnect = (preview: GitHubPreview, token: string) => invoke<void>("github_connect", { preview, token });
+export const githubSyncNow = () => invoke<GitHubSyncReport>("github_sync_now");
+export const githubCancelSync = () => invoke<void>("github_cancel_sync");
+export const githubDisconnect = () => invoke<void>("github_disconnect");
+export const githubUpdateCredential = (token: string) => invoke<void>("github_update_credential", { token });
+
 export const listFolders = () => invoke<Folder[]>("list_folders");
 export const createFolder = (name: string) =>
   invoke<number>("create_folder", { name });

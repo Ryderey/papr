@@ -100,6 +100,259 @@ abstract class AppLocalizations {
     Locale('zh')
   ];
 
+  /// No description provided for @githubScope.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync subscriptions, folders, article titles and links, read, starred and read-later states. Ordinary articles: 90 days; saved articles: retained indefinitely. Bodies and app settings stay local.'**
+  String get githubScope;
+
+  /// No description provided for @githubLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get githubLoading;
+
+  /// No description provided for @githubPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending uploads: {count}'**
+  String githubPending(int count);
+
+  /// No description provided for @githubLastSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync: {time}'**
+  String githubLastSuccess(String time);
+
+  /// No description provided for @githubNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get githubNever;
+
+  /// No description provided for @githubRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Operations requiring attention: {count}'**
+  String githubRejected(int count);
+
+  /// No description provided for @githubUncertain.
+  ///
+  /// In en, this message translates to:
+  /// **'The last publication result is uncertain. Retry to check the cloud before sending again.'**
+  String get githubUncertain;
+
+  /// No description provided for @githubRetryAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry after {time}'**
+  String githubRetryAt(String time);
+
+  /// No description provided for @githubCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get githubCancel;
+
+  /// No description provided for @githubToken.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub fine-grained token'**
+  String get githubToken;
+
+  /// No description provided for @githubUpdateToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Update token'**
+  String get githubUpdateToken;
+
+  /// No description provided for @githubCredentialUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Token updated'**
+  String get githubCredentialUpdated;
+
+  /// No description provided for @githubCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync completed'**
+  String get githubCompleted;
+
+  /// No description provided for @githubOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository owner'**
+  String get githubOwner;
+
+  /// No description provided for @githubRepo.
+  ///
+  /// In en, this message translates to:
+  /// **'Private repository name'**
+  String get githubRepo;
+
+  /// No description provided for @githubBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch (blank uses default)'**
+  String get githubBranch;
+
+  /// No description provided for @githubOtherBackend.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect the existing sync provider before connecting GitHub.'**
+  String get githubOtherBackend;
+
+  /// No description provided for @githubSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an initialized private repository and a fine-grained token with Contents: read and write for this repository only.'**
+  String get githubSetup;
+
+  /// No description provided for @githubPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview connection'**
+  String get githubPreview;
+
+  /// No description provided for @githubPreviewCounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions: local {localFeeds}, cloud {remoteFeeds}. Articles: local {localArticles}, cloud {remoteArticles}.'**
+  String githubPreviewCounts(
+      int localFeeds, int remoteFeeds, int localArticles, int remoteArticles);
+
+  /// No description provided for @githubPreviewExcluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded: {feeds} sources, {articles} articles. Warnings: {warnings}.'**
+  String githubPreviewExcluded(int feeds, int articles, int warnings);
+
+  /// No description provided for @githubPreviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative. No article bodies are uploaded.'**
+  String get githubPreviewHint;
+
+  /// No description provided for @githubConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm connection'**
+  String get githubConfirm;
+
+  /// No description provided for @githubErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub sync failed. Your local changes remain queued; check the connection and retry.'**
+  String get githubErrorUnknown;
+
+  /// No description provided for @errorGithubAuthenticationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Token expired or invalid. Update the token.'**
+  String get errorGithubAuthenticationFailed;
+
+  /// No description provided for @errorGithubPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Token needs Contents read and write for this private repository.'**
+  String get errorGithubPermissionDenied;
+
+  /// No description provided for @errorGithubRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub rate limit reached. Wait until the displayed retry time.'**
+  String get errorGithubRateLimited;
+
+  /// No description provided for @errorGithubNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach GitHub. Your changes remain queued.'**
+  String get errorGithubNetwork;
+
+  /// No description provided for @errorGithubRepositoryUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository or branch unavailable. Check owner, repository and token access.'**
+  String get errorGithubRepositoryUnavailable;
+
+  /// No description provided for @errorGithubPrivateRepositoryRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a private repository.'**
+  String get errorGithubPrivateRepositoryRequired;
+
+  /// No description provided for @errorGithubOtherBackendConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect the existing sync provider first.'**
+  String get errorGithubOtherBackendConnected;
+
+  /// No description provided for @errorGithubPreviewChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud changed since preview. Generate a new preview before connecting.'**
+  String get errorGithubPreviewChanged;
+
+  /// No description provided for @errorGithubSyncBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync is already running.'**
+  String get errorGithubSyncBusy;
+
+  /// No description provided for @errorGithubHistoryRewritten.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud history changed unexpectedly. Sync is paused; reconnect after checking the repository.'**
+  String get errorGithubHistoryRewritten;
+
+  /// No description provided for @errorGithubDatasetChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'This repository contains a different sync dataset. Reconnect after checking the repository.'**
+  String get errorGithubDatasetChanged;
+
+  /// No description provided for @errorGithubRestoredDatabase.
+  ///
+  /// In en, this message translates to:
+  /// **'A restored database was detected. Reconnect after reviewing local data.'**
+  String get errorGithubRestoredDatabase;
+
+  /// No description provided for @errorGithubDatabaseCloneDetected.
+  ///
+  /// In en, this message translates to:
+  /// **'This database belongs to another installation. Reconnect on this device.'**
+  String get errorGithubDatabaseCloneDetected;
+
+  /// No description provided for @errorGithubInstallationMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure installation identity is missing. Reconnect on this device.'**
+  String get errorGithubInstallationMissing;
+
+  /// No description provided for @errorGithubCapacityExceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync data exceeds the configured size limit.'**
+  String get errorGithubCapacityExceeded;
+
+  /// No description provided for @errorGithubSyncCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync cancelled. Pending changes are preserved.'**
+  String get errorGithubSyncCancelled;
+
+  /// No description provided for @errorGithubConcurrentRetryLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud changed repeatedly. Retry later.'**
+  String get errorGithubConcurrentRetryLimit;
+
+  /// No description provided for @errorGithubWriteRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub rejected this write. Check branch protection and token permissions.'**
+  String get errorGithubWriteRejected;
+
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:

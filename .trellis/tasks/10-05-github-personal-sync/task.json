@@ -1,0 +1,43 @@
+{
+  "id": "github-personal-sync",
+  "name": "github-personal-sync",
+  "title": "Integrate desktop and Android, then implement GitHub personal sync",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": "fullstack",
+  "scope": "sync",
+  "package": null,
+  "priority": "P2",
+  "creator": "wx_channels_download",
+  "assignee": "wx_channels_download",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": "codex/github-personal-sync",
+  "base_branch": "optimize-bugfix",
+  "worktree_path": "C:/Users/Ryder/.codex/worktrees/integrate-desktop-mobile/papr",
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "crates/papr-core/src/sync/github",
+    "crates/papr-flutter-bridge/src/github_dto.rs",
+    "src-tauri/src/github_sync.rs",
+    "src-tauri/src/github_credentials.rs",
+    "src/components/GitHubSyncSection.tsx",
+    "mobile/lib/repositories/github_sync_repository.dart",
+    "mobile/lib/ui/screens/github_sync_panel.dart",
+    "docs/github-sync-implementation-2026-10-05.md"
+  ],
+  "notes": "Implementation and automated/platform smoke gates pass; awaiting A25 real GitHub and physical-device acceptance. Original checkout preserved; no push/remote sync write.",
+  "meta": {
+    "sync_repository": {
+      "owner": "Ryderey",
+      "repo": "papr-sync",
+      "repository_id": 1405209831,
+      "branch": "main",
+      "private": true
+    }
+  }
+}

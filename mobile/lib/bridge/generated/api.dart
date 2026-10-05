@@ -6,9 +6,10 @@
 import 'dto.dart';
 import 'error.dart';
 import 'frb_generated.dart';
+import 'github_dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `cancel`, `emit_ai_stream_error`, `finish`, `invalid_ai_request`, `new`, `register`
+// These functions are ignored because they are not marked as `pub`: `cancel`, `emit_ai_stream_error`, `finish`, `github_binding`, `invalid_ai_request`, `new`, `register`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AiRequestLease`, `AiRequestRegistry`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
@@ -319,6 +320,60 @@ Future<BigInt> syncNow(
 /// Delete sync metadata and return its Keystore alias for platform cleanup.
 Future<String?> deleteSyncProfile({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiDeleteSyncProfile(core: core);
+
+Future<GithubStatus> githubStatus({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubStatus(core: core);
+
+Future<GithubPreview> githubPreview(
+        {required PaprCoreBridge core,
+        required String owner,
+        required String repo,
+        String? branch,
+        required String credentialRef,
+        required String token}) =>
+    RustLib.instance.api.crateApiGithubPreview(
+        core: core,
+        owner: owner,
+        repo: repo,
+        branch: branch,
+        credentialRef: credentialRef,
+        token: token);
+
+Future<void> githubConnect(
+        {required PaprCoreBridge core,
+        required GithubPreview preview,
+        required String token,
+        required String installation}) =>
+    RustLib.instance.api.crateApiGithubConnect(
+        core: core, preview: preview, token: token, installation: installation);
+
+Future<void> githubVerifyCredential(
+        {required PaprCoreBridge core, required String token}) =>
+    RustLib.instance.api
+        .crateApiGithubVerifyCredential(core: core, token: token);
+
+Future<String?> githubDisconnect({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubDisconnect(core: core);
+
+Future<String> githubCheckpoint(
+        {required PaprCoreBridge core, String? previous}) =>
+    RustLib.instance.api
+        .crateApiGithubCheckpoint(core: core, previous: previous);
+
+Future<void> githubReportPlatformFailure(
+        {required PaprCoreBridge core, required String code}) =>
+    RustLib.instance.api
+        .crateApiGithubReportPlatformFailure(core: core, code: code);
+
+Future<GithubSyncReport> githubSyncNow(
+        {required PaprCoreBridge core,
+        required String token,
+        required String installation}) =>
+    RustLib.instance.api.crateApiGithubSyncNow(
+        core: core, token: token, installation: installation);
+
+Future<void> githubCancelSync({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubCancelSync(core: core);
 
 /// List persistable AI profile metadata. This API never returns credentials.
 Future<List<AiProfile>> listAiProfiles({required PaprCoreBridge core}) =>

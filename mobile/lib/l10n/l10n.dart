@@ -10,6 +10,28 @@ extension AppLocalizationsContext on BuildContext {
 }
 
 extension AppErrorLocalizations on AppLocalizations {
+  String localizeGithubCode(String code) => switch (code) {
+        'githubAuthenticationFailed' => errorGithubAuthenticationFailed,
+        'githubPermissionDenied' => errorGithubPermissionDenied,
+        'githubRateLimited' => errorGithubRateLimited,
+        'githubNetwork' => errorGithubNetwork,
+        'githubRepositoryUnavailable' => errorGithubRepositoryUnavailable,
+        'githubPrivateRepositoryRequired' =>
+          errorGithubPrivateRepositoryRequired,
+        'githubOtherBackendConnected' => errorGithubOtherBackendConnected,
+        'githubPreviewChanged' => errorGithubPreviewChanged,
+        'githubSyncBusy' => errorGithubSyncBusy,
+        'githubHistoryRewritten' => errorGithubHistoryRewritten,
+        'githubDatasetChanged' => errorGithubDatasetChanged,
+        'githubRestoredDatabase' => errorGithubRestoredDatabase,
+        'githubDatabaseCloneDetected' => errorGithubDatabaseCloneDetected,
+        'githubInstallationMissing' => errorGithubInstallationMissing,
+        'githubCapacityExceeded' => errorGithubCapacityExceeded,
+        'githubSyncCancelled' => errorGithubSyncCancelled,
+        'githubConcurrentRetryLimit' => errorGithubConcurrentRetryLimit,
+        'githubWriteRejected' => errorGithubWriteRejected,
+        _ => githubErrorUnknown,
+      };
   String localizeSyncCode(String code) => switch (code) {
         'invalidSyncProfile' => errorInvalidSyncProfile,
         'syncCredentialMissing' => errorSyncCredentialMissing,
@@ -27,6 +49,7 @@ extension AppErrorLocalizations on AppLocalizations {
 
   String localizeError(Object error) {
     if (error is! AppException) return errorMessage(error.toString());
+    if (error.code.startsWith('github')) return localizeGithubCode(error.code);
     return switch (error.code) {
       'emptyFolderName' => errorEmptyFolderName,
       'folderNameExists' => errorFolderNameExists,

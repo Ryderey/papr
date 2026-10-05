@@ -1,5 +1,72 @@
 # Mobile Cross-Layer Contracts
 
+## Scenario: Shared GitHub private-repository sync
+
+### 1. Scope / Trigger
+
+Use this contract for Windows/Android GitHub synchronization, migrations, bridge DTOs, secure credential access, and background scheduling. The implementation lives in `papr-core::sync::github`; desktop uses its existing writer connection rather than opening a second Core database.
+
+### 2. Signatures
+
+```text
+GitHubService<S: LocalStore>::preview(owner, repo, branch, credential_ref, token)
+GitHubService<S>::connect(preview, token, binding)
+GitHubService<S>::sync(token: String, binding: String, cancel: Cancellation)
+    -> impl Future<Output=Result<SyncReport, CoreError>> + Send
+GitHubService<S>::checkpoint(previous: Option<String>) -> Result<String, CoreError>
+LocalStore::with<T: Send + 'static>(FnOnce(&Connection) -> Result<T, CoreError>)
+    -> impl Future<Output=Result<T, CoreError>> + Send
+storage::connect / finish / disconnect operate inside the adapter's transaction.
+storage::register runs on each SQLite connection; install_capture runs after migration.
+FRB: github_status / preview / connect / sync_now / cancel_sync / checkpoint /
+     verify_credential / disconnect / report_platform_failure.
+Tauri: github_status / preview / connect / sync_now / cancel_sync /
+       update_credential / disconnect.
+```
+
+### 3. Contracts
+
+- Migration v18 adds connection/outbox/files/attempt/identity/version/rejection/suppression tables, `feeds.subscription_active`, `feeds.github_generation`, and `articles.metadata_only`. Existing reading data and settings survive v15/v16 upgrades.
+- Triggers capture permitted business fields and ordered sequence allocation atomically. Pure scalar SQL functions never perform reentrant SQL. Remote import sets `applying=1` in the same transaction and projects in-flight pending intents before writing business rows.
+- All protocol files belong to one confirmed Git head. The manifest `file_hashes` inventory covers exact non-manifest content using `stable_key(["snapshot-file:v1", content])`; missing or changed files fail before partial import. Empty shards are omitted; paths are lowercase `00`–`3f`.
+- Tokens remain transient transport inputs and secure platform values. DTO/profile/SQLite/logs never include them. Credential aliases match `papr.sync.[A-Za-z0-9_-]{1,80}`. Installation markers plus database-path binding and secure sequence checkpoints guard restored/cloned writer identity.
+- Publish the candidate and attempt locally before non-force ref update. Acknowledge only confirmed remote contiguous watermarks. A lost/cancelled response does not imply the ref write failed.
+- Archived subscriptions stop fetching and ordinary-list visibility; starred/read-later articles remain accessible. Hydration/extraction preserves row IDs and flags and does not trigger new-article rules/notifications. Local retention and cache cleanup never issue cloud article deletes.
+- Folder final names may be valid while colliding with previous local names. Vacate mapped names inside the import transaction, handle tombstones, then apply final names and aliases. Never expose intermediate names outside the transaction.
+- Frontend status fields are snake_case in Tauri/TypeScript and generated camelCase in Dart. Numeric bridge counts use i64/BigInt; validate IDs/sequence bounds in Core before use. GReader and GitHub active connections are mutually exclusive.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+| --- | --- |
+| Different local row IDs on two devices | Stable feed/article/folder identities preserve associations |
+| Pending edits during a network round | Only confirmed prefix is acknowledged; suffix remains projected and durable |
+| Missing/altered protocol file or truncated Git tree | Stable error; no import, cursor advance, or publication |
+| Ref update rejected and head moved | Re-read/re-merge, at most three attempts; never force |
+| Ref result lost or cancellation interrupts await | Keep candidate/outbox; recover from remote watermark |
+| Copied/restored database identity or changed dataset/connection | Pause; old response cannot acknowledge or import |
+| Temporary network error | Keep local writes; back off at least 60 seconds and honor longer GitHub headers |
+| Credential/integrity/history error | Stop foreground automatic retries; show stable localized error |
+| User clears local desktop data | Refuse an active lease, disconnect, clear local business/sync metadata; no cloud deletion |
+
+### 5. Good / Base / Bad Cases
+
+- Good: device A stars while B adds read-later; both survive. A later explicit false propagates without initial-merge OR being applied again.
+- Base: cloud metadata imports without body, is searchable by title, and full text hydrates the same row later.
+- Bad: receiving a response from an old connection, clearing all pending intents, or treating HTTP timeout as proof a ref was not accepted.
+
+### 6. Tests Required
+
+Keep reducer, storage, orchestration, and loopback HTTP fault tests in `sync/github`. Cross-database tests assert differing IDs, same folder association, metadata placeholder, false propagation, and no reimport after local cleanup. Assert lost-ref recovery after a different device's later edit; rollback/in-flight suffix preservation; source generation; folder name swaps/reuse; inventory corruption; bounded retries; cancellation while an await is pending; no empty commits; and unchanged local cached bodies after cloud retention.
+
+Run desktop/Core/Bridge serial tests, existing frontend tests/build, Flutter analyze/tests, regenerated bridge equality, and Android debug builds. Secure Windows storage can be tested using a unique test marker and unconditional cleanup. Actual PAT publication, Android Keystore under a Worker, Doze/reboot behavior, and physical-device convergence require separate evidence; builds and fake transports do not establish them. See `docs/github-sync-implementation-2026-10-05.md`.
+
+### 7. Wrong vs Correct
+
+Wrong: serialize tokens/bodies, use local IDs as cloud identities, or replay an uncertain old batch over a newer remote state. Correct: allowlisted metadata, shared stable keys, durable outbox/attempt, and confirmed cloud watermark recovery.
+
+Wrong: a missing articles/states pair is accepted because remaining JSON parses. Correct: validate the complete manifest file inventory before decoding/importing the snapshot.
+
 ## 1. Scope / Trigger
 
 Use this contract when a mobile subscription or reading feature crosses SQLite, `papr-core`, Flutter Rust Bridge (FRB), Flutter repositories, and Android platform APIs. Business rules belong in `papr-core`; FRB and platform channels remain thin adapters.

@@ -128,4 +128,13 @@ impl PaprCore {
     pub fn sync_service(&self) -> &SyncService {
         &self.sync_service
     }
+
+    pub fn github_service(
+        &self,
+    ) -> sync::github::service::GitHubService<sync::github::service::CoreStore> {
+        sync::github::service::GitHubService::new(
+            sync::github::service::CoreStore(Arc::clone(&self._db)),
+            Arc::clone(&self.http),
+        )
+    }
 }

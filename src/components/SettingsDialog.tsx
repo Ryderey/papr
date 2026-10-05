@@ -17,6 +17,7 @@ import type { Feed, Rule, RuleAction, RuleField, RulePreview, SummaryTemplate } 
 import Icon, { type IconName } from "./Icon";
 import ConfirmDialog from "./ConfirmDialog";
 import FeedAvatar from "./FeedAvatar";
+import GitHubSyncSection from "./GitHubSyncSection";
 
 interface Props {
   onClose: () => void;
@@ -1021,6 +1022,8 @@ function SyncSection({ onToast }: { onToast: (m: string) => void }) {
     queryKey: ["freshrss-status"],
     queryFn: api.freshrssStatus,
   });
+  const github = useQuery({ queryKey: ["github-sync-status"], queryFn: api.githubStatus, refetchInterval: 10_000 });
+  const githubConnected = !!github.data?.profile;
   const [provider, setProvider] = useState<api.GReaderProvider>("freshrss");
   const [url, setUrl] = useState("");
   const [user, setUser] = useState("");
@@ -1033,7 +1036,7 @@ function SyncSection({ onToast }: { onToast: (m: string) => void }) {
     p === "miniflux" ? "Miniflux" : "FreshRSS";
 
   const connect = async () => {
-    if (!url.trim() || !user.trim()) return;
+    if (githubConnected || !url.trim() || !user.trim()) return;
     setBusy(true);
     try {
       await api.freshrssConnect(url.trim(), user.trim(), pass, provider);
@@ -1130,7 +1133,7 @@ function SyncSection({ onToast }: { onToast: (m: string) => void }) {
         ) : (
           <>
             <p className="modal-hint" style={{ marginBottom: 14 }}>
-              {t("settings.sync.connectHint")}
+              {githubConnected ? t("errors.githubOtherBackendConnected") : t("settings.sync.connectHint")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <select
@@ -1191,7 +1194,7 @@ function SyncSection({ onToast }: { onToast: (m: string) => void }) {
                 <button
                   className="s-btn primary"
                   onClick={connect}
-                  disabled={busy || !url.trim() || !user.trim()}
+                  disabled={busy || githubConnected || !url.trim() || !user.trim()}
                 >
                   {busy ? t("settings.sync.connecting") : t("settings.sync.connect")}
                 </button>
@@ -1200,6 +1203,7 @@ function SyncSection({ onToast }: { onToast: (m: string) => void }) {
           </>
         )}
       </div>
+      <GitHubSyncSection otherConnected={connected} onToast={onToast} />
 
       <div className="settings-group">
         <h3 className="settings-group-title">{t("settings.sync.otherServices")}</h3>

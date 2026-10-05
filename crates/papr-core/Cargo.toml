@@ -13,6 +13,7 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
+sha2 = "0.10"
 
 # data layer
 rusqlite = { workspace = true }

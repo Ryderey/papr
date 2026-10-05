@@ -21,6 +21,7 @@ use crate::dto::{
 };
 use crate::error::PaprBridgeError;
 use crate::frb_generated::StreamSink;
+use crate::github_dto::{GithubPreview, GithubStatus, GithubSyncReport};
 
 pub(crate) struct AiRequestRegistry {
     active: Mutex<HashMap<String, papr_core::ai::AiCancellation>>,
@@ -121,6 +122,7 @@ fn emit_ai_stream_error(
 pub struct PaprCoreBridge {
     inner: Arc<PaprCore>,
     ai_requests: Arc<AiRequestRegistry>,
+    github_cancel: Mutex<Option<papr_core::sync::github::service::Cancellation>>,
 }
 
 /// Optional initialisation hook called by FRB before the first API use.
@@ -135,6 +137,7 @@ pub async fn init_papr_core(config: PaprCoreConfig) -> Result<PaprCoreBridge, Pa
     Ok(PaprCoreBridge {
         inner: Arc::new(core),
         ai_requests: Arc::new(AiRequestRegistry::new()),
+        github_cancel: Mutex::new(None),
     })
 }
 
@@ -677,6 +680,132 @@ pub async fn sync_now(core: &PaprCoreBridge, credential: String) -> Result<usize
 /// Delete sync metadata and return its Keystore alias for platform cleanup.
 pub async fn delete_sync_profile(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
     Ok(core.inner.settings_service().delete_sync_profile().await?)
+}
+
+pub async fn github_status(core: &PaprCoreBridge) -> Result<GithubStatus, PaprBridgeError> {
+    Ok(core.inner.github_service().status().await?.into())
+}
+pub async fn github_preview(
+    core: &PaprCoreBridge,
+    owner: String,
+    repo: String,
+    branch: Option<String>,
+    credential_ref: String,
+    token: String,
+) -> Result<GithubPreview, PaprBridgeError> {
+    Ok(core
+        .inner
+        .github_service()
+        .preview(owner, repo, branch, credential_ref, &token)
+        .await?
+        .into())
+}
+fn github_binding(core: &PaprCoreBridge, installation: &str) -> Result<String, PaprBridgeError> {
+    if !papr_core::sync::github::model::is_hex_id(installation, 32) {
+        return Err(papr_core::error::CoreError::coded(
+            papr_core::error::ErrorCategory::Sync,
+            "githubInstallationMissing",
+            None,
+        )
+        .into());
+    }
+    let path = std::fs::canonicalize(&core.inner.config().database_path).map_err(|_| {
+        papr_core::error::CoreError::coded(
+            papr_core::error::ErrorCategory::Sync,
+            "githubInvalidBinding",
+            None,
+        )
+    })?;
+    Ok(papr_core::sync::github::model::stable_key(&[
+        "installation:v1",
+        installation,
+        &path.to_string_lossy(),
+    ]))
+}
+pub async fn github_connect(
+    core: &PaprCoreBridge,
+    preview: GithubPreview,
+    token: String,
+    installation: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .github_service()
+        .connect(preview.into(), &token, github_binding(core, &installation)?)
+        .await?)
+}
+pub async fn github_verify_credential(
+    core: &PaprCoreBridge,
+    token: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core
+        .inner
+        .github_service()
+        .verify_credential(&token)
+        .await?)
+}
+pub async fn github_disconnect(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
+    Ok(core.inner.github_service().disconnect().await?)
+}
+pub async fn github_checkpoint(
+    core: &PaprCoreBridge,
+    previous: Option<String>,
+) -> Result<String, PaprBridgeError> {
+    Ok(core.inner.github_service().checkpoint(previous).await?)
+}
+pub async fn github_report_platform_failure(
+    core: &PaprCoreBridge,
+    code: String,
+) -> Result<(), PaprBridgeError> {
+    let code = match code.as_str() {
+        "syncCredentialMissing" => "syncCredentialMissing",
+        "githubInstallationMissing" => "githubInstallationMissing",
+        "credentialReadFailed" => "credentialReadFailed",
+        "credentialWriteFailed" => "credentialWriteFailed",
+        _ => return Ok(()),
+    };
+    Ok(core
+        .inner
+        .github_service()
+        .record_platform_error(code)
+        .await?)
+}
+pub async fn github_sync_now(
+    core: &PaprCoreBridge,
+    token: String,
+    installation: String,
+) -> Result<GithubSyncReport, PaprBridgeError> {
+    let binding = github_binding(core, &installation)?;
+    let cancel = papr_core::sync::github::service::Cancellation::default();
+    {
+        let mut active = core.github_cancel.lock().unwrap_or_else(|e| e.into_inner());
+        if active.is_some() {
+            return Err(papr_core::error::CoreError::coded(
+                papr_core::error::ErrorCategory::Sync,
+                "githubSyncBusy",
+                None,
+            )
+            .into());
+        }
+        *active = Some(cancel.clone());
+    }
+    let result = core
+        .inner
+        .github_service()
+        .sync(token, binding, cancel)
+        .await;
+    *core.github_cancel.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    Ok(result?.into())
+}
+pub fn github_cancel_sync(core: &PaprCoreBridge) {
+    if let Some(cancel) = core
+        .github_cancel
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+    {
+        cancel.cancel();
+    }
 }
 
 /// List persistable AI profile metadata. This API never returns credentials.

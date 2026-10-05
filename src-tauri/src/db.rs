@@ -18,6 +18,7 @@ use std::path::Path;
 /// it. SQLite scalar functions are per-connection, so this runs for every
 /// connection (the writer and each pooled reader).
 fn register_functions(conn: &Connection) -> AppResult<()> {
+    papr_core::sync::github::storage::register(conn).map_err(|e| AppError::other(e.to_string()))?;
     conn.create_scalar_function(
         "unicode_lower",
         1,
@@ -163,9 +164,11 @@ pub fn delete_folder(conn: &Connection, id: i64) -> AppResult<()> {
 
 pub fn find_feed_by_url(conn: &Connection, url: &str) -> AppResult<Option<i64>> {
     Ok(conn
-        .query_row("SELECT id FROM feeds WHERE feed_url = ?1", params![url], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT id FROM feeds WHERE feed_url = ?1 AND subscription_active=1",
+            params![url],
+            |r| r.get(0),
+        )
         .optional()?)
 }
 
@@ -178,6 +181,17 @@ pub fn insert_feed(
     source_type: SourceType,
     folder_id: Option<i64>,
 ) -> AppResult<i64> {
+    if let Some(id) = conn
+        .query_row(
+            "SELECT id FROM feeds WHERE feed_url=?1 AND subscription_active=0",
+            [feed_url],
+            |r| r.get::<_, i64>(0),
+        )
+        .optional()?
+    {
+        conn.execute("UPDATE feeds SET subscription_active=1,github_generation=github_generation+1,folder_id=?2 WHERE id=?1",params![id,folder_id])?;
+        return Ok(id);
+    }
     conn.execute(
         "INSERT INTO feeds(feed_url, site_url, title, description, source_type, folder_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -222,7 +236,7 @@ pub fn list_feeds(conn: &Connection) -> AppResult<Vec<Feed>> {
                 f.folder_id, f.source_type, f.last_fetched_at, f.fetch_error,
                 (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.is_read = 0),
                 f.refresh_interval_min
-         FROM feeds f ORDER BY f.title COLLATE NOCASE",
+         FROM feeds f WHERE f.subscription_active=1 ORDER BY f.title COLLATE NOCASE",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -255,7 +269,7 @@ pub type FeedToRefresh = (i64, String, Option<String>, Option<String>);
 pub fn feeds_to_refresh(conn: &Connection) -> AppResult<Vec<FeedToRefresh>> {
     let mut stmt = conn.prepare(
         "SELECT id, feed_url, etag, last_modified FROM feeds
-         WHERE source_type != 'newsletter'",
+         WHERE source_type != 'newsletter' AND subscription_active=1",
     )?;
     let rows = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
@@ -280,7 +294,7 @@ pub fn feeds_due_for_refresh(
 ) -> AppResult<Vec<FeedToRefresh>> {
     let mut stmt = conn.prepare(
         "SELECT id, feed_url, etag, last_modified FROM feeds
-         WHERE source_type != 'newsletter'
+         WHERE source_type != 'newsletter' AND subscription_active=1
            AND COALESCE(refresh_interval_min, ?1) < ?2
            AND ( last_fetched_at IS NULL
                  OR (julianday('now') - julianday(last_fetched_at)) * 1440.0
@@ -412,7 +426,7 @@ pub fn feeds_for_export(conn: &Connection) -> AppResult<Vec<(String, String, Opt
     let mut stmt = conn.prepare(
         "SELECT f.title, f.feed_url, fo.name
          FROM feeds f LEFT JOIN folders fo ON fo.id = f.folder_id
-         WHERE f.source_type != 'newsletter'
+         WHERE f.source_type != 'newsletter' AND f.subscription_active=1
          ORDER BY fo.name, f.title",
     )?;
     let rows = stmt
@@ -426,7 +440,7 @@ pub fn feeds_for_export(conn: &Connection) -> AppResult<Vec<(String, String, Opt
 /// subscribe to), matching the OPML-export filter.
 pub fn feed_urls_for_sync(conn: &Connection) -> AppResult<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT feed_url FROM feeds WHERE source_type != 'newsletter' AND feed_url <> ''",
+        "SELECT feed_url FROM feeds WHERE source_type != 'newsletter' AND feed_url <> '' AND subscription_active=1",
     )?;
     let rows = stmt
         .query_map([], |r| r.get(0))?
@@ -677,6 +691,35 @@ pub fn upsert_article(
     dedup: bool,
     rules: &[Rule],
 ) -> AppResult<bool> {
+    {
+        let tx = conn.unchecked_transaction()?;
+        let article = papr_core::dto::NewArticle {
+            guid: a.guid.clone(),
+            url: a.url.clone(),
+            title: a.title.clone(),
+            author: a.author.clone(),
+            summary: a.summary.clone(),
+            content_html: a.content_html.clone(),
+            body_text: a.body_text.clone(),
+            image_url: a.image_url.clone(),
+            published_at: a.published_at.clone(),
+            enclosures: a
+                .enclosures
+                .iter()
+                .map(|e| papr_core::dto::Enclosure {
+                    url: e.url.clone(),
+                    mime_type: e.mime_type.clone(),
+                    length: e.length,
+                })
+                .collect(),
+        };
+        let hydrated = papr_core::sync::github::storage::hydrate(&tx, feed_id, &article)
+            .map_err(|e| AppError::code(e.code()))?;
+        tx.commit()?;
+        if hydrated {
+            return Ok(false);
+        }
+    }
     if dedup {
         if let Some(url) = a.url.as_deref().filter(|u| !u.is_empty()) {
             let exists: bool = conn.query_row(
@@ -749,7 +792,8 @@ pub fn list_articles(
     limit: i64,
     offset: i64,
 ) -> AppResult<Vec<ArticleSummary>> {
-    let mut where_clauses: Vec<String> = vec!["1=1".into()];
+    let mut where_clauses: Vec<String> =
+        vec!["(f.subscription_active=1 OR a.is_starred=1 OR a.read_later=1)".into()];
     let mut binds: Vec<Value> = Vec::new();
 
     match query {
@@ -1042,7 +1086,7 @@ pub fn set_extracted_html(
     let tx = conn.unchecked_transaction()?;
     tx.execute(
         "UPDATE articles
-            SET extracted_html = ?2,
+            SET extracted_html = ?2, metadata_only = 0,
                 image_url = CASE
                     WHEN ?3 IS NOT NULL AND (image_url IS NULL OR trim(image_url) = '')
                     THEN ?3
@@ -1099,8 +1143,8 @@ pub fn mark_all_read(
             Some(*id),
         ),
     };
-    let bind: Vec<&dyn rusqlite::ToSql> =
-        id.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+    let pred = format!("({pred}) AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)");
+    let bind: Vec<&dyn rusqlite::ToSql> = id.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
 
     // Queue + flip together: the sync-queue rows and the is_read change must
     // commit atomically, or a mid-way failure leaves the queue claiming a
@@ -1743,8 +1787,23 @@ pub fn vacuum(conn: &Connection) -> AppResult<()> {
 /// but folders behind.
 pub fn clear_all_data(conn: &Connection) -> AppResult<()> {
     let tx = conn.unchecked_transaction()?;
+    // A local wipe detaches this device before the subscription-preserving triggers run.
+    papr_core::sync::github::storage::disconnect(&tx)
+        .map_err(|e| crate::error::AppError::code(e.code()))?;
     tx.execute("DELETE FROM feeds", [])?;
     tx.execute("DELETE FROM folders", [])?;
+    for table in [
+        "github_outbox",
+        "github_versions",
+        "github_files",
+        "github_entity_map",
+        "github_suppressed",
+        "github_attempt",
+        "github_rejections",
+        "github_connections",
+    ] {
+        tx.execute(&format!("DELETE FROM {table}"), [])?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -1756,7 +1815,11 @@ pub fn reset_settings(conn: &Connection) -> AppResult<()> {
 }
 
 pub fn count_unread(conn: &Connection) -> AppResult<i64> {
-    Ok(conn.query_row("SELECT COUNT(*) FROM articles WHERE is_read = 0", [], |r| r.get(0))?)
+    Ok(
+        conn.query_row("SELECT COUNT(*) FROM articles WHERE is_read = 0 AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)", [], |r| {
+            r.get(0)
+        })?,
+    )
 }
 
 /// Unread article count for a single feed — the same expression `list_feeds`
@@ -2519,8 +2582,7 @@ mod tests {
         assert!(!upsert_article(&conn, feed_id, &mk("g-ad", "Sponsored Item"), false, &rules)
             .unwrap());
         // A plain article → genuinely new.
-        assert!(upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules)
-            .unwrap());
+        assert!(upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules).unwrap());
         // A duplicate guid → not new (no double count).
         assert!(!upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules)
             .unwrap());
@@ -3387,5 +3449,75 @@ mod tests {
             })
             .unwrap();
         assert_eq!(name, "Tech");
+    }
+    #[test]
+    fn github_archive_visibility_and_local_wipe_preserve_cloud_boundary() {
+        use papr_core::sync::github::{model::*, storage, transport::RemoteSnapshot};
+        let (conn, article_id) = test_db();
+        let snapshot = Snapshot::empty("d".repeat(32), "1970-01-01T00:00:00Z".into());
+        let remote = RemoteSnapshot {
+            head: "a".repeat(40),
+            tree: "b".repeat(40),
+            snapshot: Some(snapshot),
+            files: std::collections::BTreeMap::new(),
+            trusted_now: None,
+            repository_size_kib: None,
+        };
+        storage::connect(
+            &conn,
+            &GitHubProfile {
+                repository_id: 1,
+                owner: "owner".into(),
+                repo: "repo".into(),
+                branch: "main".into(),
+                credential_ref: "papr.sync.test".into(),
+            },
+            &remote,
+            "binding",
+        )
+        .unwrap();
+        let feed_id = get_article(&conn, article_id).unwrap().feed_id;
+        delete_feed(&conn, feed_id).unwrap();
+        assert!(list_feeds(&conn).unwrap().is_empty());
+        assert!(
+            list_articles(&conn, &ArticleQuery::All, false, None, false, 50, 0)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(count_unread(&conn).unwrap(), 0);
+        set_starred(&conn, article_id, true).unwrap();
+        assert_eq!(
+            list_articles(&conn, &ArticleQuery::Starred, false, None, false, 50, 0)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(count_unread(&conn).unwrap(), 1);
+        conn.execute(
+            "UPDATE articles SET metadata_only=1 WHERE id=?1",
+            [article_id],
+        )
+        .unwrap();
+        set_extracted_html(&conn, article_id, "<p>local full body</p>", None).unwrap();
+        assert!(!conn
+            .query_row(
+                "SELECT metadata_only FROM articles WHERE id=?1",
+                [article_id],
+                |r| r.get::<_, bool>(0)
+            )
+            .unwrap());
+        clear_all_data(&conn).unwrap();
+        assert!(storage::connection(&conn).unwrap().is_none());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM articles", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM feeds", [], |r| r.get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
     }
 }

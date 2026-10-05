@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bridge/generated/generated.dart' as bridge;
 import '../../l10n/l10n.dart';
 import '../../repositories/sync_repository.dart';
+import '../../repositories/github_sync_repository.dart';
+import 'github_sync_panel.dart';
 
 class SyncSettingsScreen extends ConsumerStatefulWidget {
   const SyncSettingsScreen({super.key});
@@ -75,10 +77,13 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             _ConnectionForm(
               key: ValueKey(value.profile?.credentialRef),
               existing: value.profile,
-              enabled: !_busy,
+              enabled: !_busy &&
+                  ref.watch(githubSyncStatusProvider).asData?.value.profile ==
+                      null,
               onBusyChanged: (busy) => setState(() => _busy = busy),
               onChanged: () => ref.invalidate(syncStatusProvider),
             ),
+            GithubSyncPanel(otherConnected: value.profile != null),
           ],
         ),
       ),

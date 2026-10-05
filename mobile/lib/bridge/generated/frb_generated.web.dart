@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dto.dart';
 import 'error.dart';
 import 'frb_generated.dart';
+import 'github_dto.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
@@ -109,6 +110,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ArticleFilter dco_decode_box_autoadd_article_filter(dynamic raw);
 
   @protected
+  GithubPreview dco_decode_box_autoadd_github_preview(dynamic raw);
+
+  @protected
+  GithubProfile dco_decode_box_autoadd_github_profile(dynamic raw);
+
+  @protected
   HighlightInput dco_decode_box_autoadd_highlight_input(dynamic raw);
 
   @protected
@@ -146,6 +153,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Folder dco_decode_folder(dynamic raw);
+
+  @protected
+  GithubPreview dco_decode_github_preview(dynamic raw);
+
+  @protected
+  GithubProfile dco_decode_github_profile(dynamic raw);
+
+  @protected
+  GithubStatus dco_decode_github_status(dynamic raw);
+
+  @protected
+  GithubSyncReport dco_decode_github_sync_report(dynamic raw);
 
   @protected
   Highlight dco_decode_highlight(dynamic raw);
@@ -221,6 +240,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AiSummaryCache? dco_decode_opt_box_autoadd_ai_summary_cache(dynamic raw);
+
+  @protected
+  GithubProfile? dco_decode_opt_box_autoadd_github_profile(dynamic raw);
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
@@ -387,6 +409,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  GithubPreview sse_decode_box_autoadd_github_preview(
+      SseDeserializer deserializer);
+
+  @protected
+  GithubProfile sse_decode_box_autoadd_github_profile(
+      SseDeserializer deserializer);
+
+  @protected
   HighlightInput sse_decode_box_autoadd_highlight_input(
       SseDeserializer deserializer);
 
@@ -428,6 +458,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Folder sse_decode_folder(SseDeserializer deserializer);
+
+  @protected
+  GithubPreview sse_decode_github_preview(SseDeserializer deserializer);
+
+  @protected
+  GithubProfile sse_decode_github_profile(SseDeserializer deserializer);
+
+  @protected
+  GithubStatus sse_decode_github_status(SseDeserializer deserializer);
+
+  @protected
+  GithubSyncReport sse_decode_github_sync_report(SseDeserializer deserializer);
 
   @protected
   Highlight sse_decode_highlight(SseDeserializer deserializer);
@@ -508,6 +550,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AiSummaryCache? sse_decode_opt_box_autoadd_ai_summary_cache(
+      SseDeserializer deserializer);
+
+  @protected
+  GithubProfile? sse_decode_opt_box_autoadd_github_profile(
       SseDeserializer deserializer);
 
   @protected
@@ -681,6 +727,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       ArticleFilter self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_github_preview(
+      GithubPreview self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_github_profile(
+      GithubProfile self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_highlight_input(
       HighlightInput self, SseSerializer serializer);
 
@@ -726,6 +780,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_folder(Folder self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_github_preview(GithubPreview self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_github_profile(GithubProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_github_status(GithubStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_github_sync_report(
+      GithubSyncReport self, SseSerializer serializer);
 
   @protected
   void sse_encode_highlight(Highlight self, SseSerializer serializer);
@@ -816,6 +883,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_ai_summary_cache(
       AiSummaryCache? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_github_profile(
+      GithubProfile? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_i_64(

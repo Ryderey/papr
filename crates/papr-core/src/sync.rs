@@ -4,6 +4,7 @@
 //! SQLite and advances its cursor only after the adapter acknowledges a
 //! contiguous prefix of a batch.
 
+pub mod github;
 pub mod greader;
 
 use std::collections::{BTreeMap, BTreeSet};

@@ -40,7 +40,8 @@ struct ArticleQueryParts {
 }
 
 fn article_query_parts(filter: &ArticleFilter, force_unread: bool) -> ArticleQueryParts {
-    let mut clauses = Vec::new();
+    let mut clauses =
+        vec!["(f.subscription_active=1 OR a.is_starred=1 OR a.read_later=1)".to_string()];
     let mut params = Vec::new();
 
     match &filter.kind {
@@ -548,6 +549,7 @@ fn migrations() -> Vec<M<'static>> {
             "ALTER TABLE articles ADD COLUMN ai_summary_template TEXT;
              ALTER TABLE articles ADD COLUMN ai_summary_lang TEXT;",
         ),
+        M::up(include_str!("sync/github/schema.sql")),
     ]
 }
 
@@ -559,6 +561,7 @@ static MIGRATIONS: LazyLock<Migrations> = LazyLock::new(|| Migrations::new(migra
 /// `str::to_lowercase()` is fully Unicode-aware. Rule preview must agree with
 /// the case-folding `rule_matches` does, so `unicode_lower` provides it.
 fn register_functions(conn: &Connection) -> Result<(), CoreError> {
+    crate::sync::github::storage::register(conn)?;
     conn.create_scalar_function(
         "unicode_lower",
         1,
@@ -578,7 +581,8 @@ fn register_functions(conn: &Connection) -> Result<(), CoreError> {
 pub fn migrate(conn: &mut Connection) -> Result<(), CoreError> {
     MIGRATIONS
         .to_latest(conn)
-        .map_err(|e| CoreError::Db(format!("failed to run database migrations: {e}")))
+        .map_err(|e| CoreError::Db(format!("failed to run database migrations: {e}")))?;
+    crate::sync::github::storage::install_capture(conn)
 }
 
 /// Delete a legacy phase-1 validation database so it can be rebuilt with the
@@ -879,7 +883,7 @@ impl Db {
 
     fn list_feeds_locked(conn: &Connection) -> Result<Vec<Feed>, CoreError> {
         let mut stmt = conn.prepare(
-            "SELECT id, feed_url, site_url, title, description, favicon_url, folder_id, source_type, last_fetched_at, fetch_error, custom_title, refresh_interval_min FROM feeds ORDER BY title COLLATE NOCASE"
+            "SELECT id, feed_url, site_url, title, description, favicon_url, folder_id, source_type, last_fetched_at, fetch_error, custom_title, refresh_interval_min FROM feeds WHERE subscription_active=1 ORDER BY title COLLATE NOCASE"
         ).map_err(|e| CoreError::Db(e.to_string()))?;
 
         let rows = stmt
@@ -991,6 +995,19 @@ impl Db {
         source_type: SourceType,
         folder_id: Option<i64>,
     ) -> Result<i64, CoreError> {
+        if let Some(id) = tx
+            .query_row(
+                "SELECT id FROM feeds WHERE feed_url=?1 AND subscription_active=0",
+                [feed_url],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(|e| CoreError::Db(e.to_string()))?
+        {
+            tx.execute("UPDATE feeds SET subscription_active=1,github_generation=github_generation+1,folder_id=?2 WHERE id=?1",(id,folder_id)).map_err(|e|CoreError::Db(e.to_string()))?;
+            append_change_log(tx, "feed", id, "upsert", None, None)?;
+            return Ok(id);
+        }
         tx.execute(
             "INSERT INTO feeds (feed_url, site_url, title, description, source_type, folder_id, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
@@ -1027,9 +1044,11 @@ impl Db {
     /// Find a feed's id by its URL, if it exists.
     pub fn find_feed_by_url(&self, url: &str) -> Result<Option<i64>, CoreError> {
         let conn = self.reader()?;
-        conn.query_row("SELECT id FROM feeds WHERE feed_url = ?1", [url], |r| {
-            r.get(0)
-        })
+        conn.query_row(
+            "SELECT id FROM feeds WHERE feed_url = ?1 AND subscription_active=1",
+            [url],
+            |r| r.get(0),
+        )
         .optional()
         .map_err(|e| CoreError::Db(e.to_string()))
     }
@@ -1124,7 +1143,7 @@ impl Db {
             .prepare(
                 "SELECT f.title, f.feed_url, fo.name \
                  FROM feeds f LEFT JOIN folders fo ON fo.id = f.folder_id \
-                 WHERE f.source_type != 'newsletter' \
+                 WHERE f.source_type != 'newsletter' AND f.subscription_active=1 \
                  ORDER BY fo.name, f.title",
             )
             .map_err(|e| CoreError::Db(e.to_string()))?;
@@ -1250,7 +1269,7 @@ impl Db {
                     SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), \
                     SUM(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END), \
                     SUM(CASE WHEN read_later = 1 THEN 1 ELSE 0 END) \
-             FROM articles",
+             FROM articles WHERE feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1",
             [],
             |row| {
                 Ok(ArticleCounts {
@@ -1769,7 +1788,7 @@ impl Db {
             let changed = tx
                 .execute(
                     "UPDATE articles \
-                     SET extracted_html = ?2, \
+                     SET extracted_html = ?2, metadata_only = 0, \
                          image_url = CASE \
                              WHEN ?3 IS NOT NULL AND (image_url IS NULL OR trim(image_url) = '') \
                              THEN ?3 ELSE image_url END, \
@@ -2290,7 +2309,7 @@ impl Db {
     pub fn feeds_to_refresh(&self) -> Result<Vec<FeedRefreshInfo>, CoreError> {
         let conn = self.reader()?;
         let mut stmt = conn
-            .prepare("SELECT id, feed_url, etag, last_modified FROM feeds ORDER BY title")
+            .prepare("SELECT id, feed_url, etag, last_modified FROM feeds WHERE subscription_active=1 ORDER BY title")
             .map_err(|e| CoreError::Db(e.to_string()))?;
         let rows = stmt
             .query_map([], |row| {
@@ -2320,7 +2339,7 @@ impl Db {
         let mut stmt = conn
             .prepare(
                 "SELECT id, feed_url, etag, last_modified FROM feeds
-                 WHERE source_type != 'newsletter'
+                 WHERE source_type != 'newsletter' AND subscription_active=1
                    AND COALESCE(refresh_interval_min, ?1) < ?2
                    AND (last_fetched_at IS NULL
                         OR (julianday('now') - julianday(last_fetched_at)) * 1440.0
@@ -2356,6 +2375,9 @@ impl Db {
         feed_id: i64,
         article: &NewArticle,
     ) -> Result<bool, CoreError> {
+        if crate::sync::github::storage::hydrate(tx, feed_id, article)? {
+            return Ok(false);
+        }
         let rules = Self::list_rules_locked(&*tx, true)?;
         let (mut is_read, mut is_starred) = (false, false);
         for rule in &rules {
@@ -2439,7 +2461,7 @@ impl Db {
         let conn = self.writer()?;
         conn.execute(
             "UPDATE feeds SET \
-             title = COALESCE(?1, title), \
+             title = CASE WHEN custom_title=1 THEN title ELSE COALESCE(?1, title) END, \
              site_url = COALESCE(?2, site_url), \
              description = COALESCE(?3, description), \
              favicon_url = COALESCE(?4, favicon_url) \

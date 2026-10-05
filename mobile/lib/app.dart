@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'l10n/l10n.dart';
 import 'repositories/settings_repository.dart';
 import 'ui/navigation/app_shell.dart';
+import 'ui/navigation/github_sync_coordinator.dart';
 
 class PaprApp extends ConsumerWidget {
   const PaprApp({super.key});
@@ -34,7 +35,7 @@ class PaprApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      home: const AppShell(),
+      home: const GithubSyncCoordinator(child:AppShell()),
     );
   }
 }

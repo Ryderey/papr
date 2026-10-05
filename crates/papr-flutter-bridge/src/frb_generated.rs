@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1332645797;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1470656006;
 
 // Section: executor
 
@@ -1505,6 +1505,534 @@ fn wire__crate__api__get_sync_status_impl(
                         }
                         let api_core_guard = api_core_guard.unwrap();
                         let output_ok = crate::api::get_sync_status(&*api_core_guard).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_cancel_sync_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_cancel_sync",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let mut api_core_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_core, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_core_guard = Some(api_core.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_core_guard = api_core_guard.unwrap();
+                    let output_ok = Result::<_, ()>::Ok({
+                        crate::api::github_cancel_sync(&*api_core_guard);
+                    })?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__github_checkpoint_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_checkpoint",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_previous = <Option<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok =
+                            crate::api::github_checkpoint(&*api_core_guard, api_previous).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_connect_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_connect",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_preview = <crate::github_dto::GithubPreview>::sse_decode(&mut deserializer);
+            let api_token = <String>::sse_decode(&mut deserializer);
+            let api_installation = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_connect(
+                            &*api_core_guard,
+                            api_preview,
+                            api_token,
+                            api_installation,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_disconnect_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_disconnect",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_disconnect(&*api_core_guard).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_preview_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_preview",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_owner = <String>::sse_decode(&mut deserializer);
+            let api_repo = <String>::sse_decode(&mut deserializer);
+            let api_branch = <Option<String>>::sse_decode(&mut deserializer);
+            let api_credential_ref = <String>::sse_decode(&mut deserializer);
+            let api_token = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_preview(
+                            &*api_core_guard,
+                            api_owner,
+                            api_repo,
+                            api_branch,
+                            api_credential_ref,
+                            api_token,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_report_platform_failure_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_report_platform_failure",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_code = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok =
+                            crate::api::github_report_platform_failure(&*api_core_guard, api_code)
+                                .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_status_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_status",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_status(&*api_core_guard).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_sync_now_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_sync_now",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_token = <String>::sse_decode(&mut deserializer);
+            let api_installation = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_sync_now(
+                            &*api_core_guard,
+                            api_token,
+                            api_installation,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_verify_credential_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_verify_credential",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_token = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok =
+                            crate::api::github_verify_credential(&*api_core_guard, api_token)
+                                .await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -4463,6 +4991,96 @@ impl SseDecode for crate::dto::Folder {
     }
 }
 
+impl SseDecode for crate::github_dto::GithubPreview {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_profile = <crate::github_dto::GithubProfile>::sse_decode(deserializer);
+        let mut var_head = <String>::sse_decode(deserializer);
+        let mut var_localFeeds = <i64>::sse_decode(deserializer);
+        let mut var_remoteFeeds = <i64>::sse_decode(deserializer);
+        let mut var_localArticles = <i64>::sse_decode(deserializer);
+        let mut var_remoteArticles = <i64>::sse_decode(deserializer);
+        let mut var_excludedFeeds = <i64>::sse_decode(deserializer);
+        let mut var_excludedArticles = <i64>::sse_decode(deserializer);
+        let mut var_warningCount = <i64>::sse_decode(deserializer);
+        return crate::github_dto::GithubPreview {
+            profile: var_profile,
+            head: var_head,
+            local_feeds: var_localFeeds,
+            remote_feeds: var_remoteFeeds,
+            local_articles: var_localArticles,
+            remote_articles: var_remoteArticles,
+            excluded_feeds: var_excludedFeeds,
+            excluded_articles: var_excludedArticles,
+            warning_count: var_warningCount,
+        };
+    }
+}
+
+impl SseDecode for crate::github_dto::GithubProfile {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_repositoryId = <i64>::sse_decode(deserializer);
+        let mut var_owner = <String>::sse_decode(deserializer);
+        let mut var_repo = <String>::sse_decode(deserializer);
+        let mut var_branch = <String>::sse_decode(deserializer);
+        let mut var_credentialRef = <String>::sse_decode(deserializer);
+        return crate::github_dto::GithubProfile {
+            repository_id: var_repositoryId,
+            owner: var_owner,
+            repo: var_repo,
+            branch: var_branch,
+            credential_ref: var_credentialRef,
+        };
+    }
+}
+
+impl SseDecode for crate::github_dto::GithubStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_profile = <Option<crate::github_dto::GithubProfile>>::sse_decode(deserializer);
+        let mut var_pending = <i64>::sse_decode(deserializer);
+        let mut var_rejected = <i64>::sse_decode(deserializer);
+        let mut var_metadataOnly = <i64>::sse_decode(deserializer);
+        let mut var_lastSuccessAt = <Option<String>>::sse_decode(deserializer);
+        let mut var_lastErrorCode = <Option<String>>::sse_decode(deserializer);
+        let mut var_retryAt = <Option<String>>::sse_decode(deserializer);
+        let mut var_busy = <bool>::sse_decode(deserializer);
+        let mut var_uncertainPublication = <bool>::sse_decode(deserializer);
+        let mut var_backgroundDue = <bool>::sse_decode(deserializer);
+        let mut var_automaticDue = <bool>::sse_decode(deserializer);
+        return crate::github_dto::GithubStatus {
+            profile: var_profile,
+            pending: var_pending,
+            rejected: var_rejected,
+            metadata_only: var_metadataOnly,
+            last_success_at: var_lastSuccessAt,
+            last_error_code: var_lastErrorCode,
+            retry_at: var_retryAt,
+            busy: var_busy,
+            uncertain_publication: var_uncertainPublication,
+            background_due: var_backgroundDue,
+            automatic_due: var_automaticDue,
+        };
+    }
+}
+
+impl SseDecode for crate::github_dto::GithubSyncReport {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_acknowledged = <i64>::sse_decode(deserializer);
+        let mut var_rejected = <i64>::sse_decode(deserializer);
+        let mut var_retries = <i64>::sse_decode(deserializer);
+        let mut var_pending = <i64>::sse_decode(deserializer);
+        return crate::github_dto::GithubSyncReport {
+            acknowledged: var_acknowledged,
+            rejected: var_rejected,
+            retries: var_retries,
+            pending: var_pending,
+        };
+    }
+}
+
 impl SseDecode for crate::dto::Highlight {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4771,6 +5389,17 @@ impl SseDecode for Option<crate::dto::AiSummaryCache> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::dto::AiSummaryCache>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::github_dto::GithubProfile> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::github_dto::GithubProfile>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -5175,49 +5804,60 @@ fn pde_ffi_dispatcher_primary_impl(
         24 => wire__crate__api__get_settings_impl(port, ptr, rust_vec_len, data_len),
         25 => wire__crate__api__get_sync_profile_impl(port, ptr, rust_vec_len, data_len),
         26 => wire__crate__api__get_sync_status_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__import_opml_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__init_papr_core_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__list_ai_profiles_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__list_all_highlights_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__list_article_tags_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__list_folders_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__list_highlights_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__list_rules_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__mark_all_articles_read_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__move_feed_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__parse_deep_link_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__preview_rule_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__refresh_feed_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__refresh_feeds_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__rename_feed_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__rename_folder_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__rename_tag_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__reorder_folders_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__reorder_tags_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__resolve_highlights_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__save_ai_profile_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__search_directory_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__set_ai_profile_enabled_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__github_cancel_sync_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__github_checkpoint_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__github_connect_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__github_disconnect_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__github_preview_impl(port, ptr, rust_vec_len, data_len),
+        32 => {
+            wire__crate__api__github_report_platform_failure_impl(port, ptr, rust_vec_len, data_len)
+        }
+        33 => wire__crate__api__github_status_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__github_sync_now_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__github_verify_credential_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__import_opml_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__init_papr_core_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__list_ai_profiles_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__list_all_highlights_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__list_article_tags_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__list_folders_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__list_highlights_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__list_rules_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__mark_all_articles_read_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__move_feed_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__parse_deep_link_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__preview_rule_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__refresh_feed_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__refresh_feeds_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__rename_feed_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__rename_folder_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__rename_tag_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__reorder_folders_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__reorder_tags_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__resolve_highlights_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__save_ai_profile_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__search_directory_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__set_ai_profile_enabled_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -5661,6 +6301,111 @@ impl flutter_rust_bridge::IntoDart for crate::dto::Folder {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::dto::Folder {}
 impl flutter_rust_bridge::IntoIntoDart<crate::dto::Folder> for crate::dto::Folder {
     fn into_into_dart(self) -> crate::dto::Folder {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::github_dto::GithubPreview {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.profile.into_into_dart().into_dart(),
+            self.head.into_into_dart().into_dart(),
+            self.local_feeds.into_into_dart().into_dart(),
+            self.remote_feeds.into_into_dart().into_dart(),
+            self.local_articles.into_into_dart().into_dart(),
+            self.remote_articles.into_into_dart().into_dart(),
+            self.excluded_feeds.into_into_dart().into_dart(),
+            self.excluded_articles.into_into_dart().into_dart(),
+            self.warning_count.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::github_dto::GithubPreview
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::github_dto::GithubPreview>
+    for crate::github_dto::GithubPreview
+{
+    fn into_into_dart(self) -> crate::github_dto::GithubPreview {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::github_dto::GithubProfile {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.repository_id.into_into_dart().into_dart(),
+            self.owner.into_into_dart().into_dart(),
+            self.repo.into_into_dart().into_dart(),
+            self.branch.into_into_dart().into_dart(),
+            self.credential_ref.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::github_dto::GithubProfile
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::github_dto::GithubProfile>
+    for crate::github_dto::GithubProfile
+{
+    fn into_into_dart(self) -> crate::github_dto::GithubProfile {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::github_dto::GithubStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.profile.into_into_dart().into_dart(),
+            self.pending.into_into_dart().into_dart(),
+            self.rejected.into_into_dart().into_dart(),
+            self.metadata_only.into_into_dart().into_dart(),
+            self.last_success_at.into_into_dart().into_dart(),
+            self.last_error_code.into_into_dart().into_dart(),
+            self.retry_at.into_into_dart().into_dart(),
+            self.busy.into_into_dart().into_dart(),
+            self.uncertain_publication.into_into_dart().into_dart(),
+            self.background_due.into_into_dart().into_dart(),
+            self.automatic_due.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::github_dto::GithubStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::github_dto::GithubStatus>
+    for crate::github_dto::GithubStatus
+{
+    fn into_into_dart(self) -> crate::github_dto::GithubStatus {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::github_dto::GithubSyncReport {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.acknowledged.into_into_dart().into_dart(),
+            self.rejected.into_into_dart().into_dart(),
+            self.retries.into_into_dart().into_dart(),
+            self.pending.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::github_dto::GithubSyncReport
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::github_dto::GithubSyncReport>
+    for crate::github_dto::GithubSyncReport
+{
+    fn into_into_dart(self) -> crate::github_dto::GithubSyncReport {
         self
     }
 }
@@ -6445,6 +7190,59 @@ impl SseEncode for crate::dto::Folder {
     }
 }
 
+impl SseEncode for crate::github_dto::GithubPreview {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::github_dto::GithubProfile>::sse_encode(self.profile, serializer);
+        <String>::sse_encode(self.head, serializer);
+        <i64>::sse_encode(self.local_feeds, serializer);
+        <i64>::sse_encode(self.remote_feeds, serializer);
+        <i64>::sse_encode(self.local_articles, serializer);
+        <i64>::sse_encode(self.remote_articles, serializer);
+        <i64>::sse_encode(self.excluded_feeds, serializer);
+        <i64>::sse_encode(self.excluded_articles, serializer);
+        <i64>::sse_encode(self.warning_count, serializer);
+    }
+}
+
+impl SseEncode for crate::github_dto::GithubProfile {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.repository_id, serializer);
+        <String>::sse_encode(self.owner, serializer);
+        <String>::sse_encode(self.repo, serializer);
+        <String>::sse_encode(self.branch, serializer);
+        <String>::sse_encode(self.credential_ref, serializer);
+    }
+}
+
+impl SseEncode for crate::github_dto::GithubStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<crate::github_dto::GithubProfile>>::sse_encode(self.profile, serializer);
+        <i64>::sse_encode(self.pending, serializer);
+        <i64>::sse_encode(self.rejected, serializer);
+        <i64>::sse_encode(self.metadata_only, serializer);
+        <Option<String>>::sse_encode(self.last_success_at, serializer);
+        <Option<String>>::sse_encode(self.last_error_code, serializer);
+        <Option<String>>::sse_encode(self.retry_at, serializer);
+        <bool>::sse_encode(self.busy, serializer);
+        <bool>::sse_encode(self.uncertain_publication, serializer);
+        <bool>::sse_encode(self.background_due, serializer);
+        <bool>::sse_encode(self.automatic_due, serializer);
+    }
+}
+
+impl SseEncode for crate::github_dto::GithubSyncReport {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.acknowledged, serializer);
+        <i64>::sse_encode(self.rejected, serializer);
+        <i64>::sse_encode(self.retries, serializer);
+        <i64>::sse_encode(self.pending, serializer);
+    }
+}
+
 impl SseEncode for crate::dto::Highlight {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6692,6 +7490,16 @@ impl SseEncode for Option<crate::dto::AiSummaryCache> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::dto::AiSummaryCache>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::github_dto::GithubProfile> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::github_dto::GithubProfile>::sse_encode(value, serializer);
         }
     }
 }

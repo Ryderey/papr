@@ -8,8 +8,10 @@ import 'package:workmanager/workmanager.dart';
 import '../bridge/generated/generated.dart' as bridge;
 import '../bridge/generated/frb_generated.dart';
 import '../core/config.dart';
+import '../core/exceptions.dart';
 import '../l10n/app_localizations.dart';
 import 'platform_service.dart';
+import 'github_sync_credentials.dart';
 
 const refreshOffMinutes = 525600;
 const backgroundRefreshUniqueName = 'papr.background.refresh';
@@ -45,6 +47,33 @@ void backgroundRefreshDispatcher() {
         );
       }
       try {
+        final github = await bridge.githubStatus(core: core);
+        if (github.profile != null &&
+            (github.backgroundDue || github.pending.toInt() > 0)) {
+          final token = await platformService
+              .getSyncCredential(github.profile!.credentialRef);
+          if (token == null || token.isEmpty) {
+            await bridge.githubReportPlatformFailure(
+                core: core, code: 'syncCredentialMissing');
+          } else {
+            await githubCheckpoint(core, github.profile!.credentialRef);
+            await bridge.githubSyncNow(
+                core: core,
+                token: token,
+                installation: await githubInstallation());
+            await githubCheckpoint(core, github.profile!.credentialRef);
+          }
+        }
+      } catch (error) {
+        if (error is AppException) {
+          try {
+            await bridge.githubReportPlatformFailure(
+                core: core, code: error.code);
+          } catch (_) {/* Preserve the successful feed refresh. */}
+        }
+        // Keep the successful feed refresh; sync status permits manual retry.
+      }
+      try {
         final status = await bridge.getSyncStatus(core: core);
         if (status.backgroundDue && status.profile != null) {
           String? credential;
@@ -74,9 +103,10 @@ class BackgroundRefreshService {
     await Workmanager().initialize(backgroundRefreshDispatcher);
   }
 
-  Future<void> reconcile(int refreshIntervalMin) async {
+  Future<void> reconcile(int refreshIntervalMin,
+      {bool githubEnabled = false}) async {
     if (!Platform.isAndroid) return;
-    if (!isBackgroundRefreshEnabled(refreshIntervalMin)) {
+    if (!isBackgroundRefreshEnabled(refreshIntervalMin) && !githubEnabled) {
       await Workmanager().cancelByUniqueName(backgroundRefreshUniqueName);
       return;
     }
@@ -84,7 +114,10 @@ class BackgroundRefreshService {
       backgroundRefreshUniqueName,
       backgroundRefreshTaskName,
       frequency: Duration(
-        minutes: backgroundRefreshFrequencyMinutes(refreshIntervalMin),
+        minutes:
+            !isBackgroundRefreshEnabled(refreshIntervalMin) && githubEnabled
+                ? 360
+                : backgroundRefreshFrequencyMinutes(refreshIntervalMin),
       ),
       constraints: Constraints(networkType: NetworkType.connected),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.update,

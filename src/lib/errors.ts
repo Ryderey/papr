@@ -26,6 +26,7 @@ export function errorText(e: unknown): string {
     const key = `error.${e.code}`;
     const msg = i18n.t(key, { detail });
     if (msg && msg !== key) return msg;
+    if (e.code.startsWith("github")) return i18n.t("githubSync.errorUnknown");
     return detail || i18n.t("error.unknown");
   }
   if (typeof e === "string") return e;

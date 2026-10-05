@@ -9,6 +9,151 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get githubScope =>
+      '購読、フォルダー、記事のタイトルとリンク、既読・スター・後で読む状態を同期します。通常の記事は90日間、保存した記事は無期限に保持します。本文と設定は端末内に保持します。';
+
+  @override
+  String get githubLoading => '読み込み中…';
+
+  @override
+  String githubPending(int count) {
+    return '未送信の操作：$count';
+  }
+
+  @override
+  String githubLastSuccess(String time) {
+    return '最終同期：$time';
+  }
+
+  @override
+  String get githubNever => '未同期';
+
+  @override
+  String githubRejected(int count) {
+    return '確認が必要な操作：$count';
+  }
+
+  @override
+  String get githubUncertain => '前回の送信結果を確認できませんでした。再試行時にクラウドの受信状態を確認します。';
+
+  @override
+  String githubRetryAt(String time) {
+    return '再試行可能時刻：$time';
+  }
+
+  @override
+  String get githubCancel => 'キャンセル';
+
+  @override
+  String get githubToken => 'GitHubの細粒度トークン';
+
+  @override
+  String get githubUpdateToken => 'トークンを更新';
+
+  @override
+  String get githubCredentialUpdated => 'トークンを更新しました';
+
+  @override
+  String get githubCompleted => '同期が完了しました';
+
+  @override
+  String get githubOwner => 'リポジトリ所有者';
+
+  @override
+  String get githubRepo => 'プライベートリポジトリ名';
+
+  @override
+  String get githubBranch => 'ブランチ（空欄は既定）';
+
+  @override
+  String get githubOtherBackend => '既存の同期サービスを切断してからGitHubに接続してください。';
+
+  @override
+  String get githubSetup =>
+      '初期化済みのプライベートリポジトリと、そのリポジトリのみのContents読み書き権限を持つ細粒度トークンを使用してください。';
+
+  @override
+  String get githubPreview => '接続をプレビュー';
+
+  @override
+  String githubPreviewCounts(
+      int localFeeds, int remoteFeeds, int localArticles, int remoteArticles) {
+    return '購読：端末 $localFeeds、クラウド $remoteFeeds。記事：端末 $localArticles、クラウド $remoteArticles。';
+  }
+
+  @override
+  String githubPreviewExcluded(int feeds, int articles, int warnings) {
+    return '除外：$feeds件のソース、$articles件の記事。注意：$warnings件。';
+  }
+
+  @override
+  String get githubPreviewHint =>
+      '初回同期では購読と保存状態を統合します。既存のクラウドの購読設定が優先され、本文は送信されません。';
+
+  @override
+  String get githubConfirm => '接続を確認';
+
+  @override
+  String get githubErrorUnknown =>
+      'GitHub同期に失敗しました。端末の操作は保持されています。接続を確認して再試行してください。';
+
+  @override
+  String get errorGithubAuthenticationFailed => 'トークンが無効または期限切れです。更新してください。';
+
+  @override
+  String get errorGithubPermissionDenied => 'このリポジトリのContents読み書き権限が必要です。';
+
+  @override
+  String get errorGithubRateLimited => 'GitHubの制限に達しました。表示された時刻まで待ってください。';
+
+  @override
+  String get errorGithubNetwork => 'GitHubに接続できません。未送信の操作は保持されています。';
+
+  @override
+  String get errorGithubRepositoryUnavailable =>
+      'リポジトリまたはブランチにアクセスできません。名前と権限を確認してください。';
+
+  @override
+  String get errorGithubPrivateRepositoryRequired => 'プライベートリポジトリを使用してください。';
+
+  @override
+  String get errorGithubOtherBackendConnected => '既存の同期サービスを切断してください。';
+
+  @override
+  String get errorGithubPreviewChanged => 'クラウドが更新されました。再度プレビューしてください。';
+
+  @override
+  String get errorGithubSyncBusy => '同期中です。';
+
+  @override
+  String get errorGithubHistoryRewritten => 'クラウドの履歴が変更されました。確認後に再接続してください。';
+
+  @override
+  String get errorGithubDatasetChanged => '同期データセットが変更されました。確認後に再接続してください。';
+
+  @override
+  String get errorGithubRestoredDatabase => '復元されたデータベースを検出しました。確認後に再接続してください。';
+
+  @override
+  String get errorGithubDatabaseCloneDetected =>
+      '別のインストールのデータベースです。この端末で再接続してください。';
+
+  @override
+  String get errorGithubInstallationMissing => '端末の安全な識別情報がありません。再接続してください。';
+
+  @override
+  String get errorGithubCapacityExceeded => '同期データのサイズ制限を超えました。';
+
+  @override
+  String get errorGithubSyncCancelled => '同期をキャンセルしました。未送信の操作は保持されています。';
+
+  @override
+  String get errorGithubConcurrentRetryLimit => 'クラウドが繰り返し更新されました。後で再試行してください。';
+
+  @override
+  String get errorGithubWriteRejected => '書き込みが拒否されました。ブランチ保護と権限を確認してください。';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

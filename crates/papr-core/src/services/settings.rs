@@ -85,11 +85,13 @@ impl SettingsService {
             .map_err(|_| CoreError::coded(ErrorCategory::Sync, "invalidSyncProfile", None))?;
         let db = Arc::clone(&self.db);
         tokio::task::spawn_blocking(move || {
-            db.set_settings(&[
-                ("sync_profile", value),
-                ("sync_last_success_at", String::new()),
-                ("sync_last_error_code", String::new()),
-            ])
+            db.transact(|tx| {
+                if crate::sync::github::storage::connection(tx)?.is_some() {return Err(crate::sync::github::error("githubOtherBackendConnected"));}
+                for (key,value) in [("sync_profile",value),("sync_last_success_at",String::new()),("sync_last_error_code",String::new())] {
+                    tx.execute("INSERT INTO settings(key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(key,value)).map_err(|e|CoreError::Db(e.to_string()))?;
+                }
+                Ok(())
+            })
         })
         .await
         .map_err(|error| CoreError::Platform(format!("blocking task failed: {error}")))?

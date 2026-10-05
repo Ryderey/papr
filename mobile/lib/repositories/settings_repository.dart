@@ -67,6 +67,10 @@ class AppearanceState {
 }
 
 class AppearanceController extends AsyncNotifier<AppearanceState> {
+  Future<bool> _githubEnabled() async {
+    final core=await ref.read(paprCoreBridgeProvider.future);
+    return (await bridge.githubStatus(core:core)).profile!=null;
+  }
   @override
   Future<AppearanceState> build() async {
     final snapshot = await ref.watch(settingsRepositoryProvider).getSettings();
@@ -81,7 +85,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
     try {
       await ref
           .read(backgroundRefreshServiceProvider)
-          .reconcile(settings.refreshIntervalMin);
+          .reconcile(settings.refreshIntervalMin,githubEnabled:await _githubEnabled());
     } catch (_) {
       // Settings remain usable when Android temporarily rejects scheduling.
     }
@@ -174,7 +178,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
           );
       await ref
           .read(backgroundRefreshServiceProvider)
-          .reconcile(next.refreshIntervalMin);
+          .reconcile(next.refreshIntervalMin,githubEnabled:await _githubEnabled());
     } catch (error, stackTrace) {
       try {
         await ref.read(settingsRepositoryProvider).setBackground(
@@ -184,7 +188,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
             );
         await ref
             .read(backgroundRefreshServiceProvider)
-            .reconcile(previous.refreshIntervalMin);
+            .reconcile(previous.refreshIntervalMin,githubEnabled:await _githubEnabled());
       } catch (_) {
         // Preserve the original failure; startup reconciliation repairs the
         // schedule from persisted settings on the next app launch.

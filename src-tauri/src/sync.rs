@@ -254,6 +254,12 @@ async fn persist_session(
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
     let conn = state.db.lock().await;
+    if papr_core::sync::github::storage::connection(&conn)
+        .map_err(|e| AppError::code(e.code()))?
+        .is_some()
+    {
+        return Err(AppError::code("githubOtherBackendConnected"));
+    }
     db::set_setting(&conn, "freshrss_url", url.trim())?;
     db::set_setting(&conn, "freshrss_user", user)?;
     db::set_setting(&conn, "freshrss_auth", auth)?;
