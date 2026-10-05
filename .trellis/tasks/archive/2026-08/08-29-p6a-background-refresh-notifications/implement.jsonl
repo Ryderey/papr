@@ -1,0 +1,6 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/mobile-cross-layer-contracts.md", "reason": "Cross-layer Core/FRB/Flutter contract for P6A."}
+{"file": "crates/papr-core/src/services/ingestion.rs", "reason": "Core due-versus-force refresh selection."}
+{"file": "crates/papr-core/src/services/settings.rs", "reason": "Typed atomic background settings."}
+{"file": "mobile/lib/services/background_refresh_service.dart", "reason": "Android WorkManager and notification adapter."}
+{"file": "mobile/lib/repositories/settings_repository.dart", "reason": "Settings persistence, scheduling, and rollback flow."}

@@ -1,0 +1,16 @@
+# Android internal RC procedure
+
+P7 targets an APK installed directly for internal acceptance. The Release variant currently uses Android Debug signing; formal signing, AAB and Google Play readiness are outside this task. Never describe this APK as production signed or publish it as a store artifact.
+
+1. Confirm the package ID, `mobile/pubspec.yaml` version and Core Alpha schema migration fixture. Record the signing certificate fingerprint of the installed internal test APK. An in-place test upgrade requires the installed and RC APKs to have the same certificate and the RC version code to be higher.
+2. Build from `mobile/` with `flutter build apk --release --build-number=<higher-number>`. The current source version code is `1`; choose a code higher than the installed test APK.
+3. Record the APK SHA-256 and verify its certificate fingerprint with Android build tools. Install over a matching-certificate test APK without uninstalling or clearing data, and check launch. Validate v16 Alpha schema data retention separately with the Core migration test; a formal Alpha APK upgrade is outside this self-use RC. The subscription-to-reading flow is tracked in deferred acceptance.
+4. Test fresh installation and clear-data behavior separately. Record version, fingerprint, checksum and device results in the P7 task without recording private key material.
+
+As checked on 2026-09-27, the Debug APK declares `minSdkVersion=24` and `targetSdkVersion=36`. `zipalign -c -P 16 -v 4` passed, and every 64-bit native library's ELF `LOAD` alignment was at least 16 KiB. The installed Debug app cold-started on an API 37 emulator with a 16 KiB page size (`am start -W`: `Status: ok`, 4,170 ms).
+
+Internal RC build evidence (2026-09-27): `flutter build apk --release --no-pub --build-number=2` produced a 97.2 MB APK with package `com.papr.papr_mobile`, `versionCode=2`, `minSdkVersion=24` and `targetSdkVersion=36`. SHA-256: `C0312BF4283FD08E810FE4E84958F0B823B2FC0B3C2F08302E79CED51F8D0A8B`. Its Android Debug certificate SHA-256 is `6163317b0379613da6100dd0d63027c4ce2f9ff265de9923932e8cd86e389e18`, matching the installed version 1 APK on the API 37 emulator. `zipalign -c -P 16 -v 4` passed, and all 64-bit `.so` ELF `LOAD` alignments are at least 16 KiB. `adb install -r` upgraded the installed app to version 2 and cold launch returned `Status: ok` in 2,339 ms. Formal Alpha APK upgrade and physical-device testing were removed from P7 on 2026-09-28.
+
+Additional emulator check (2026-09-28): the existing `Medium_Phone` test APK had version code 1 and the same Debug certificate. Installing the RC APK with `adb install -r` succeeded, then a cold launch returned `Status: ok` in 1,619 ms. Light/dark theme and Japanese settings displayed without visible overflow. After force-stop, the app cold-started in 1,028 ms with Japanese and dark theme retained. This was an empty-data smoke check, not a full subscription-to-sync run.
+
+The self-use RC also passed the temporary AI credential deletion and in-app clear-data smoke checks recorded in [privacy notes](mobile-privacy.md). Full subscription-to-sync, expanded device, accessibility, stress and direct Keystore/database-file checks remain in [deferred acceptance](../.trellis/tasks/09-28-mobile-deferred-acceptance/prd.md); this APK has not passed those checks.

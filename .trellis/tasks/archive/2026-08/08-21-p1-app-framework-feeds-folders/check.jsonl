@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查 P1 的 folder/feed CRUD、add_feed、OPML 是否保持在正确分层：core 是唯一业务来源，适配层只做转换。"}
+{"file": ".trellis/tasks/08-21-p1-app-framework-feeds-folders/prd.md", "reason": "P1 需求与验收标准，作为 check 的核对基准。"}
+{"file": ".trellis/tasks/08-21-p1-app-framework-feeds-folders/design.md", "reason": "P1 设计契约（下沉策略、稳定错误码、事务变更日志、add_feed 流程）。"}
