@@ -21,3 +21,13 @@
 ## Dependencies / Out of Scope
 
 来源：P7 自用 RC 的延期项目，见 `docs/mobile-rc-scope-matrix.md` 和 `docs/mobile-privacy.md`。实体机、正式 Alpha APK 原位升级、正式签名、AAB 和应用商店仅在未来确有分发需求时另行决定，不作为本任务自动要求。
+
+## GitHub sync follow-up transferred on 2026-10-05
+
+The user confirmed desktop and mobile validation passed, and the integrated GitHub synchronization feature was merged into optimize-bugfix and pushed. The completed implementation task is archived at .trellis/tasks/archive/2026-10/10-05-github-personal-sync. Existing Core/desktop/frontend/Flutter regressions and native builds passed; isolated emulator foreground/headless Worker credential/Core smoke passed. These results do not establish production GitHub-connected background convergence.
+
+- [ ] Verify the real Android background Worker can read the configured Token and synchronize with the same repository while the app is not in the foreground.
+- [ ] Record actual behavior during Android battery restrictions/Doze and after reboot; scheduling is inexact.
+- [ ] Verify real Token expiry and replacement preserve pending offline edits and resume synchronization.
+
+These are deferred personal-use acceptance checks, not passed results or blockers to the delivered foreground/manual synchronization. Use backed-up data and avoid destructive checks on the user's live reading database.

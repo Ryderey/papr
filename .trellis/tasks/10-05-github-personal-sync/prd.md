@@ -26,9 +26,9 @@ Integrate the desktop main branch and the Android branch, then provide private G
 
 The user approved the GitHub design and the order: integrate first, then develop sync. Local refs initially diverged by 12 desktop-only and 62 Android-only commits. The shared Core exists only on the Android branch. The original checkout contains unrelated Android signing/release work, which must remain untouched. Scope is personal use, Windows and Android only; no server provisioning or app store release.
 
-## Remaining manual acceptance
+## Deferred manual acceptance
 
-On 2026-10-05 the user confirmed that desktop and mobile validation passed. Record this as user-confirmed two-client acceptance, without claiming agent-run live testing or individual unreported scenarios. Production GitHub-connected background synchronization and Doze/reboot behavior remain unconfirmed; keep the task active for the remaining background acceptance.
+On 2026-10-05 the user confirmed that desktop and mobile validation passed. Record this as user-confirmed two-client acceptance, without claiming agent-run live testing or individual unreported scenarios. Production GitHub-connected background synchronization and Doze/reboot behavior remain unconfirmed. On the user's request to push and wrap up, these checks are transferred to the existing deferred Android acceptance task at .trellis/tasks/09-28-mobile-deferred-acceptance; they are not claimed as passed.
 
 ## Static-review follow-up
 
@@ -36,7 +36,7 @@ On 2026-10-05 the user confirmed that desktop and mobile validation passed. Reco
 - [x] Full Rust/frontend/Flutter checks pass and generated bridge reproducibility passes.
 - [x] Updated Android APK and final artifact verification recorded.
 
-See docs/github-sync-review-fixes-2026-10-05.md. A25 background acceptance remains independently pending.
+See docs/github-sync-review-fixes-2026-10-05.md. A25 background acceptance is tracked in .trellis/tasks/09-28-mobile-deferred-acceptance.
 
 
 ## Second static-review follow-up
@@ -45,9 +45,13 @@ See docs/github-sync-review-fixes-2026-10-05.md. A25 background acceptance remai
 - [x] Targeted regressions and full Rust/frontend/Flutter gates pass, including pagination/exhaustion and optimistic editing protection.
 - [x] Refresh native artifacts and record the final generation/build gates.
 
-User-confirmed desktop/mobile validation is recorded above. A25 production background acceptance remains independently pending.
+User-confirmed desktop/mobile validation is recorded above. A25 production background acceptance is tracked in .trellis/tasks/09-28-mobile-deferred-acceptance.
 
 ## Setup documentation follow-up
 
 - [x] Add private-repository setup, fine-grained PAT creation, field examples, two-client first synchronization and Token renewal to the root README.
 - [x] Record the user's desktop/mobile validation confirmation separately from agent-run checks.
+
+## Delivery
+
+Desktop/mobile integration and GitHub synchronization are merged into optimize-bugfix. README and user validation evidence are committed as 0b81c4d; the remote branch was verified at that commit before final bookkeeping. The user authorized normal push, task wrap-up and cleanup. No release publication or signing changes are included.

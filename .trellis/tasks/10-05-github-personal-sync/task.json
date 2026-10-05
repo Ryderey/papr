@@ -15,7 +15,7 @@
   "branch": "codex/github-personal-sync",
   "base_branch": "optimize-bugfix",
   "worktree_path": "C:/Users/Ryder/.codex/worktrees/integrate-desktop-mobile/papr",
-  "commit": "621481a",
+  "commit": "0b81c4d",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -35,7 +35,7 @@
     "mobile/test/ui/screens/github_sync_refresh_test.dart",
     "README.md"
   ],
-  "notes": "All six second-pass findings fixed; append-only v20. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows and Android all four ABI/APK builds pass. Standard artifacts refreshed and hashes verified. A25 real GitHub/physical acceptance remains open; original checkout preserved; no push/remote sync write. On 2026-10-05 the user confirmed desktop and mobile validation passed. README now includes fine-grained PAT setup and both-client connection instructions. Production background/Doze/reboot acceptance is not explicitly confirmed and remains open; this documentation pass ran no new live sync tests.",
+  "notes": "All six second-pass findings fixed; append-only v20. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows and Android all four ABI/APK builds pass. Standard artifacts refreshed and hashes verified. A25 real GitHub/physical acceptance remains open; original checkout preserved; no push/remote sync write. On 2026-10-05 the user confirmed desktop and mobile validation passed. README now includes fine-grained PAT setup and both-client connection instructions. Production background/Doze/reboot acceptance is not explicitly confirmed and remains open; this documentation pass ran no new live sync tests. Delivery: merged into optimize-bugfix and pushed normally to origin at 0b81c4d. User requested wrap-up and temporary cleanup. Unconfirmed GitHub-connected background/Doze/reboot checks are transferred to 09-28-mobile-deferred-acceptance; this feature task can be archived without claiming those checks passed.",
   "meta": {
     "sync_repository": {
       "owner": "Ryderey",
@@ -43,6 +43,7 @@
       "repository_id": 1405209831,
       "branch": "main",
       "private": true
-    }
+    },
+    "deferred_acceptance_task": ".trellis/tasks/09-28-mobile-deferred-acceptance"
   }
 }

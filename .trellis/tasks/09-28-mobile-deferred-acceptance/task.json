@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": " On 2026-10-05 inherited the unconfirmed GitHub-connected background/Doze/reboot and actual Token-expiry acceptance from the delivered GitHub personal synchronization task. User-confirmed desktop/mobile validation already passed; do not repeat it or claim background checks passed.",
   "meta": {}
 }

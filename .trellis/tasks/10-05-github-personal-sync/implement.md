@@ -66,3 +66,11 @@ Initial `flutter build apk --debug --no-pub` failed in WorkManager Kotlin compil
 - [x] Mounted Android empty/populated/paged lists and readers refresh without replacing pending optimistic edits. An initial pagination regression caught the exhausted-range spinner and the final test passes.
 - [x] Repeat FRB generation changes no generated Rust/Dart hashes. Windows debug build passes. Android all four ABIs/standard APK pass (12m 48s); final Flutter-only standard rebuild using verified native libraries passes (8s). Standard package metadata and both artifact SHA256 values verified; preserved artifacts refreshed.
 - A25 remains open. No actual remote sync write, push, physical-device acceptance or main-branch merge in this pass.
+
+## Delivery and wrap-up — 2026-10-05
+
+- [x] User confirmed desktop/mobile validation passed.
+- [x] README connection/PAT instructions committed at 0b81c4d.
+- [x] Fast-forward merge into optimize-bugfix; normal push and remote SHA verification pass.
+- [x] Unconfirmed production background/Doze/reboot and actual Token-expiry acceptance transferred to 09-28-mobile-deferred-acceptance, without claiming it passed.
+- Standard artifacts are retained in the original checkout at target/github-sync/papr.exe and mobile/build/github-sync/papr-sync-debug.apk before the temporary worktree is archived. Preserve original uncommitted signing/release files; no automatic release or forced push.
