@@ -4,7 +4,7 @@
 
 # Papr
 
-A fast, native RSS reader for the desktop.
+A local-first RSS reader with desktop and Android clients.
 
 <img src="docs/screenshot.webp" alt="Papr" width="820" />
 
@@ -16,12 +16,25 @@ A fast, native RSS reader for the desktop.
 - **Smart views** — All, Unread, Starred, and Read Later, with live counts.
 - **Tags & rules** — color-coded tags and rules that tag new articles automatically.
 - **Full-text** — fetch and clean the complete article when a feed ships only a summary.
-- **AI** — summaries with inline follow-up Q&A, ask-the-article Q&A, and digests. Bring your own API key.
+- **AI** — summaries, summary follow-up Q&A, and translation. Desktop also provides Ask/RAG and digests. Bring your own API key.
 - **Audio** — a built-in player that follows you from article to article.
 - **FreshRSS sync** — keep read state in step with a FreshRSS server.
 - **GitHub sync** — synchronize Windows and Android through your own private repository; see [setup instructions](#github-私有仓库同步).
 - **Local-first** — reading data lives in local SQLite; cloud synchronization is optional.
 - **Localized** — English, Japanese, and Simplified Chinese.
+
+### 平台范围
+
+当前分支已整合 Tauri 桌面端与 Flutter Android 端，自用验证以 Windows 和 Android 为主。两端共用 `papr-core`，界面与部分功能按平台实现。
+
+| 范围 | 当前能力 |
+|---|---|
+| 两端共有 | 订阅与文件夹、OPML、文章阅读与全文提取、已读／星标／稍后读、标签／规则／高亮、AI 摘要与摘要追问、LLM 翻译、音频播放、FreshRSS／Miniflux 同步 |
+| Windows 与 Android | GitHub 私有仓库同步；当前桌面 GitHub 凭据存储仅实现 Windows，不适用于 macOS／Linux |
+| 桌面功能 | 全局 Ask/RAG、Digest、Newsletter/IMAP、Send to Kindle，以及托盘、快捷键、拖动等桌面交互 |
+| Android | 触控界面、系统分享、WorkManager 后台任务、Media3 后台音频；上述桌面专属功能未移植 |
+
+桌面仍保留 macOS／Linux 构建配置。Android 完整范围及后续验收见 [移动端范围矩阵](docs/mobile-rc-scope-matrix.md)；GitHub 新增能力以本文同步章节为准。Android 后台同步、休眠及重启场景的实际验收记录在 [Android 后续验收任务](.trellis/tasks/09-28-mobile-deferred-acceptance/prd.md)。
 
 ## 基于原仓库的修改
 
@@ -38,7 +51,7 @@ A fast, native RSS reader for the desktop.
   <img src="docs/AI摘要及追问.webp" alt="Papr 的 AI 摘要与追问界面" width="960" />
 </p>
 
-- **AI 抽屉布局优化**：AI 摘要面板宽度从 360px 调整到 480px，打开面板时正文区域会为抽屉预留空间，减少正文与摘要面板的遮挡。
+- **AI 抽屉布局优化**：默认宽度为 480px，可拖动调整并保存宽度偏好，配置范围为 320–640px；实际宽度受可用空间限制。窗口变窄时会依次收起文章列表和侧栏，为正文与 AI 面板保留空间。
 - **LLM 翻译配置对齐**：LLM 翻译会复用新的 AI 配置解析逻辑，同时保留 Google、DeepL、Bing 等独立翻译引擎选项。
 - **国际化补充**：为新增的 AI 配置、摘要模板、追问和连接测试文案补齐 English、Japanese、Simplified Chinese 三套语言资源。
 
@@ -111,26 +124,31 @@ Windows 与 Android Papr 可以连接同一个 GitHub 私有仓库，双向同�
 
 ## Installation
 
-### macOS
+### 本仓库版本
 
-Install with [Homebrew](https://brew.sh):
+查看 [Ryderey/papr Releases](https://github.com/Ryderey/papr/releases)，选择与所需分支和功能对应的构建，并核对发行说明。源码合并或推送不等于已生成安装包；如果没有包含本分支改造的发行版，请按下面的开发步骤从源码构建。
+
+Android 当前面向自用／内部测试，安装 APK 前请核对包名、版本和签名；操作步骤见 [Android RC 安装与升级说明](docs/mobile-rc-release.md)。
+
+### 上游原版（macOS／桌面）
+
+以下入口安装的是原始项目 `l0ng-ai/papr` 的发行版，不能作为本仓库改造功能的安装保证。macOS 原版可通过 [Homebrew](https://brew.sh) 安装：
 
 ```sh
 brew install --cask l0ng-ai/papr/papr
 ```
 
-### All platforms
-
-Download the installer for your platform from the [latest release](https://github.com/l0ng-ai/papr/releases/latest).
+其他桌面平台的上游安装包见 [上游最新发行版](https://github.com/l0ng-ai/papr/releases/latest)。
 
 ## Development
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v20+)
+- [Node.js](https://nodejs.org/) — Node 20.x requires 20.19.0 or newer; Node 22 and later require 22.12.0 or newer. Node 22 matches the desktop CI configuration. These bounds follow the locked Vite dependency.
 - [pnpm](https://pnpm.io/) (v9+)
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable via rustup)
-- **Windows only**: WebView2 runtime (usually pre-installed) and MSVC build tools (installed via rustup).
+- **Windows only**: WebView2 runtime (usually pre-installed), Visual Studio C++ Build Tools with the Windows SDK, and the Rust MSVC toolchain installed through rustup.
+- **Linux only**: WebKitGTK 4.1 development libraries, AppIndicator, librsvg, and patchelf; see the package list in [the desktop release workflow](.github/workflows/release.yml).
 
 ### Install dependencies
 
@@ -161,19 +179,29 @@ pnpm tauri build
 After the build completes, the installable bundles are located at:
 
 ```text
-src-tauri/target/release/bundle/
+target/release/bundle/
 ```
 
 On Windows you will typically find:
 
-- `src-tauri/target/release/bundle/msi/Papr_*.msi`
-- `src-tauri/target/release/bundle/nsis/Papr_*-setup.exe`
+- `target/release/bundle/msi/Papr_*.msi`
+- `target/release/bundle/nsis/Papr_*-setup.exe`
+
+The root Cargo workspace owns the default `target/` directory. A custom Cargo target directory or an explicit cross-compilation target changes these paths; use the path printed by the build in that case.
 
 ### Android (Flutter)
 
 The Android client lives in `mobile/` and shares `papr-core` via Flutter Rust Bridge.
 
 #### Prerequisites (one-time)
+
+Prepare these tools before installing the Rust Android targets:
+
+- Flutter SDK on `PATH`, including its bundled Dart SDK. The current lockfile requires Flutter >=3.38.4 and Dart >=3.11.0 <4.0.0; the selected Flutter installation must satisfy both requirements.
+- JDK 17 and Android SDK tooling, including Platform Tools (`adb`) and the SDK platform/build tools required by the selected Flutter SDK. Android Studio can manage the SDK, NDK, and device/emulator setup.
+- Rust stable and the Android NDK pinned by the Gradle configuration (`30.0.14904198`).
+
+Run `flutter doctor -v`, resolve Android toolchain issues, and accept the SDK licenses with `flutter doctor --android-licenses`. Configure the SDK paths for the local machine; do not commit `mobile/android/local.properties`.
 
 1. Install the Rust Android targets:
 
@@ -195,12 +223,16 @@ The Android client lives in `mobile/` and shares `papr-core` via Flutter Rust Br
    linker = "<ndk>/toolchains/llvm/prebuilt/<host>/bin/x86_64-linux-android21-clang.cmd"
    ```
 
+   The linker examples above are for Windows, where `<host>` is `windows-x86_64`. On Linux or macOS, use the corresponding NDK host directory and omit the `.cmd` suffix.
+
 3. If Gradle plugin/dependency downloads are blocked (TLS handshake
    interruptions to `plugins.gradle.org` etc.), add a Gradle init script that
    injects a mirror (e.g. Aliyun) into `pluginManagement` and
    `dependencyResolutionManagement` for every build.
 
 #### Regenerate the Rust↔Dart bindings (only when the bridge API changes)
+
+Existing generated bindings are committed. When regeneration is needed, install `flutter_rust_bridge_codegen` matching the resolved FRB bridge version (currently 2.12.0) and run the following from the repository root, after fetching the Flutter dependencies:
 
 ```sh
 flutter_rust_bridge_codegen generate --config-file rust_frb_codegen.yaml
@@ -210,16 +242,17 @@ flutter_rust_bridge_codegen generate --config-file rust_frb_codegen.yaml
 
 ```sh
 cd mobile
-flutter build apk --debug --no-pub
+flutter pub get
+flutter build apk --debug
 ```
 
 `preBuild` automatically cross-compiles `papr-flutter-bridge` (and `papr-core`)
 for each Android ABI and bundles `libpapr_flutter_bridge.so` into the APK, so a
 plain `flutter build apk` picks up Rust changes with no extra step.
 
-- `--debug` produces a debug-signed APK for real devices. Use `--release` for a
-  shippable build.
-- `--no-pub` skips `flutter pub get` (deps are already locked).
+- `--debug` produces a Debug-signed APK for development and device testing.
+- `--release` produces an optimized APK, but the currently committed Release configuration also uses Debug signing. It is an internal/self-use build; production signing, AAB packaging, and store distribution require separate setup. See [the Android RC procedure](docs/mobile-rc-release.md).
+- `--no-pub` is suitable for repeat builds only after `flutter pub get` has completed and the dependency configuration is unchanged. A committed lockfile does not download dependencies or create `.dart_tool/package_config.json`.
 
 The APK is written to:
 
@@ -231,9 +264,13 @@ mobile/build/app/outputs/flutter-apk/app-debug.apk
 
 Enable USB debugging on the phone, plug it in, then:
 
+Run this command from the repository root (use `build/app/outputs/flutter-apk/app-debug.apk` if the terminal is still in `mobile/`):
+
 ```sh
 adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
 ```
+
+An in-place update requires a compatible signing certificate and version code. If installation reports a signature/version mismatch, preserve the existing app data and resolve the build configuration; do not uninstall the app merely to make the command succeed.
 
 ### Other useful scripts
 
