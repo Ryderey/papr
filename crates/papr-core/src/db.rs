@@ -550,6 +550,15 @@ fn migrations() -> Vec<M<'static>> {
              ALTER TABLE articles ADD COLUMN ai_summary_lang TEXT;",
         ),
         M::up(include_str!("sync/github/schema.sql")),
+        // v19: distinguish an unpublished initializer and retain its secure
+        // checkpoint identity if another device establishes the dataset first.
+        M::up("ALTER TABLE github_connections ADD COLUMN initializing INTEGER NOT NULL DEFAULT 0;
+               ALTER TABLE github_connections ADD COLUMN checkpoint_dataset_id TEXT;
+               UPDATE github_connections SET checkpoint_dataset_id=dataset_id;
+               UPDATE github_connections SET initializing=1 WHERE ack_seq=0
+                 AND NOT EXISTS(SELECT 1 FROM github_files WHERE connection_id=github_connections.id)
+                 AND EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=github_connections.id
+                   AND seq=1 AND json_extract(payload,'$.kind')='seed_initial');"),
     ]
 }
 
@@ -3780,4 +3789,34 @@ mod tests {
         db.delete_highlight(id).unwrap();
         assert!(db.list_all_highlights().unwrap().is_empty());
     }
+
+    #[test]
+    fn github_v18_upgrade_preserves_checkpoint_identity_and_initial_outbox() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(migrations().into_iter().take(18).collect())
+            .to_latest(&mut conn)
+            .unwrap();
+        let profile = crate::sync::github::model::GitHubProfile {
+            repository_id: 1,
+            owner: "owner".into(),
+            repo: "repo".into(),
+            branch: "main".into(),
+            credential_ref: "papr.sync.test".into(),
+        };
+        conn.execute("INSERT INTO github_connections(profile,dataset_id,device_id,epoch,binding,next_seq) VALUES (?1,?2,?3,1,'binding',2)",rusqlite::params![serde_json::to_string(&profile).unwrap(),"d".repeat(32),"e".repeat(32)]).unwrap();
+        conn.execute("INSERT INTO github_outbox(connection_id,seq,payload) VALUES (1,1,'{\"kind\":\"seed_initial\"}')",[]).unwrap();
+        migrate(&mut conn).unwrap();
+        let info = crate::sync::github::storage::connection(&conn)
+            .unwrap()
+            .unwrap();
+        assert!(info.initializing);
+        assert_eq!(info.checkpoint_dataset_id, info.dataset_id);
+        assert_eq!(info.next_seq, 2);
+        let prior = format!("{}:{}:1", info.dataset_id, info.device_id);
+        assert_eq!(
+            crate::sync::github::storage::checkpoint(&conn, Some(&prior)).unwrap(),
+            prior
+        );
+    }
+
 }

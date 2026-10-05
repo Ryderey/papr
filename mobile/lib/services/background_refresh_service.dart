@@ -8,7 +8,6 @@ import 'package:workmanager/workmanager.dart';
 import '../bridge/generated/generated.dart' as bridge;
 import '../bridge/generated/frb_generated.dart';
 import '../core/config.dart';
-import '../core/exceptions.dart';
 import '../l10n/app_localizations.dart';
 import 'platform_service.dart';
 import 'github_sync_credentials.dart';
@@ -48,8 +47,7 @@ void backgroundRefreshDispatcher() {
       }
       try {
         final github = await bridge.githubStatus(core: core);
-        if (github.profile != null &&
-            (github.backgroundDue || github.pending.toInt() > 0)) {
+        if (github.profile != null && github.backgroundDue) {
           final token = await platformService
               .getSyncCredential(github.profile!.credentialRef);
           if (token == null || token.isEmpty) {
@@ -65,10 +63,11 @@ void backgroundRefreshDispatcher() {
           }
         }
       } catch (error) {
-        if (error is AppException) {
+        final platformError = githubPlatformError(error);
+        if (platformError != null) {
           try {
             await bridge.githubReportPlatformFailure(
-                core: core, code: error.code);
+                core: core, code: platformError.code);
           } catch (_) {/* Preserve the successful feed refresh. */}
         }
         // Keep the successful feed refresh; sync status permits manual retry.

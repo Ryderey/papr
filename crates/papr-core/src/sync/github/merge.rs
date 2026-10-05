@@ -224,6 +224,14 @@ pub fn merge(
     }
     if let Some(cutoff) = cutoff_at {
         let new_cutoff = parse_date(cutoff)?;
+        let trusted_now = new_cutoff + chrono::Duration::days(90);
+        // Local fetch clocks do not define first cloud confirmation time.
+        for (key, entry) in &mut report.snapshot.articles {
+            if !remote.articles.contains_key(key) || parse_date(&entry.first_seen_at)? > trusted_now
+            {
+                entry.first_seen_at = trusted_now.to_rfc3339();
+            }
+        }
         let previous_cutoff = report.snapshot.manifest.retention.cutoff_at.clone();
         if new_cutoff > parse_date(&report.snapshot.manifest.retention.cutoff_at)? {
             report.snapshot.manifest.retention.cutoff_at = cutoff.into();
@@ -236,12 +244,15 @@ pub fn merge(
                 .states
                 .get(key)
                 .is_some_and(ArticleState::protected);
-            let date = parse_date(
+            let mut date = parse_date(
                 entry
                     .published_at
                     .as_deref()
                     .unwrap_or(&entry.first_seen_at),
             )?;
+            if date > trusted_now {
+                date = parse_date(&entry.first_seen_at)?;
+            }
             if !protected && date < cutoff {
                 expired.push(key.clone());
             }
@@ -1203,5 +1214,75 @@ mod tests {
         .unwrap()
         .snapshot;
         assert_eq!(snapshot.articles.len(), 2);
+    }
+
+    #[test]
+    fn future_dates_use_first_cloud_confirmation_and_do_not_extend_on_refetch() {
+        let mut first = entry();
+        first.published_at = Some("2099-01-01T00:00:00Z".into());
+        first.first_seen_at = "1900-01-01T00:00:00Z".into();
+        let key = first.key();
+        let now = "2026-10-05T00:00:00+00:00";
+        let cutoff = "2026-07-07T00:00:00Z";
+        let snapshot = merge(
+            &Snapshot::empty("d".repeat(32), "1970-01-01T00:00:00Z".into()),
+            &[
+                op(
+                    'a',
+                    1,
+                    Intent::Subscribe {
+                        subscription: feed(),
+                    },
+                ),
+                op(
+                    'a',
+                    2,
+                    Intent::EnsureArticle {
+                        entry: first.clone(),
+                        generation: 1,
+                    },
+                ),
+            ],
+            Some(cutoff),
+        )
+        .unwrap()
+        .snapshot;
+        assert_eq!(snapshot.articles[&key].first_seen_at, now);
+        first.first_seen_at = "2099-02-01T00:00:00Z".into();
+        let refreshed = merge(
+            &snapshot,
+            &[op(
+                'a',
+                3,
+                Intent::EnsureArticle {
+                    entry: first,
+                    generation: 1,
+                },
+            )],
+            Some("2026-07-08T00:00:00Z"),
+        )
+        .unwrap()
+        .snapshot;
+        assert_eq!(refreshed.articles[&key].first_seen_at, now);
+        assert!(merge(&refreshed, &[], Some("2026-10-06T00:00:00Z"))
+            .unwrap()
+            .snapshot
+            .articles
+            .is_empty());
+        let saved = merge(
+            &snapshot,
+            &[state_op('a', 3, StateField::Starred, true)],
+            None,
+        )
+        .unwrap()
+        .snapshot;
+        assert!(
+            merge(&saved, &[], Some("2026-10-06T00:00:00Z"))
+                .unwrap()
+                .snapshot
+                .states[&key]
+                .starred
+                .value
+        );
     }
 }

@@ -9,6 +9,7 @@ import * as api from "./api";
 import { useUi, READER_FONTS } from "./store";
 import type { DarkShade } from "./store";
 import { useArticleActions } from "./hooks/articleActions";
+import { refreshArticleQueries } from "./lib/readingQueries";
 import { resolveAiLayout } from "./lib/aiDrawerLayout";
 import { readCurrentItems } from "./lib/currentList";
 import { useToasts, toast as toastApi, reportError } from "./toast";
@@ -197,9 +198,7 @@ export default function App() {
   // ── background refresh events from the Rust scheduler ──
   useEffect(() => {
     const un = listen("feeds-updated", () => {
-      qc.invalidateQueries({ queryKey: ["feeds"] });
-      qc.invalidateQueries({ queryKey: ["counts"] });
-      qc.invalidateQueries({ queryKey: ["articles"] });
+      refreshArticleQueries(qc);
     });
     return () => {
       un.then((f) => f());

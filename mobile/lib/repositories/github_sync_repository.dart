@@ -21,13 +21,14 @@ class GithubSyncRepository {
     try {
       return await action();
     } catch (error) {
-      if (error is AppException) {
+      final platformError = githubPlatformError(error);
+      if (platformError != null) {
         try {
           await bridge.githubReportPlatformFailure(
               core: await _ref.read(paprCoreBridgeProvider.future),
-              code: error.code);
+              code: platformError.code);
         } catch (_) {/* Preserve the original platform error. */}
-        rethrow;
+        throw platformError;
       }
       final mapped = PaprCoreService.mapError(error);
       throw AppException(AppErrorKind.sync, mapped.code, null);
@@ -92,6 +93,9 @@ class GithubSyncRepository {
           throw const AppException(
               AppErrorKind.sync, 'credentialWriteFailed', null);
         }
+        await bridge.githubCredentialUpdated(
+            core: core, credentialRef: profile.credentialRef);
+        _ref.invalidate(githubSyncStatusProvider);
       });
   Future<bridge.GithubSyncReport> syncNow() => _guard(() async {
         final core = await _ref.read(paprCoreBridgeProvider.future);

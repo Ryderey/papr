@@ -41,9 +41,19 @@ Initial `flutter build apk --debug --no-pub` failed in WorkManager Kotlin compil
 
 ## Review artifacts
 
-- Windows executable: target/debug/papr.exe — SHA256 4831e8d312fd2d9907391ff72763c53da7de8e07521d1cb89098735caee98afe.
-- Standard Android APK: mobile/build/github-sync/papr-sync-debug.apk — package com.papr.papr_mobile, version 0.1.0+1; SHA256 02e4f3a2b343079140454b0ff3229f907043cf5673e0ec851a6893ecaa8714f9.
+- Windows executable: target/debug/papr.exe — SHA256 eb6ebcbb1c7aea6a4d2070c239fe2d5790a2e0721a643bbf0d811dd839f5786a.
+- Standard Android APK: mobile/build/github-sync/papr-sync-debug.apk — package com.papr.papr_mobile, version 0.1.0+1; SHA256 02f78d0a2556fdcb20cb09ad9588e5d684a380caae169ff92582832fe51f11e2.
 - Independent emulator test APK: mobile/build/github-sync/papr-sync-emulator-smoke.apk; this is a different package/entrypoint and is not the user's install artifact.
 - Emulator UI screenshot: mobile/build/github-sync/android-github-settings.png.
 - Debug APK signing/version may differ from the user's installed app. Do not uninstall the real app to resolve an upgrade mismatch; preserve its database and finish the existing signing/version release work separately.
 - Existing FRB cfg, Gradle deprecation, and frontend bundle-size warnings remain; no unrelated dependency/configuration changes were introduced.
+
+## Static-review fixes — 2026-10-05
+
+- All eight findings corrected; see docs/github-sync-review-fixes-2026-10-05.md.
+- Append-only v19 migration preserves existing checkpoint identity and pending outbox; remote protocol remains v1.
+- Full Rust regression: desktop 265, Core 143, Bridge 3 pass. Frontend 89 tests/build, Flutter analyze/35 tests pass. Windows executable rebuilt.
+- Updated credential-repair bridge regeneration is reproducible (all generated Rust/Dart hashes unchanged on repeat). Android all four release ABIs and the standard Debug APK build pass (8m 44s, 215 tasks). Standard package com.papr.papr_mobile was verified and its separately preserved artifact refreshed.
+- Original checkout unchanged; no remote write/push. A25 real account/device acceptance remains pending.
+- Updated independent emulator package launches against its existing test database and passes foreground/headless Worker Keystore/Core bridge smoke again; both pass markers observed, no runtime exceptions. Original com.papr.papr_mobile untouched. The default Gradle output is now the isolated smoke APK; deliver the preserved standard artifact only.
+- After formatting the new test, the v18-to-v19 migration regression passes again.

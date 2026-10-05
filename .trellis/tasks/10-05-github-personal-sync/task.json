@@ -28,9 +28,12 @@
     "src/components/GitHubSyncSection.tsx",
     "mobile/lib/repositories/github_sync_repository.dart",
     "mobile/lib/ui/screens/github_sync_panel.dart",
-    "docs/github-sync-implementation-2026-10-05.md"
+    "docs/github-sync-implementation-2026-10-05.md",
+    "docs/github-sync-review-fixes-2026-10-05.md",
+    "src/lib/readingQueries.ts",
+    "mobile/test/services/github_sync_credentials_test.dart"
   ],
-  "notes": "Implementation and automated/platform smoke gates pass; awaiting A25 real GitHub and physical-device acceptance. Original checkout preserved; no push/remote sync write.",
+  "notes": "Eight review findings fixed with regressions. Rust 265/143/3, frontend 89, Flutter 35/analyze, FRB reproducibility, Windows/Android all-ABI builds and refreshed isolated emulator foreground/Worker smoke pass. A25 actual GitHub/physical-device acceptance remains open; original checkout preserved; no push or remote sync write.",
   "meta": {
     "sync_repository": {
       "owner": "Ryderey",

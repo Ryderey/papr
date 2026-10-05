@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1470656006;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -713812712;
 
 // Section: executor
 
@@ -1675,6 +1675,66 @@ fn wire__crate__api__github_connect_impl(
                             api_preview,
                             api_token,
                             api_installation,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__github_credential_updated_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "github_credential_updated",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_credential_ref = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::github_credential_updated(
+                            &*api_core_guard,
+                            api_credential_ref,
                         )
                         .await?;
                         Ok(output_ok)
@@ -5807,57 +5867,58 @@ fn pde_ffi_dispatcher_primary_impl(
         27 => wire__crate__api__github_cancel_sync_impl(port, ptr, rust_vec_len, data_len),
         28 => wire__crate__api__github_checkpoint_impl(port, ptr, rust_vec_len, data_len),
         29 => wire__crate__api__github_connect_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__github_disconnect_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__github_preview_impl(port, ptr, rust_vec_len, data_len),
-        32 => {
+        30 => wire__crate__api__github_credential_updated_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__github_disconnect_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__github_preview_impl(port, ptr, rust_vec_len, data_len),
+        33 => {
             wire__crate__api__github_report_platform_failure_impl(port, ptr, rust_vec_len, data_len)
         }
-        33 => wire__crate__api__github_status_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__github_sync_now_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__github_verify_credential_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__import_opml_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__init_papr_core_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__list_ai_profiles_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__list_all_highlights_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__list_article_tags_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__list_folders_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__list_highlights_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__list_rules_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__mark_all_articles_read_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__move_feed_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__parse_deep_link_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__preview_rule_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__refresh_feed_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__refresh_feeds_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__rename_feed_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__rename_folder_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__rename_tag_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__reorder_folders_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__reorder_tags_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__resolve_highlights_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__save_ai_profile_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__search_directory_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__set_ai_profile_enabled_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__github_status_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__github_sync_now_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__github_verify_credential_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__import_opml_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__init_papr_core_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__list_ai_profiles_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__list_all_highlights_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__list_article_tags_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__list_folders_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__list_highlights_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__list_rules_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__mark_all_articles_read_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__move_feed_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__parse_deep_link_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__preview_rule_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__refresh_feed_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__refresh_feeds_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__rename_feed_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__rename_folder_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__rename_tag_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__reorder_folders_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__reorder_tags_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__resolve_highlights_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__save_ai_profile_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__search_directory_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__set_ai_profile_enabled_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

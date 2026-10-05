@@ -107,10 +107,11 @@ impl<S: LocalStore> GitHubService<S> {
     pub async fn status(&self) -> Result<Status, CoreError> {
         self.store.with(|conn|{
         let Some(info)=storage::connection(conn)? else{return Ok(Status::default())};
-        let (last_success_at,last_error_code,retry_at,busy,background_due)=conn.query_row("SELECT last_success_at,last_error_code,retry_at,lease_until IS NOT NULL AND julianday(lease_until)>julianday('now'),last_success_at IS NULL OR julianday(last_success_at)<julianday('now','-6 hours') FROM github_connections WHERE id=?1",[info.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).map_err(sql)?;
+        let (last_success_at,last_error_code,retry_at,busy,background_due)=conn.query_row("SELECT last_success_at,last_error_code,retry_at,lease_until IS NOT NULL AND julianday(lease_until)>julianday('now'),last_success_at IS NULL OR julianday(last_success_at)<julianday('now','-6 hours') OR EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=github_connections.id) FROM github_connections WHERE id=?1",[info.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).map_err(sql)?;
         let count=|table:&str|conn.query_row(&format!("SELECT COUNT(*) FROM {table} WHERE connection_id=?1"),[info.id],|r|r.get::<_,usize>(0)).map_err(sql);
+        let ready: bool=conn.query_row("SELECT (last_error_code IS NULL OR last_error_code IN ('githubNetwork','githubRateLimited','githubSyncCancelled','githubConcurrentRetryLimit','githubSyncBusy')) AND (retry_at IS NULL OR julianday(retry_at)<=julianday('now')) AND (lease_until IS NULL OR julianday(lease_until)<=julianday('now')) FROM github_connections WHERE id=?1",[info.id],|r|r.get(0)).map_err(sql)?;
         let automatic_due=conn.query_row("SELECT (last_error_code IS NULL OR last_error_code IN ('githubNetwork','githubRateLimited','githubSyncCancelled','githubConcurrentRetryLimit','githubSyncBusy')) AND (retry_at IS NULL OR julianday(retry_at)<=julianday('now')) AND (lease_until IS NULL OR julianday(lease_until)<=julianday('now')) AND ((pending_since IS NOT NULL AND (julianday(last_edit_at)<=julianday('now','-10 seconds') OR julianday(pending_since)<=julianday('now','-60 seconds')) AND (last_publish_at IS NULL OR julianday(last_publish_at)<=julianday('now','-60 seconds'))) OR last_success_at IS NULL OR julianday(last_success_at)<=julianday('now','-5 minutes')) FROM github_connections WHERE id=?1",[info.id],|r|r.get(0)).map_err(sql)?;
-        Ok(Status{profile:Some(info.profile),pending:count("github_outbox")?,rejected:count("github_rejections")?,metadata_only:conn.query_row("SELECT COUNT(*) FROM articles WHERE metadata_only=1",[],|r|r.get(0)).map_err(sql)?,last_success_at,last_error_code,retry_at,busy,uncertain_publication:count("github_attempt")?>0,background_due,automatic_due})
+        Ok(Status{profile:Some(info.profile),pending:count("github_outbox")?,rejected:count("github_rejections")?,metadata_only:conn.query_row("SELECT COUNT(*) FROM articles WHERE metadata_only=1",[],|r|r.get(0)).map_err(sql)?,last_success_at,last_error_code,retry_at,busy,uncertain_publication:count("github_attempt")?>0,background_due:background_due && ready,automatic_due})
     }).await
     }
 
@@ -244,6 +245,19 @@ impl<S: LocalStore> GitHubService<S> {
         Ok(())
     }
 
+    /// Call only after verification and successful secure-store replacement.
+    /// Credential repair cannot clear an unrelated history/identity failure.
+    pub async fn credential_updated(&self, credential_ref: String) -> Result<(), CoreError> {
+        self.store.with(move |conn| {
+            let info = storage::connection(conn)?.ok_or_else(|| error("githubNotConnected"))?;
+            if info.profile.credential_ref != credential_ref {
+                return Err(error("githubConnectionChanged"));
+            }
+            conn.execute("UPDATE github_connections SET last_error_code=NULL,retry_at=NULL WHERE id=?1 AND last_error_code IN ('githubAuthenticationFailed','githubPermissionDenied','githubInvalidCredential','syncCredentialMissing','credentialReadFailed','credentialWriteFailed')",[info.id]).map_err(sql)?;
+            Ok(())
+        }).await
+    }
+
     pub fn sync(
         &self,
         token: String,
@@ -305,10 +319,11 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
     lease: &str,
     cancel: &Cancellation,
 ) -> Result<SyncReport, CoreError> {
+    let mut info = info.clone();
     let id = info.id;
     let cache = store.with(move |conn| storage::files(conn, id)).await?;
     let batch_info = info.clone();
-    let batch = store
+    let mut batch = store
         .with(move |conn| storage::operations(conn, &batch_info, batch_info.ack_seq, BATCH_SIZE))
         .await?;
     let max_seq = batch.last().map_or(info.ack_seq, |o| o.seq);
@@ -335,6 +350,16 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
                 )
             }
         };
+        if remote.snapshot.is_some() && info.initializing {
+            let lease_owned = lease.to_string();
+            let known = snapshot.clone();
+            info = store
+                .with(move |conn| storage::adopt_initial_dataset(conn, id, &lease_owned, &known))
+                .await?;
+            for operation in &mut batch {
+                operation.dataset_id = info.dataset_id.clone();
+            }
+        }
         if snapshot.manifest.dataset_id != info.dataset_id || snapshot.manifest.epoch != info.epoch
         {
             return Err(error("githubDatasetChanged"));
@@ -352,6 +377,11 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
         if ack < info.ack_seq || ack >= current.next_seq {
             return Err(error("githubRestoredDatabase"));
         }
+        let lease_owned = lease.to_string();
+        let receipt = snapshot.clone();
+        store
+            .with(move |conn| storage::save_rejections(conn, id, &lease_owned, &receipt))
+            .await?;
         let report = merge(
             &snapshot,
             &batch,
@@ -875,6 +905,223 @@ mod tests {
                 .next()
                 .unwrap()
                 .active
+        );
+    }
+
+    #[tokio::test]
+    async fn competing_initializers_adopt_winner_without_losing_checkpoint_or_edits() {
+        let (_a_dir, a, mut transport) = fixture().await;
+        let (_b_dir, b, _) = fixture().await;
+        transport.remote.snapshot = None;
+        transport.remote.files.clear();
+        for (store, second) in [(&a, false), (&b, true)] {
+            let empty = transport.remote.clone();
+            store
+                .with(move |conn| {
+                    let old = storage::connection(conn)?.unwrap();
+                    storage::disconnect(conn)?;
+                    if second {
+                        conn.execute(
+                            "UPDATE articles SET guid='second',title='Second',is_starred=1",
+                            [],
+                        )
+                        .map_err(sql)?;
+                    }
+                    storage::connect(conn, &old.profile, &empty, "binding")?;
+                    if second {
+                        conn.execute("UPDATE articles SET read_later=1", [])
+                            .map_err(sql)?;
+                    }
+                    Ok(())
+                })
+                .await
+                .unwrap();
+        }
+        let before = b
+            .with(|conn| storage::checkpoint(conn, None))
+            .await
+            .unwrap();
+        let old_dataset = b
+            .with(|conn| Ok(storage::connection(conn)?.unwrap().dataset_id))
+            .await
+            .unwrap();
+        attempt(&a, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        let winner = transport
+            .remote
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .manifest
+            .dataset_id
+            .clone();
+        assert_ne!(old_dataset, winner);
+        let report = attempt(&b, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert_eq!(report.pending, 0);
+        assert_eq!(report.acknowledged, 2);
+        assert_eq!(
+            transport.remote.snapshot.as_ref().unwrap().articles.len(),
+            2
+        );
+        let before_copy = before.clone();
+        let after = b
+            .with(move |conn| storage::checkpoint(conn, Some(&before_copy)))
+            .await
+            .unwrap();
+        assert_eq!(before, after);
+        assert_eq!(
+            b.with(|conn| Ok(storage::connection(conn)?.unwrap().dataset_id))
+                .await
+                .unwrap(),
+            winner
+        );
+        let state = transport
+            .remote
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .states
+            .values()
+            .find(|s| s.read_later.value)
+            .unwrap();
+        assert!(state.starred.value);
+        // A confirmed connection never adopts a replacement dataset.
+        transport
+            .remote
+            .snapshot
+            .as_mut()
+            .unwrap()
+            .manifest
+            .dataset_id = "f".repeat(32);
+        assert_eq!(
+            attempt(&b, &mut transport, Cancellation::default())
+                .await
+                .unwrap_err()
+                .code(),
+            "githubDatasetChanged"
+        );
+    }
+
+    #[tokio::test]
+    async fn lost_ref_receipt_is_saved_before_new_suffix_replaces_it() {
+        let (_dir, store, mut transport) = fixture().await;
+        store
+            .with(|conn| {
+                let info = storage::connection(conn)?.unwrap();
+                let payload = serde_json::to_string(&Intent::RenameFolder {
+                    folder_id: "a".repeat(32),
+                    name: "Missing".into(),
+                    base_version: None,
+                })
+                .unwrap();
+                conn.execute(
+                    "INSERT INTO github_outbox(connection_id,seq,payload) VALUES (?1,?2,?3)",
+                    rusqlite::params![info.id, info.next_seq, payload],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        transport.lose_response = true;
+        assert_eq!(
+            attempt(&store, &mut transport, Cancellation::default())
+                .await
+                .unwrap_err()
+                .code(),
+            "githubNetwork"
+        );
+        let device = store
+            .with(|conn| Ok(storage::connection(conn)?.unwrap().device_id))
+            .await
+            .unwrap();
+        assert_eq!(
+            transport.remote.snapshot.as_ref().unwrap().manifest.devices[&device]
+                .last_rejections
+                .len(),
+            1
+        );
+        store
+            .with(|conn| {
+                conn.execute("UPDATE articles SET is_starred=1", [])
+                    .map_err(sql)?;
+                conn.execute(
+                    "UPDATE github_connections SET last_publish_at=datetime('now','-61 seconds')",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert!(
+            transport.remote.snapshot.as_ref().unwrap().manifest.devices[&device]
+                .last_rejections
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .with(|conn| conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM github_rejections WHERE seq=2",
+                        [],
+                        |r| r.get::<_, usize>(0)
+                    )
+                    .map_err(sql))
+                .await
+                .unwrap(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn credential_repair_resumes_both_schedulers_but_preserves_identity_errors() {
+        let (_dir, store, _) = fixture().await;
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        store.with(|conn| {conn.execute("UPDATE github_connections SET last_error_code='credentialReadFailed',retry_at=datetime('now','+10 minutes')",[]).map_err(sql)?;Ok(())}).await.unwrap();
+        let status = service.status().await.unwrap();
+        assert!(!status.automatic_due && !status.background_due);
+        service
+            .credential_updated("papr.sync.test".into())
+            .await
+            .unwrap();
+        let status = service.status().await.unwrap();
+        assert!(status.automatic_due && status.background_due);
+        assert!(status.last_error_code.is_none() && status.retry_at.is_none());
+        store
+            .with(|conn| {
+                conn.execute(
+                    "UPDATE github_connections SET last_error_code='githubHistoryRewritten'",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        service
+            .credential_updated("papr.sync.test".into())
+            .await
+            .unwrap();
+        let status = service.status().await.unwrap();
+        assert!(!status.automatic_due && !status.background_due);
+        assert_eq!(
+            status.last_error_code.as_deref(),
+            Some("githubHistoryRewritten")
+        );
+        assert_eq!(
+            service
+                .credential_updated("papr.sync.other".into())
+                .await
+                .unwrap_err()
+                .code(),
+            "githubConnectionChanged"
         );
     }
 }

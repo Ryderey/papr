@@ -355,6 +355,11 @@ Future<void> githubVerifyCredential(
 Future<String?> githubDisconnect({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGithubDisconnect(core: core);
 
+Future<void> githubCredentialUpdated(
+        {required PaprCoreBridge core, required String credentialRef}) =>
+    RustLib.instance.api.crateApiGithubCredentialUpdated(
+        core: core, credentialRef: credentialRef);
+
 Future<String> githubCheckpoint(
         {required PaprCoreBridge core, String? previous}) =>
     RustLib.instance.api

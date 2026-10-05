@@ -29,3 +29,11 @@ The user approved the GitHub design and the order: integrate first, then develop
 ## Remaining manual acceptance
 
 A25 real repository publication and physical-device/background convergence remain open. The emulator smoke confirms platform credential/bridge availability, not a real GitHub round trip. Keep the task active until those checks are recorded.
+
+## Static-review follow-up
+
+- [x] Resolve the eight review findings and add focused regressions for initialization/checkpoint adoption, receipt recovery, folder ID reuse/local-only membership, future dates, credential scheduling/errors and desktop cache/count consistency.
+- [x] Full Rust/frontend/Flutter checks pass and generated bridge reproducibility passes.
+- [x] Updated Android APK and final artifact verification recorded.
+
+See docs/github-sync-review-fixes-2026-10-05.md. A25 remains independently pending.

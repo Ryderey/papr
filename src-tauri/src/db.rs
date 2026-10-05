@@ -1565,7 +1565,7 @@ pub fn apply_rule_to_existing(
 pub fn smart_counts(conn: &Connection) -> AppResult<(i64, i64, i64)> {
     Ok(conn.query_row(
         "SELECT
-            (SELECT COUNT(*) FROM articles WHERE is_read = 0),
+            (SELECT COUNT(*) FROM articles WHERE is_read = 0 AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)),
             (SELECT COUNT(*) FROM articles WHERE is_starred = 1),
             (SELECT COUNT(*) FROM articles WHERE read_later = 1)",
         [],
@@ -3485,6 +3485,7 @@ mod tests {
                 .is_empty()
         );
         assert_eq!(count_unread(&conn).unwrap(), 0);
+        assert_eq!(smart_counts(&conn).unwrap(), (0, 0, 0));
         set_starred(&conn, article_id, true).unwrap();
         assert_eq!(
             list_articles(&conn, &ArticleQuery::Starred, false, None, false, 50, 0)
@@ -3493,6 +3494,7 @@ mod tests {
             1
         );
         assert_eq!(count_unread(&conn).unwrap(), 1);
+        assert_eq!(smart_counts(&conn).unwrap(), (1, 1, 0));
         conn.execute(
             "UPDATE articles SET metadata_only=1 WHERE id=?1",
             [article_id],

@@ -747,6 +747,12 @@ pub async fn github_verify_credential(
 pub async fn github_disconnect(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
     Ok(core.inner.github_service().disconnect().await?)
 }
+pub async fn github_credential_updated(
+    core: &PaprCoreBridge,
+    credential_ref: String,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.github_service().credential_updated(credential_ref).await?)
+}
 pub async fn github_checkpoint(
     core: &PaprCoreBridge,
     previous: Option<String>,

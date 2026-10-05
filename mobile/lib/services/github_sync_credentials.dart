@@ -1,7 +1,24 @@
 import 'dart:math';
+import 'package:flutter/services.dart';
 import '../bridge/generated/generated.dart' as bridge;
 import '../core/exceptions.dart';
 import 'platform_service.dart';
+
+/// Preserve stable native error codes without carrying credential details.
+AppException? githubPlatformError(Object error) {
+  if (error is AppException) return error;
+  if (error is PlatformException) {
+    final code = switch (error.code) {
+      'credentialReadFailed' ||
+      'credentialWriteFailed' ||
+      'credentialDeleteFailed' =>
+        error.code,
+      _ => 'platform',
+    };
+    return AppException(AppErrorKind.sync, code, null);
+  }
+  return null;
+}
 
 String githubRandomId() {
   final random = Random.secure();

@@ -23,12 +23,26 @@ pub struct ConnectionInfo {
     pub ack_seq: u64,
     pub head: Option<String>,
     pub binding: String,
+    pub initializing: bool,
+    pub checkpoint_dataset_id: String,
 }
 
 pub fn connection(conn: &Connection) -> Result<Option<ConnectionInfo>, CoreError> {
-    let row = conn.query_row("SELECT id,profile,dataset_id,device_id,epoch,next_seq,ack_seq,head,binding FROM github_connections WHERE active=1", [], |r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,u64>(4)?,r.get::<_,u64>(5)?,r.get::<_,u64>(6)?,r.get::<_,Option<String>>(7)?,r.get::<_,String>(8)?))).optional().map_err(db)?;
+    let row = conn.query_row("SELECT id,profile,dataset_id,device_id,epoch,next_seq,ack_seq,head,binding,initializing,checkpoint_dataset_id FROM github_connections WHERE active=1", [], |r| Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,u64>(4)?,r.get::<_,u64>(5)?,r.get::<_,u64>(6)?,r.get::<_,Option<String>>(7)?,r.get::<_,String>(8)?,r.get::<_,bool>(9)?,r.get::<_,String>(10)?))).optional().map_err(db)?;
     row.map(
-        |(id, profile, dataset_id, device_id, epoch, next_seq, ack_seq, head, binding)| {
+        |(
+            id,
+            profile,
+            dataset_id,
+            device_id,
+            epoch,
+            next_seq,
+            ack_seq,
+            head,
+            binding,
+            initializing,
+            checkpoint_dataset_id,
+        )| {
             let profile: GitHubProfile =
                 serde_json::from_str(&profile).map_err(|_| error("githubInvalidProfile"))?;
             profile.validate()?;
@@ -42,6 +56,8 @@ pub fn connection(conn: &Connection) -> Result<Option<ConnectionInfo>, CoreError
                 ack_seq,
                 head,
                 binding,
+                initializing,
+                checkpoint_dataset_id,
             })
         },
     )
@@ -55,7 +71,7 @@ pub fn checkpoint(conn: &Connection, previous: Option<&str>) -> Result<String, C
         Some(previous) => {
             let parts: Vec<_> = previous.split(':').collect();
             if parts.len() != 3
-                || parts[0] != info.dataset_id
+                || parts[0] != info.checkpoint_dataset_id
                 || parts[1] != info.device_id
                 || parts[2].parse::<u64>().map_or(true, |seq| seq > current)
             {
@@ -67,7 +83,7 @@ pub fn checkpoint(conn: &Connection, previous: Option<&str>) -> Result<String, C
     }
     Ok(format!(
         "{}:{}:{}",
-        info.dataset_id, info.device_id, current
+        info.checkpoint_dataset_id, info.device_id, current
     ))
 }
 
@@ -179,7 +195,7 @@ pub fn connect(
         .unwrap_or(random_id(conn)?);
     let epoch = remote.snapshot.as_ref().map_or(1, |s| s.manifest.epoch);
     let device_id = random_id(conn)?;
-    conn.execute("INSERT INTO github_connections(profile,dataset_id,device_id,epoch,head,binding) VALUES (?1,?2,?3,?4,?5,?6)",params![serde_json::to_string(profile).map_err(|_|error("githubInvalidProfile"))?,dataset_id,device_id,epoch,remote.head,binding]).map_err(db)?;
+    conn.execute("INSERT INTO github_connections(profile,dataset_id,device_id,epoch,head,binding,initializing,checkpoint_dataset_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?2)",params![serde_json::to_string(profile).map_err(|_|error("githubInvalidProfile"))?,dataset_id,device_id,epoch,remote.head,binding,remote.snapshot.is_none()]).map_err(db)?;
     let info = connection(conn)?.ok_or_else(|| error("githubNotConnected"))?;
     save_files(conn, info.id, &remote.files)?;
     conn.execute(
@@ -299,6 +315,75 @@ fn guard(conn: &Connection, id: i64, lease: &str) -> Result<(), CoreError> {
     }
     Ok(())
 }
+/// Only an unpublished initializer may adopt the dataset established by a peer.
+/// Its device/sequence/checkpoint identity and outbox remain unchanged.
+pub fn adopt_initial_dataset(
+    conn: &Connection,
+    id: i64,
+    lease: &str,
+    snapshot: &Snapshot,
+) -> Result<ConnectionInfo, CoreError> {
+    guard(conn, id, lease)?;
+    snapshot.validate()?;
+    let info = connection(conn)?
+        .filter(|i| i.id == id)
+        .ok_or_else(|| error("githubConnectionChanged"))?;
+    let cached: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM github_files WHERE connection_id=?1)",
+            [id],
+            |r| r.get(0),
+        )
+        .map_err(db)?;
+    let seed = operations(conn, &info, 0, 1)?;
+    if !info.initializing
+        || info.ack_seq != 0
+        || cached
+        || !seed
+            .first()
+            .is_some_and(|o| o.seq == 1 && matches!(o.intent, Intent::SeedInitial { .. }))
+        || snapshot.manifest.epoch != 1
+        || (snapshot.manifest.dataset_id != info.dataset_id
+            && snapshot.manifest.devices.contains_key(&info.device_id))
+    {
+        return Err(error("githubDatasetChanged"));
+    }
+    conn.execute(
+        "UPDATE github_connections SET dataset_id=?2,epoch=?3,initializing=0 WHERE id=?1",
+        params![id, snapshot.manifest.dataset_id, snapshot.manifest.epoch],
+    )
+    .map_err(db)?;
+    connection(conn)?.ok_or_else(|| error("githubNotConnected"))
+}
+
+/// Persist a remote receipt before another publication can replace it.
+pub fn save_rejections(
+    conn: &Connection,
+    id: i64,
+    lease: &str,
+    snapshot: &Snapshot,
+) -> Result<(), CoreError> {
+    guard(conn, id, lease)?;
+    let info = connection(conn)?
+        .filter(|i| i.id == id)
+        .ok_or_else(|| error("githubConnectionChanged"))?;
+    if snapshot.manifest.dataset_id != info.dataset_id || snapshot.manifest.epoch != info.epoch {
+        return Err(error("githubDatasetChanged"));
+    }
+    if let Some(watermark) = snapshot.manifest.devices.get(&info.device_id) {
+        if watermark.processed_seq < info.ack_seq || watermark.processed_seq >= info.next_seq {
+            return Err(error("githubRestoredDatabase"));
+        }
+        for rejection in &watermark.last_rejections {
+            conn.execute(
+                "INSERT OR IGNORE INTO github_rejections VALUES (?1,?2,?3)",
+                params![id, rejection.seq, rejection.code],
+            )
+            .map_err(db)?;
+        }
+    }
+    Ok(())
+}
 pub fn record_attempt(
     conn: &Connection,
     id: i64,
@@ -380,19 +465,23 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
     for (key, folder) in &snapshot.subscriptions.folders {
         if folder.deleted && !snapshot.subscriptions.folder_aliases.contains_key(key) {
             if let Some(local) = mapped(conn, id, "folder", key)? {
-                conn.execute("DELETE FROM folders WHERE id=?1", [local])
-                    .map_err(db)?;
+                conn.execute(
+                    "DELETE FROM folders WHERE id=?1 AND sync_id=?2",
+                    params![local, key],
+                )
+                .map_err(db)?;
             }
+            conn.execute("DELETE FROM github_entity_map WHERE connection_id=?1 AND kind='folder' AND entity_key=?2",params![id,key]).map_err(db)?;
         }
     }
-    conn.execute("UPDATE folders SET name='papr-sync-'||lower(hex(randomblob(16))) WHERE id IN (SELECT local_id FROM github_entity_map WHERE connection_id=?1 AND kind='folder')",[id]).map_err(db)?;
+    conn.execute("UPDATE folders SET name='papr-sync-'||lower(hex(randomblob(16))) WHERE EXISTS(SELECT 1 FROM github_entity_map m WHERE m.connection_id=?1 AND m.kind='folder' AND m.local_id=folders.id AND m.entity_key=folders.sync_id)",[id]).map_err(db)?;
     let mut folder_ids = BTreeMap::new();
     for key in &snapshot.subscriptions.folder_order {
         let folder = &snapshot.subscriptions.folders[key];
         let mut local = mapped(conn, id, "folder", key)?.filter(|local| {
             conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM folders WHERE id=?1)",
-                [local],
+                "SELECT EXISTS(SELECT 1 FROM folders WHERE id=?1 AND sync_id=?2)",
+                params![local, key],
                 |r| r.get::<_, bool>(0),
             )
             .unwrap_or(false)
@@ -425,7 +514,15 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         let target = snapshot.resolve_folder(alias)?;
         if let Some(&target_local) = folder_ids.get(&target) {
             if let Some(old) = mapped(conn, id, "folder", alias)? {
-                if old != target_local {
+                if old != target_local
+                    && conn
+                        .query_row(
+                            "SELECT EXISTS(SELECT 1 FROM folders WHERE id=?1 AND sync_id=?2)",
+                            params![old, alias],
+                            |r| r.get::<_, bool>(0),
+                        )
+                        .map_err(db)?
+                {
                     conn.execute(
                         "UPDATE feeds SET folder_id=?2 WHERE folder_id=?1",
                         params![old, target_local],
@@ -621,15 +718,7 @@ pub fn finish(
             put("article", key, field, flag.version.as_deref())?;
         }
     }
-    if let Some(watermark) = snapshot.manifest.devices.get(&info.device_id) {
-        for rejection in &watermark.last_rejections {
-            conn.execute(
-                "INSERT OR IGNORE INTO github_rejections VALUES (?1,?2,?3)",
-                params![id, rejection.seq, rejection.code],
-            )
-            .map_err(db)?;
-        }
-    }
+    save_rejections(conn, id, lease, snapshot)?;
     save_files(conn, id, &remote.files)?;
     conn.execute(
         "DELETE FROM github_outbox WHERE connection_id=?1 AND seq<=?2",
@@ -641,7 +730,7 @@ pub fn finish(
         params![id, ack],
     )
     .map_err(db)?;
-    conn.execute("UPDATE github_connections SET applying=0,ack_seq=?2,head=?3,last_success_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1",params![id,ack,remote.head]).map_err(db)?;
+    conn.execute("UPDATE github_connections SET applying=0,initializing=0,ack_seq=?2,head=?3,last_success_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1",params![id,ack,remote.head]).map_err(db)?;
     conn.execute("UPDATE github_connections SET pending_since=NULL WHERE id=?1 AND NOT EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=?1)",[id]).map_err(db)?;
     Ok(())
 }
@@ -1494,5 +1583,68 @@ mod tests {
                 .len(),
             0
         );
+    }
+
+    #[test]
+    fn retired_folder_mapping_does_not_delete_reused_row_or_local_only_membership() {
+        let (conn, info, base) = setup();
+        conn.execute("INSERT INTO folders(name) VALUES ('Old')", [])
+            .unwrap();
+        let old_id: i64 = conn
+            .query_row("SELECT id FROM folders WHERE name='Old'", [], |r| r.get(0))
+            .unwrap();
+        let initial =
+            super::super::merge::merge(&base, &operations(&conn, &info, 0, 500).unwrap(), None)
+                .unwrap()
+                .snapshot;
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        {
+            let tx = conn.unchecked_transaction().unwrap();
+            finish(&tx, info.id, &lease, &remote(initial.clone())).unwrap();
+            tx.commit().unwrap();
+        }
+        conn.execute("DELETE FROM folders WHERE id=?1", [old_id])
+            .unwrap();
+        conn.execute("INSERT INTO folders(name) VALUES ('Replacement')", [])
+            .unwrap();
+        let new_id: i64 = conn
+            .query_row("SELECT id FROM folders WHERE name='Replacement'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(old_id, new_id, "regression requires SQLite row-ID reuse");
+        conn.execute("INSERT INTO feeds(feed_url,title,source_type,folder_id) VALUES ('imap://local','Local newsletter','newsletter',?1)",[new_id]).unwrap();
+        let current = connection(&conn).unwrap().unwrap();
+        let next = super::super::merge::merge(
+            &initial,
+            &operations(&conn, &current, current.ack_seq, 500).unwrap(),
+            None,
+        )
+        .unwrap()
+        .snapshot;
+        for _ in 0..2 {
+            let tx = conn.unchecked_transaction().unwrap();
+            finish(&tx, info.id, &lease, &remote(next.clone())).unwrap();
+            tx.commit().unwrap();
+            assert_eq!(
+                conn.query_row(
+                    "SELECT folder_id FROM feeds WHERE source_type='newsletter'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                new_id
+            );
+            assert_eq!(
+                conn.query_row("SELECT name FROM folders WHERE id=?1", [new_id], |r| r
+                    .get::<_, String>(
+                    0
+                ))
+                .unwrap(),
+                "Replacement"
+            );
+        }
+        let old_key = initial.subscriptions.folder_order.first().unwrap();
+        assert!(mapped(&conn, info.id, "folder", old_key).unwrap().is_none());
     }
 }

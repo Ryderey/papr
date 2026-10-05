@@ -120,7 +120,11 @@ pub async fn github_update_credential(app: AppHandle, token: String) -> AppResul
         .profile
         .ok_or_else(|| AppError::code("githubNotConnected"))?;
     service.verify_credential(&token).await.map_err(map)?;
-    credentials::set(&profile.credential_ref, &token)
+    credentials::set(&profile.credential_ref, &token)?;
+    service
+        .credential_updated(profile.credential_ref)
+        .await
+        .map_err(map)
 }
 #[tauri::command]
 pub async fn github_disconnect(app: AppHandle) -> AppResult<()> {

@@ -5,10 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as api from "../api";
 import { errorText } from "../lib/errors";
 import type { ArticleSummary } from "../types";
+import { refreshArticleQueries } from "../lib/readingQueries";
 
 type Patch = Partial<
   Pick<ArticleSummary, "isRead" | "isStarred" | "readLater">
 >;
+
 
 /**
  * Shared article mutations. `onError` (when supplied) is called with a
@@ -62,22 +64,7 @@ export function useArticleActions(onError?: (msg: string) => void) {
   // `invalidateQueries()` would also refetch unrelated caches (AI summaries,
   // settings, FreshRSS status, rules, the feed-discovery search), so callers
   // invalidate only these — plus any `extra` keys.
-  const refreshArticleKeys = (extra: string[][] = []) => {
-    const keys = [
-      ["counts"],
-      ["feeds"],
-      ["folders"],
-      ["tags"],
-      ["articles"],
-      ["article"],
-      ["search"],
-      ["cp-search"],
-      ...extra,
-    ];
-    for (const key of keys) {
-      qc.invalidateQueries({ queryKey: key });
-    }
-  };
+  const refreshArticleKeys = (extra: string[][] = []) => refreshArticleQueries(qc, extra);
 
   // After a bulk operation (mark-all-read) potentially every article's state
   // changed, so optimistic patching can't cover it.
