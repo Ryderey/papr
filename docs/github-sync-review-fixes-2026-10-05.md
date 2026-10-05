@@ -63,3 +63,11 @@ Append-only v20 adds github_article_confirmations (connection ID, stable key, fi
 - The initial new pagination regression exposed an exhausted-range loading indicator; the extra-row probe fixes it and the final regression passes.
 - Windows debug executable builds successfully. Android all four release ABIs and the standard Debug APK build pass (12m 48s, 215 tasks). The final Flutter paging correction is included in a subsequent standard-package rebuild using those verified native libraries (8s, 207 tasks). Repeat FRB generation changes no generated Rust/Dart hashes.
 - No actual GitHub app publication, new physical-device/background acceptance, push or main-branch merge is performed. A25 remains open; emulator evidence from the previous pass is not claimed as newly rerun.
+
+
+### Second-pass changed files
+
+- Core: crates/papr-core/src/db.rs and src/sync/github/{merge,service,storage,transport}.rs.
+- Desktop: src-tauri/src/db.rs (clear confirmation metadata before connections).
+- Android: mobile/lib/ui/screens/{article_list_screen,article_detail_screen}.dart and mobile/test/ui/screens/github_sync_refresh_test.dart.
+- Documentation: this report, docs/github-sync-implementation-2026-10-05.md, .trellis/spec/frontend/mobile-cross-layer-contracts.md and task prd.md/implement.md/task.json. Trellis journal/index record the final evidence separately.

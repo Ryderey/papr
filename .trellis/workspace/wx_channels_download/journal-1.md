@@ -368,3 +368,43 @@ Fixed all eight static-review findings with regressions and append-only local mi
 ### Next Steps
 
 - Complete A25 actual GitHub two-device and physical/background acceptance before merging into optimize-bugfix; back up databases before the v19 upgrade.
+
+
+## Session 11: GitHub sync second static-review fixes
+
+**Date**: 2026-10-05
+**Task**: GitHub sync second static-review fixes
+**Branch**: `codex/github-personal-sync`
+
+### Summary
+
+Fixed all six second-pass review findings. Added durable confirmed retention age via append-only v20, preserved canonical duplicate local copies, unified initializer credential checks, restored access-error scheduling, fixed rate-limit clock persistence and mounted Android refresh with optimistic-write/pagination protection. Final Rust 265/149/3, frontend 89/build, Flutter 40/analyze, FRB reproducibility, Windows build and all four Android Rust ABI/standard APK builds pass. A25 remains open; no push, remote sync write or new device acceptance.
+
+### Main Changes
+
+- Fixed all six second-pass findings and added targeted Core/Widget regressions.
+- Added append-only v20 confirmation history, retained canonical duplicate local caches, and preserved mounted Android pagination/optimistic edits.
+- Updated contracts, task evidence, review report and standard installation artifacts.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `621481a` | (see git log) |
+
+### Testing
+
+- Final serial Rust: desktop 265, Core 149, Bridge 3 pass; frontend 89 tests and production build pass.
+- Flutter analyze reports no issues; all 40 tests pass. A new pagination regression initially caught an exhausted-range indicator and passes after the fix.
+- Repeat FRB regeneration changes no generated Rust/Dart hashes. Windows debug build passes.
+- All four Android Rust release ABIs compile; standard APK build passes (12m 48s, 215 tasks). Final Flutter-only standard rebuild using verified native libraries passes (8s, 207 tasks).
+- APK package/version verified: com.papr.papr_mobile, 0.1.0+1; packaged Flutter ABIs are arm64-v8a, armeabi-v7a and x86_64. Standard APK SHA256 a4e03ccaf4e6cbdac9a546893575cf4e57d3e1a55ae495a14a1a7405a5c02afa; Windows SHA256 16107dc8a32eb4bc3cb6630e45b0f6264429351e37dcec3bfe391e125a43eb18.
+- Staged whitespace, task validation and secret/build-artifact scan pass. No new emulator/physical-device or actual GitHub publication acceptance is claimed.
+
+### Status
+
+**Six review fixes committed; parent task remains in_progress pending A25.**
+
+### Next Steps
+
+- Complete actual GitHub two-device and physical/background acceptance before merging into optimize-bugfix. Back up databases before v20; keep original signing/release work intact.
