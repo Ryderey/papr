@@ -158,10 +158,11 @@ class ReleaseSafety(unittest.TestCase):
                 if args[2] == "create":
                     remote = {"tag_name": cfg["tag"], "target_commitish": SHA, "draft": True, "assets": []}
                 elif args[2] == "upload":
-                    for name, path in [(p.name, p) for p in folder.iterdir()]:
+                    for path in map(Path, args[4:-2]):
+                        name = path.name
                         remote["assets"].append({"name": name, "size": path.stat().st_size, "digest": "sha256:" + release.sha256(path)})
                 elif args[2] == "edit":
-                    self.assertEqual(len(remote["assets"]), 4)
+                    self.assertEqual([asset["name"] for asset in remote["assets"]], [exe.name])
                     remote["draft"] = False
                 return ""
 
@@ -183,6 +184,7 @@ class ReleaseSafety(unittest.TestCase):
                 os.chdir(previous)
             self.assertEqual([args[2] for args in writes], ["create", "upload", "edit"])
             self.assertIn("--draft", writes[0])
+            self.assertEqual(writes[0][writes[0].index("--title") + 1], "Papr 0.9.0")
             self.assertIn("--draft=false", writes[-1])
             self.assertFalse(any("--clobber" in args for args in writes))
             self.assertFalse(remote["draft"])

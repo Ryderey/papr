@@ -112,11 +112,13 @@ pub fn run() {
                         event.urls().iter().map(|u| u.to_string()).collect();
                     handle_deep_links(&handle, &urls);
                 });
-                // On Linux/Windows dev builds, register the scheme at runtime
-                // so `papr://` resolves without a full bundle install.
+                // Preserve runtime registration for unbundled builds, while
+                // avoiding registry writes when the installer already registered it.
                 #[cfg(any(windows, target_os = "linux"))]
                 {
-                    let _ = app.deep_link().register("papr");
+                    if matches!(app.deep_link().is_registered("papr"), Ok(false)) {
+                        let _ = app.deep_link().register("papr");
+                    }
                 }
             }
 

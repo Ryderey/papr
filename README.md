@@ -138,7 +138,7 @@ Android 当前面向自用／内部测试，安装 APK 前请核对包名、版�
 2. `platforms` 选择 `both`、`windows` 或 `android`；`release_tag` 填唯一标签，例如 `papr-build-20261006-01`。
 3. 包含 Android 时，填写 `android_build_number`：必须高于手机已安装的 versionCode 和 `mobile/pubspec.yaml` 的构建号。若之前安装的是构建号 1，可从 2 开始；后续继续递增。
 4. `prerelease` 默认开启。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
-5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。核对同一 Release 的 `SHA256SUMS.txt` 和构建说明。
+5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。下载区只提供安装包，SHA-256 和构建来源列在 Release 正文；内部构建信息仅留在短期中转 artifact 中。
 
 桌面与移动端显示版本可独立演进，发布标签用于归档同一提交的一批文件。已发布的标签/资产不会被自动覆盖；重新打包请用新标签。客户端仍需手动下载安装更新。旧的上游多平台发布和 Homebrew 工作流在本 fork 跳过；只创建标签不会触发本仓库打包。
 

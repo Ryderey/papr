@@ -50,7 +50,14 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
   password that actually signed the CSR, not the ignored input. Root keystore
   remains ignored and is not disposable build cache.
 - Release assets are the long-term download source; staging artifacts expire in
-  three days. No automatic app updater or automatic local cache deletion.
+  three days. Upload installers only; platform metadata remains in staging and
+  SHA-256 values go in release notes. Titles use Papr plus app version; filenames
+  use version/platform/ABI without tag dates or commit suffixes. Immutable tags
+  and metadata still identify the exact SHA and Android versionCode.
+  No automatic app updater or automatic local cache deletion.
+- Runtime deep-link registration first checks `is_registered`; skip writes when
+  already registered or when the check fails. Preserve `papr://` subscriptions
+  for unbundled builds instead of disabling the feature to suppress AV prompts.
 
 ## 4. Validation & Error Matrix
 

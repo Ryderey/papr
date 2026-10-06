@@ -136,7 +136,7 @@ def collect(cfg, platform):
     out = Path("release-assets")
     out.mkdir(exist_ok=True)
     files = []
-    prefix = f"Papr-{platform}"
+    prefix = "Papr"
     certificate = None
     if platform == "windows":
         sources = list(Path("target/release/bundle/nsis").glob("*-setup.exe"))
@@ -145,12 +145,12 @@ def collect(cfg, platform):
         with sources[0].open("rb") as installer:
             if installer.read(2) != b"MZ":
                 raise ValueError("NSIS output is not a Windows executable")
-        files.append((sources[0], f"{prefix}-x64-{cfg['desktop_version']}-{cfg['sha'][:8]}-setup.exe"))
+        files.append((sources[0], f"{prefix}-{cfg['desktop_version']}-windows-x64-setup.exe"))
     else:
         for abi in ("arm64-v8a", "armeabi-v7a"):
             source = Path(f"mobile/build/app/outputs/flutter-apk/app-{abi}-release.apk")
             certificate = verify_apk(source, abi, cfg)
-            files.append((source, f"{prefix}-{abi}-{cfg['android_version']}-{cfg['android_build_number']}-{cfg['sha'][:8]}.apk"))
+            files.append((source, f"{prefix}-{cfg['android_version']}-android-{abi}.apk"))
     assets = {}
     for source, name in files:
         if not 0 < source.stat().st_size < 2 * 1024**3:
@@ -206,12 +206,11 @@ def check_remote_assets(release, files, *, complete):
 def publish(cfg):
     repo = os.environ["GITHUB_REPOSITORY"]
     folder = Path("release-assets")
-    assets, builds = validate_assets(cfg, folder)
+    assets, _ = validate_assets(cfg, folder)
     run_url = f"https://github.com/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-    (folder / "build-info.json").write_text(json.dumps({**cfg, "builds": builds, "run_url": run_url}, indent=2) + "\n", encoding="utf-8")
-    files = {path.name: path for path in folder.iterdir()}
-    (folder / "SHA256SUMS.txt").write_text("".join(f"{sha256(path)}  {name}\n" for name, path in sorted(files.items())), encoding="utf-8")
-    files["SHA256SUMS.txt"] = folder / "SHA256SUMS.txt"
+    # Platform metadata stays in the short-lived staging artifact; only installers
+    # enter the public Release. Their checksums remain in its description.
+    files = {name: folder / name for name in assets}
     notes = Path(os.environ["RUNNER_TEMP"]) / "papr-release-notes.md"
     text = f"Built from `{cfg['sha']}`. [Build log]({run_url}).\n\n"
     if "windows" in cfg["platforms"]:
@@ -229,7 +228,7 @@ def publish(cfg):
     prerelease = os.environ["PUBLISH_PRERELEASE"] == "true"
     if release is None:
         args = ["gh", "release", "create", cfg["tag"], "--repo", repo, "--target", cfg["sha"],
-                "--draft", "--latest=false", "--title", f"Papr {cfg['tag']}", "--notes-file", str(notes)]
+                "--draft", "--latest=false", "--title", f"Papr {cfg['desktop_version'] if 'windows' in cfg['platforms'] else cfg['android_version']}", "--notes-file", str(notes)]
         if prerelease:
             args.append("--prerelease")
         command(*args)
