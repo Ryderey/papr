@@ -5,10 +5,14 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from test_app_version import seed_versions
 
 SPEC = importlib.util.spec_from_file_location("release", Path(__file__).parents[1] / "package_release.py")
 release = importlib.util.module_from_spec(SPEC)
@@ -24,29 +28,85 @@ class ReleaseSafety(unittest.TestCase):
         previous = Path.cwd()
         os.chdir(temporary.name)
         self.addCleanup(os.chdir, previous)
-        Path("src-tauri").mkdir()
-        Path("mobile").mkdir()
-        Path("src-tauri/tauri.conf.json").write_text('{"version": "0.9.0"}')
-        Path("mobile/pubspec.yaml").write_text("version: 0.1.0+1\n")
-        self.environment = patch.dict(os.environ, {"RELEASE_TAG": "papr-build-20261006-01", "BUILD_SHA": SHA,
-            "PLATFORMS": "both", "ANDROID_BUILD_NUMBER": "2", "GITHUB_REPOSITORY": "example/papr"})
+        seed_versions(mobile="0.9.0+2")
+        self.environment = patch.dict(os.environ, {"RELEASE_TAG": "papr-v0.9.0", "BUILD_SHA": SHA,
+            "PLATFORMS": "both", "ANDROID_BUILD_NUMBER": "2", "GITHUB_REPOSITORY": "example/papr",
+            "PUBLISH_PRERELEASE": "false"})
         self.environment.start()
         self.addCleanup(self.environment.stop)
 
     def test_injection_and_invalid_git_refs_are_rejected(self):
-        for tag in ("$(echo unsafe)", "papr-build-a\nsha=bad", "papr-build-a..b", "papr-build-a.lock", "v0.9.0"):
+        for tag in ("$(echo unsafe)", "papr-v0.9.0\nsha=bad", "papr-build-20261006-01", "papr-v0.9.1", "v0.9.0", "papr-v0.9.0-rc.0"):
             with self.subTest(tag=tag), patch.dict(os.environ, {"RELEASE_TAG": tag}):
                 with self.assertRaises(ValueError):
                     release.config()
 
-    def test_android_requires_explicit_increasing_bounded_code(self):
-        for code in ("", "1", "-1", "02", "2100000001", "2\nsha=bad"):
+    def test_android_defaults_to_source_and_override_is_bounded(self):
+        for code in ("1", "-1", "02", "2100000001", "2\nsha=bad"):
             with self.subTest(code=code), patch.dict(os.environ, {"ANDROID_BUILD_NUMBER": code}):
                 with self.assertRaises(ValueError):
                     release.config()
         self.assertEqual(release.config()["android_build_number"], 2)
+        with patch.dict(os.environ, {"ANDROID_BUILD_NUMBER": ""}):
+            self.assertEqual(release.config()["android_build_number"], 2)
+        with patch.dict(os.environ, {"ANDROID_BUILD_NUMBER": "3"}):
+            self.assertEqual(release.config()["android_build_number"], 3)
         with patch.dict(os.environ, {"PLATFORMS": "windows", "ANDROID_BUILD_NUMBER": ""}):
             self.assertIsNone(release.config()["android_build_number"])
+
+    def test_channel_and_manifest_drift_block_release(self):
+        for tag, channel in [("papr-v0.9.0", "true"), ("papr-v0.9.0-rc.1", "false"),
+                             ("papr-v0.9.0", "invalid")]:
+            with self.subTest(tag=tag, channel=channel), patch.dict(os.environ, {
+                "RELEASE_TAG": tag, "PUBLISH_PRERELEASE": channel
+            }), self.assertRaisesRegex(ValueError, "channel"):
+                release.config()
+        with patch.dict(os.environ, {"RELEASE_TAG": "papr-v0.9.0-rc.1", "PUBLISH_PRERELEASE": "true"}):
+            self.assertTrue(release.config()["prerelease"])
+        Path("package.json").write_text('{"version":"0.9.1"}')
+        with self.assertRaisesRegex(ValueError, "drift"):
+            release.config()
+
+    def test_published_android_codes_include_all_pages_and_ignore_drafts(self):
+        page = [{"tag_name": f"old-{index}", "draft": False, "assets": []} for index in range(100)]
+        published = {"tag_name": "papr-build-old", "draft": False,
+                     "assets": [{"name": "Papr.apk"}],
+                     "body": "Android: 0.1.0 (versionCode 4). Choose an APK."}
+        draft = {**published, "draft": True, "body": "Android: 0.9.0 (versionCode 99)."}
+        page[0] = published
+        page[1] = draft
+        newer = {**published, "body": "Android: 0.1.0 (versionCode 6)."}
+        for code in (4, 6, 7):
+            with self.subTest(code=code), patch.dict(os.environ, {"ANDROID_BUILD_NUMBER": str(code)}):
+                cfg = release.config()
+                with patch.object(release, "tag_commit", return_value=None), \
+                     patch.object(release, "api", side_effect=[None, page, [newer]]) as api:
+                    if code <= 6:
+                        with self.assertRaisesRegex(ValueError, "published maximum 6"):
+                            release.preflight(cfg)
+                    else:
+                        self.assertIsNone(release.preflight(cfg))
+                    self.assertTrue(api.call_args.args[0].endswith("page=2"))
+
+    def test_history_is_rechecked_on_id_recovery_and_unreadable_metadata_fails_closed(self):
+        cfg = release.config()
+        draft = {"tag_name": cfg["tag"], "draft": True, "target_commitish": SHA, "assets": []}
+        published = {"tag_name": "older", "draft": False, "assets": [{"name": "Papr.apk"}],
+                     "body": "Android: 0.1.0 (versionCode 2)."}
+        with patch.object(release, "tag_commit", return_value=None), \
+             patch.object(release, "api", side_effect=[draft, [published]]):
+            with self.assertRaisesRegex(ValueError, "published maximum"):
+                release.preflight(cfg, release_id=1)
+        for body in (None, "Unrecorded legacy APK", published["body"] + "\n" + published["body"],
+                     published["body"] + " Another (versionCode 3)."):
+            with self.subTest(body=body), self.assertRaisesRegex(ValueError, "Cannot verify"):
+                release._check_android_history(cfg, [{**published, "body": body}])
+
+    def test_prepare_outputs_resolved_source_build_number(self):
+        with patch.dict(os.environ, {"ANDROID_BUILD_NUMBER": "", "GITHUB_OUTPUT": "outputs.txt"}), \
+             patch.object(release, "preflight"):
+            release.prepare(release.config())
+        self.assertIn("android_build_number=2\n", Path("outputs.txt").read_text())
 
     def test_tag_conflict_and_published_release_block_preflight(self):
         cfg = release.config()
@@ -68,10 +128,15 @@ class ReleaseSafety(unittest.TestCase):
         with patch.object(subprocess, "run", return_value=result):
             self.assertIsNone(release.api("example", optional=True))
 
+    def test_command_decodes_unicode_independently_of_windows_locale(self):
+        with patch.object(subprocess, "_text_encoding", return_value="gbk"):
+            self.assertEqual(release.command(sys.executable, "-c",
+                "import sys;sys.stdout.buffer.write('中文'.encode('utf-8'))"), "中文")
+
     def test_draft_lookup_paginates_and_checks_target_without_a_tag(self):
         cfg = release.config()
         draft = {"tag_name": cfg["tag"], "draft": True, "target_commitish": SHA, "assets": []}
-        page = [{"tag_name": f"other-{index}"} for index in range(100)]
+        page = [{"tag_name": f"other-{index}", "draft": False, "assets": []} for index in range(100)]
         with patch.object(release, "tag_commit", return_value=None), \
              patch.object(release, "api", side_effect=[None, page, [draft]]) as api:
             self.assertEqual(release.preflight(cfg), draft)
@@ -125,7 +190,7 @@ class ReleaseSafety(unittest.TestCase):
         fingerprint = "c" * 64
         env = {"ANDROID_SIGNING_CERT_SHA256": fingerprint, "APKSIGNER": "signer", "AAPT": "aapt"}
         signer = f"Signer #1 certificate SHA-256 digest: {fingerprint}"
-        badging = "package: name='com.papr.papr_mobile' versionCode='2' versionName='0.1.0'"
+        badging = "package: name='com.papr.papr_mobile' versionCode='2' versionName='0.9.0'"
         with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, env):
             apk = Path(temporary) / "test.apk"
             with zipfile.ZipFile(apk, "w") as archive:
@@ -143,7 +208,14 @@ class ReleaseSafety(unittest.TestCase):
                     release.verify_apk(apk, "armeabi-v7a", cfg)
 
     def test_publish_uploads_complete_assets_before_leaving_draft(self):
-        with patch.dict(os.environ, {"PLATFORMS": "windows", "ANDROID_BUILD_NUMBER": ""}):
+        for prerelease in (False, True):
+            with self.subTest(prerelease=prerelease):
+                self.exercise_publication(prerelease)
+
+    def exercise_publication(self, prerelease):
+        with patch.dict(os.environ, {"PLATFORMS": "windows", "ANDROID_BUILD_NUMBER": "",
+                                    "RELEASE_TAG": "papr-v0.9.0-rc.1" if prerelease else "papr-v0.9.0",
+                                    "PUBLISH_PRERELEASE": str(prerelease).lower()}):
             cfg = release.config()
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as temporary:
@@ -198,6 +270,8 @@ class ReleaseSafety(unittest.TestCase):
             self.assertEqual(created_request["target_commitish"], SHA)
             self.assertEqual(created_request["name"], "Papr 0.9.0")
             self.assertIn("--draft=false", writes[-1])
+            self.assertIn(f"--latest={str(not prerelease).lower()}", writes[-1])
+            self.assertIn(f"--prerelease={str(prerelease).lower()}", writes[-1])
             self.assertFalse(any("--clobber" in args for args in writes))
             self.assertFalse(remote["draft"])
 

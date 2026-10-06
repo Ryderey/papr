@@ -151,12 +151,23 @@ Android 当前面向自用／内部测试，安装 APK 前请核对包名、版�
 `master` 是本仓库默认开发分支。普通 push／PR 只运行前端、Rust workspace、Flutter 和发布保护检查，不生成安装包。需要归档时，手动运行 [Package Release](https://github.com/Ryderey/papr/actions/workflows/package-release.yml)；工作流文件提交到默认分支后才会出现 **Run workflow** 入口。
 
 1. 打开 Actions → **Package Release** → **Run workflow**，分支通常选择 `master`。
-2. `platforms` 选择 `both`、`windows` 或 `android`；`release_tag` 填唯一标签，例如 `papr-build-20261006-01`。
-3. 包含 Android 时，填写 `android_build_number`：必须高于手机已安装的 versionCode 和 `mobile/pubspec.yaml` 的构建号。若之前安装的是构建号 1，可从 2 开始；后续继续递增。
-4. `prerelease` 默认开启。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
+2. `platforms` 选择 `both`、`windows` 或 `android`；`release_tag` 必须匹配源码产品版本，正式版例如 `papr-v0.9.1`，测试版例如 `papr-v0.9.1-rc.1`。
+3. 包含 Android 时，`android_build_number` 留空使用 `mobile/pubspec.yaml` 的构建号。覆盖值不得低于源码值，且发布值必须高于所有已发布 Android APK 的构建号；版本号变更不会重置这个计数。构建号仍需高于设备上已安装的版本。
+4. `prerelease` 默认关闭，正式版发布后标为 Latest；测试版必须勾选，且标签使用 `-rc.N` 后缀。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
 5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。下载区只提供安装包，SHA-256 和构建来源列在 Release 正文；内部构建信息仅留在短期中转 artifact 中。
 
-桌面与移动端显示版本可独立演进，发布标签用于归档同一提交的一批文件。已发布的标签/资产不会被自动覆盖；重新打包请用新标签。客户端仍需手动下载安装更新。旧的上游多平台发布和 Homebrew 工作流在本 fork 跳过；只创建标签不会触发本仓库打包。
+桌面与移动端使用统一产品版本。正式标签对应产品版本，测试标签额外标记 RC 批次；既有 `papr-build-*` 发行保留为历史记录。已发布标签/资产不会被自动覆盖。客户端仍需手动下载安装更新。旧的上游多平台发布和 Homebrew 工作流在本 fork 跳过；只创建标签不会触发本仓库打包。
+
+**维护版本（Python 3.11 或以上，CI 使用 3.12）**：在仓库根目录执行，例如：
+
+```powershell
+python scripts/app_version.py set 0.9.1 --android-code 5
+python scripts/app_version.py check
+```
+
+版本命令以根目录 `Cargo.toml` 的 workspace 版本为入口，统一更新前端、Tauri、Android 及 Cargo.lock 中本项目包的版本；Rust 子包继承 workspace。第三方依赖版本保持不变。上面的值是示例，后续按实际版本递增；修改后先提交并通过 CI，再手动打包。CI 会拒绝版本漂移、标签/渠道不匹配、Android 构建号复用，以及缺少可靠构建号记录的历史 APK 发行。
+
+修复与维护更新递增补丁号，例如 `0.9.2`；新增功能更新次版本，例如 `0.10.0`。Android 构建号独立递增。README 中“基于上游 0.9.0”的说明记录项目来源，不是当前产品版本。
 
 **Android 签名配置（一次性）**：直接分发 APK 也需要固定签名，无需 Google Play 或付费证书。准备好已有 keystore 的 alias、密码及私钥密码，安装并登录 [GitHub CLI](https://cli.github.com/)，在仓库根目录用 PowerShell 7 运行：
 
