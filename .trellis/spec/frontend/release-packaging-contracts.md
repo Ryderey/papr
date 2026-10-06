@@ -29,6 +29,13 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
   pnpm 9 setup, which failed `pnpm store path` with a missing packages-field error.
 - Validate `papr-build-*` tags with both a restricted alphabet and Git ref rules;
   Android versionCode is explicit, > pubspec code and <= 2100000000.
+- Direct-distribution Release splits must retain that exact versionCode. Flutter
+  3.44.5 otherwise adds ABI offsets (1000/2000), and does not implement the newer
+  force-version-code-ignoring-abi switch. Register the Release `configureEach`
+  callback after Flutter's callback, before AGP finalizes properties; a later
+  afterEvaluate mutation fails and an earlier onVariants value is overwritten.
+  `scripts/tests/verify_android_version.gradle` checks final versionCode providers
+  with split-per-abi and both target platforms. Store publishing is outside scope.
 - GitHub API 404 may mean missing; authentication, quota and server failures
   abort. Peel annotated tags and refuse a conflicting tag or published Release.
 - All selected platform jobs must succeed before publication. Skipped unselected

@@ -80,6 +80,16 @@ flutter {
     source = "../.."
 }
 
+// Run after Flutter's variant callback, before AGP finalizes the output codes.
+// Directly distributed APKs share the requested code rather than Play ABI offsets.
+android.applicationVariants.configureEach {
+    if (buildType.name == "release") {
+        outputs.forEach { output ->
+            (output as com.android.build.gradle.api.ApkVariantOutput).versionCodeOverride = flutter.versionCode
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 

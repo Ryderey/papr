@@ -1,0 +1,28 @@
+gradle.beforeProject { app ->
+    if (app.path == ':app') {
+        app.plugins.withId('com.android.application') {
+            def outputs = []
+            app.ext.paprVersionProviders = outputs
+            def components = app.extensions.getByName('androidComponents')
+            components.onVariants(components.selector().withBuildType('release')) { variant ->
+                outputs.addAll(variant.outputs.collect { it.versionCode })
+            }
+        }
+    }
+}
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app != null) {
+        app.tasks.register('verifyPaprApkVersionCode') {
+            doLast {
+                def variant = app.extensions.getByName('android').applicationVariants.find { it.name == 'release' }
+                def expected = variant.mergedFlavor.versionCode
+                def outputs = app.ext.paprVersionProviders.collect { it.get() }
+                if (outputs.size() < 2 || outputs.any { it != expected }) {
+                    throw new GradleException("Split APK versionCodes ${outputs} differ from requested ${expected}")
+                }
+                println "Release split versionCodes match requested ${expected}: ${outputs}"
+            }
+        }
+    }
+}
