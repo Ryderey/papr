@@ -22,6 +22,30 @@ void main() {
     expect(backgroundRefreshFrequencyMinutes(240), 120);
   });
 
+  test('shared background cadence keeps independent RSS and GitHub settings',
+      () {
+    expect(
+        backgroundFrequencyMinutes(refreshOffMinutes,
+            githubEnabled: true, githubIntervalMin: 60),
+        60);
+    expect(
+        backgroundFrequencyMinutes(120,
+            githubEnabled: true, githubIntervalMin: 30),
+        30);
+    expect(
+        backgroundFrequencyMinutes(30,
+            githubEnabled: true, githubIntervalMin: 120),
+        30);
+    expect(
+        backgroundFrequencyMinutes(60,
+            githubEnabled: false, githubIntervalMin: 15),
+        60);
+    expect(
+        backgroundFrequencyMinutes(refreshOffMinutes,
+            githubEnabled: true, githubIntervalMin: 5),
+        15);
+  });
+
   test('notification eligibility respects count, enablement, and quiet hours',
       () {
     expect(

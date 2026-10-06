@@ -685,6 +685,22 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
     Ok(())
 }
 
+/// Skip only a confirmed, clean snapshot until its next full maintenance round.
+pub fn can_skip_import(conn: &Connection, id: i64) -> Result<bool, CoreError> {
+    conn.query_row("SELECT initializing=0 AND head IS NOT NULL
+        AND last_full_sync_at IS NOT NULL AND julianday(last_full_sync_at)>julianday('now','-24 hours')
+        AND EXISTS(SELECT 1 FROM github_files WHERE connection_id=?1 AND path='papr-sync/v1/manifest.json')
+        AND NOT EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=?1)
+        AND NOT EXISTS(SELECT 1 FROM github_attempt WHERE connection_id=?1)
+        FROM github_connections WHERE id=?1 AND active=1", [id], |r| r.get(0)).map_err(db)
+}
+
+pub fn confirm_unchanged(conn: &Connection, id: i64, lease: &str, head: &str) -> Result<bool, CoreError> {
+    guard(conn, id, lease)?;
+    if !can_skip_import(conn, id)? { return Ok(false); }
+    Ok(conn.execute("UPDATE github_connections SET last_success_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1 AND head=?2", params![id,head]).map_err(db)? == 1)
+}
+
 /// Import, acknowledgement, cursor and cache commit together. New edits made
 /// during network I/O are projected on top before touching business rows.
 pub fn finish(
@@ -768,7 +784,7 @@ pub fn finish(
         params![id, ack],
     )
     .map_err(db)?;
-    conn.execute("UPDATE github_connections SET applying=0,initializing=0,ack_seq=?2,head=?3,last_success_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1",params![id,ack,remote.head]).map_err(db)?;
+    conn.execute("UPDATE github_connections SET applying=0,initializing=0,ack_seq=?2,head=?3,last_success_at=datetime('now'),last_full_sync_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1",params![id,ack,remote.head]).map_err(db)?;
     conn.execute("UPDATE github_connections SET pending_since=NULL WHERE id=?1 AND NOT EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=?1)",[id]).map_err(db)?;
     Ok(())
 }

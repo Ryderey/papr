@@ -12,7 +12,9 @@ import 'feed_repository.dart';
 final githubSyncRepositoryProvider =
     Provider((ref) => GithubSyncRepository(ref));
 final githubSyncStatusProvider = FutureProvider<bridge.GithubStatus>(
-    (ref) => ref.watch(githubSyncRepositoryProvider).status());
+    (ref) => ref.read(githubSyncRepositoryProvider).status());
+final githubScheduleProvider = FutureProvider<bridge.GithubSchedule>(
+    (ref) => ref.read(githubSyncRepositoryProvider).schedule());
 
 class GithubSyncRepository {
   final Ref _ref;
@@ -37,6 +39,27 @@ class GithubSyncRepository {
 
   Future<bridge.GithubStatus> status() => _guard(() async => bridge
       .githubStatus(core: await _ref.read(paprCoreBridgeProvider.future)));
+  Future<bool> automaticDue() => _guard(() async => bridge.githubAutomaticDue(
+      core: await _ref.read(paprCoreBridgeProvider.future)));
+  Future<bridge.GithubSchedule> schedule() => _guard(() async => bridge
+      .githubSchedule(core: await _ref.read(paprCoreBridgeProvider.future)));
+  Future<void> setSchedule(bridge.GithubSchedule schedule) => _guard(() async {
+        final core = await _ref.read(paprCoreBridgeProvider.future);
+        final previous = await bridge.githubSchedule(core: core);
+        await bridge.githubSetSchedule(core: core, schedule: schedule);
+        try {
+          await const BackgroundRefreshService().reconcileCore(core);
+        } catch (_) {
+          await bridge.githubSetSchedule(core: core, schedule: previous);
+          try {
+            await const BackgroundRefreshService().reconcileCore(core);
+          } catch (_) {/* Keep the original platform error. */}
+          rethrow;
+        } finally {
+          _ref.invalidate(githubScheduleProvider);
+          _ref.invalidate(githubSyncStatusProvider);
+        }
+      });
   Future<bridge.GithubPreview> preview(
           String owner, String repo, String branch, String token) =>
       _guard(() async => bridge.githubPreview(
@@ -78,7 +101,7 @@ class GithubSyncRepository {
           rethrow;
         }
         _ref.invalidate(githubSyncStatusProvider);
-        await _schedule(true);
+        await _schedule();
       });
   Future<void> updateToken(String token) => _guard(() async {
         final core = await _ref.read(paprCoreBridgeProvider.future);
@@ -117,8 +140,10 @@ class GithubSyncRepository {
               token: token,
               installation: await githubInstallation());
           await githubCheckpoint(core, profile.credentialRef);
-          _ref.invalidate(articleRepositoryProvider);
-          _ref.invalidate(feedRepositoryProvider);
+          if (!report.unchanged) {
+            _ref.invalidate(articleRepositoryProvider);
+            _ref.invalidate(feedRepositoryProvider);
+          }
           return report;
         } finally {
           _ref.invalidate(githubSyncStatusProvider);
@@ -126,13 +151,10 @@ class GithubSyncRepository {
       });
   Future<void> cancel() => _guard(() async => bridge.githubCancelSync(
       core: await _ref.read(paprCoreBridgeProvider.future)));
-  Future<void> _schedule(bool enabled) async {
+  Future<void> _schedule() async {
     try {
       final core = await _ref.read(paprCoreBridgeProvider.future);
-      final settings = await bridge.getSettings(core: core);
-      await const BackgroundRefreshService().reconcile(
-          settings.refreshIntervalMin.toInt(),
-          githubEnabled: enabled);
+      await const BackgroundRefreshService().reconcileCore(core);
     } catch (_) {/* Startup reconciliation retries platform scheduling. */}
   }
 
@@ -145,6 +167,6 @@ class GithubSyncRepository {
               AppErrorKind.sync, 'credentialDeleteFailed', null);
         }
         _ref.invalidate(githubSyncStatusProvider);
-        await _schedule(false);
+        await _schedule();
       });
 }

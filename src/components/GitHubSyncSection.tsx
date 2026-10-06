@@ -10,6 +10,7 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
   const queryClient = useQueryClient();
   const actions = useArticleActions();
   const status = useQuery({ queryKey: ["github-sync-status"], queryFn: api.githubStatus, refetchInterval: 10_000 });
+  const schedule = useQuery({ queryKey: ["github-sync-schedule"], queryFn: api.githubSchedule });
   const [owner, setOwner] = useState("");
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
@@ -23,7 +24,11 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
     try { await operation(); } catch (error) { setError(errorText(error)); }
     finally { setBusy(false); await queryClient.invalidateQueries({ queryKey: ["github-sync-status"] }); }
   };
-  const sync = () => run(async () => { await api.githubSyncNow(); actions.refreshAfterBulk(); await queryClient.invalidateQueries({ queryKey: ["folders"] }); await queryClient.invalidateQueries({ queryKey: ["feeds"] }); onToast(t("githubSync.completed")); });
+  const sync = () => run(async () => { const report = await api.githubSyncNow(); if (!report.unchanged) { actions.refreshAfterBulk(); await queryClient.invalidateQueries({ queryKey: ["folders"] }); await queryClient.invalidateQueries({ queryKey: ["feeds"] }); } onToast(t("githubSync.completed")); });
+  const updateSchedule = (next: api.GitHubSchedule) => run(async () => {
+    await api.githubSetSchedule(next);
+    await queryClient.invalidateQueries({ queryKey: ["github-sync-schedule"] });
+  });
   return <div className="settings-group">
     <h3 className="settings-group-title">GitHub</h3>
     <p className="modal-hint">{t("githubSync.scope")}</p>
@@ -32,6 +37,17 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
     {status.data?.last_error_code && <p role="alert">{errorText({ code: status.data.last_error_code })}</p>}
     {connected ? <>
       <p>{connected.owner}/{connected.repo} · {connected.branch}</p>
+      {schedule.error && <p role="alert">{errorText(schedule.error)}</p>}
+      {schedule.data && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <label><input type="checkbox" checked={schedule.data.enabled} disabled={busy} onChange={(e) => void updateSchedule({ ...schedule.data!, enabled: e.target.checked })} /> {t("githubSync.automatic")}</label>
+        <label>{t("githubSync.uploadDelay")} <select className="modal-input" aria-label={t("githubSync.uploadDelay")} disabled={busy || !schedule.data.enabled} value={schedule.data.upload_delay_secs} onChange={(e) => void updateSchedule({ ...schedule.data!, upload_delay_secs: Number(e.target.value) })}>
+          {[10, 30, 60, 120].map((n) => <option key={n} value={n}>{t("githubSync.seconds", { count: n })}</option>)}
+        </select></label>
+        <label>{t("githubSync.cloudInterval")} <select className="modal-input" aria-label={t("githubSync.cloudInterval")} disabled={busy || !schedule.data.enabled} value={schedule.data.cloud_interval_minutes} onChange={(e) => void updateSchedule({ ...schedule.data!, cloud_interval_minutes: Number(e.target.value) })}>
+          {[5, 10, 15, 30, 60].map((n) => <option key={n} value={n}>{t("githubSync.minutes", { count: n })}</option>)}
+        </select></label>
+        <p className="modal-hint">{t(schedule.data.enabled ? "githubSync.scheduleHint" : "githubSync.manualOnly")}</p>
+      </div>}
       <p>{t("githubSync.pending", { count: status.data?.pending ?? 0 })}</p>
       <p>{t("githubSync.lastSuccess", { time: status.data?.last_success_at || t("githubSync.never") })}</p>
       {!!status.data?.rejected && <p>{t("githubSync.rejected", { count: status.data.rejected })}</p>}

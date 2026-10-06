@@ -22,6 +22,8 @@ FRB: github_status / preview / connect / sync_now / cancel_sync / checkpoint /
      verify_credential / credential_updated / disconnect / report_platform_failure.
 Tauri: github_status / preview / connect / sync_now / cancel_sync /
        update_credential / disconnect.
+Schedule: github_schedule / github_set_schedule on both adapters;
+          github_automatic_due / github_background_due on FRB.
 ```
 
 ### 3. Contracts
@@ -45,6 +47,11 @@ Tauri: github_status / preview / connect / sync_now / cancel_sync /
 - Persist rate-limit delays against the receiving clock. Server Date is used for trusted retention and calculating reset duration, never compared directly with local SQLite time as a retry deadline.
 - Android mounted lists and readers listen to repository changes. Preserve loaded range/scroll position, probe the next row for exhaustion, defer refresh until pending optimistic writes drain, and never auto-mark a remote unread update read merely because the reader refreshed.
 - Frontend status fields are snake_case in Tauri/TypeScript and generated camelCase in Dart. Numeric bridge counts use i64/BigInt; validate IDs/sequence bounds in Core before use. GReader and GitHub active connections are mutually exclusive.
+- Local `github_local_schedule` preferences never enter snapshot/outbox data. Defaults are automatic enabled, 30-second upload debounce, 10-minute foreground polling and 60-minute Android background polling. Core validates preset intervals and shares the eligibility predicate across adapters, honoring fatal errors, leases, retry deadlines and the 60-second publication floor. Continuous edits flush after max(60 seconds, twice debounce).
+- Timer ticks query only settings/connection rows and outbox existence. Full status statistics belong to explicit UI/operation queries; v21 adds a partial metadata index and backfills the daily maintenance stamp from confirmed success.
+- A clean initialized connection with cached manifest and no uncertain attempt may probe repository privacy/identity and branch head without reading/importing the snapshot. Recheck eligibility under the lease in the acknowledgement transaction; a concurrent local edit falls back to the full path. Unchanged reports skip reading-list invalidation. A full round is required after 24 hours to preserve retention maintenance.
+- Android uses one Worker at the minimum enabled RSS/GitHub cadence, with a 15-minute OS floor. Pending RSS-derived intents can upload at a Worker execution after the publication floor; foreground debounce does not defer them for another Worker period. Manual-only mode disables automatic GitHub work while preserving RSS jobs. Persisted schedule changes roll back when platform reconciliation fails.
+- GitHub status/schedule FutureProviders read the stable repository provider rather than watch it: the repository invalidates these providers after mutations, and a reverse watch dependency raises Riverpod CircularDependencyError. Widget tests must assert the saved switch/select values, not only persistence.
 
 ### 4. Validation & Error Matrix
 
@@ -59,6 +66,9 @@ Tauri: github_status / preview / connect / sync_now / cancel_sync /
 | Temporary network error | Keep local writes; back off at least 60 seconds and honor longer GitHub headers |
 | Credential/integrity/history error | Stop foreground automatic retries; show stable localized error |
 | User clears local desktop data | Refuse an active lease, disconnect, clear local business/sync metadata; no cloud deletion |
+| Invalid schedule preset | `githubInvalidSchedule`; prior local preferences unchanged |
+| Cloud unchanged but an edit arrives during the head probe | Full read/merge; never acknowledge the unconfirmed suffix |
+| Automatic synchronization disabled | Both automatic predicates false; explicit sync still available |
 
 ### 5. Good / Base / Bad Cases
 
@@ -71,6 +81,8 @@ Tauri: github_status / preview / connect / sync_now / cancel_sync /
 Keep reducer, storage, orchestration, and loopback HTTP fault tests in `sync/github`. Cross-database tests assert differing IDs, same folder association, metadata placeholder, false propagation, and no reimport after local cleanup. Assert lost-ref recovery after a different device's later edit; rollback/in-flight suffix preservation; source generation; folder name swaps/reuse; inventory corruption; bounded retries; cancellation while an await is pending; no empty commits; and unchanged local cached bodies after cloud retention. Also cover competing empty-repository initializers with a pre-existing secure checkpoint and pending edit, recovered rejection receipt before a new suffix, reused folder IDs with local-only Newsletter membership, future-date expiration/refetch/protection, v18-to-v19 migration, repaired credential scheduling, desktop cache invalidation and smart counts, and Android native credential error codes. Second-pass regressions cover canonical duplicate preservation, v19-to-v20 cached confirmation upgrade, expired dateless saved restoration/unstar across actual outbox/import rounds, initializer credential validation without identity mutation, repaired repository-access scheduling, both rate-limit headers with clock skew, and mounted Android lists/readers including optimistic-write overlap and paged exhaustion.
 
 Run desktop/Core/Bridge serial tests, existing frontend tests/build, Flutter analyze/tests, regenerated bridge equality, and Android debug builds. Secure Windows storage can be tested using a unique test marker and unconditional cleanup. Actual PAT publication, Android Keystore under a Worker, Doze/reboot behavior, and physical-device convergence require separate evidence; builds and fake transports do not establish them. See `docs/github-sync-implementation-2026-10-05.md`.
+
+Scheduling regressions assert validation before persistence, independent local preferences, debounce/deadline/cooldown and fatal/backoff/lease guards, two-request head probing with identity/privacy checks, no idle article UPDATE, concurrent-edit fallback, daily maintenance and uncertain-attempt fallback. The v20-to-v21 migration preserves cached body/flags/settings and `EXPLAIN QUERY PLAN` uses the partial metadata index. Flutter controls assert saved values and failed-save rollback; Worker cadence tests cover RSS-only, GitHub-only, shared minimum and the Android floor.
 
 ### 7. Wrong vs Correct
 

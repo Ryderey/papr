@@ -73,6 +73,14 @@ pub async fn github_status(app: AppHandle) -> AppResult<Status> {
     service(&app).status().await.map_err(map)
 }
 #[tauri::command]
+pub async fn github_schedule(app: AppHandle) -> AppResult<papr_core::sync::github::schedule::Schedule> {
+    service(&app).schedule().await.map_err(map)
+}
+#[tauri::command]
+pub async fn github_set_schedule(app: AppHandle, schedule: papr_core::sync::github::schedule::Schedule) -> AppResult<()> {
+    service(&app).set_schedule(schedule).await.map_err(map)
+}
+#[tauri::command]
 pub async fn github_preview(
     app: AppHandle,
     owner: String,
@@ -178,7 +186,7 @@ async fn sync_now(app: &AppHandle) -> AppResult<SyncReport> {
         .await
         .map_err(map)?;
     credentials::set(&checkpoint_ref, &checkpoint)?;
-    if result.is_ok() {
+    if result.as_ref().is_ok_and(|report| !report.unchanged) {
         let _ = app.emit("feeds-updated", ());
         let _ = app.emit("articles-updated", ());
     }
@@ -195,10 +203,11 @@ pub async fn github_cancel_sync(app: AppHandle) -> AppResult<()> {
 pub fn spawn_scheduler(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(10));
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             tick.tick().await;
-            if let Ok(status) = service(&app).status().await {
-                if status.profile.is_some() && status.automatic_due {
+            if let Ok(due) = service(&app).automatic_due().await {
+                if due {
                     let _ = github_sync_now(app.clone()).await;
                 }
             }

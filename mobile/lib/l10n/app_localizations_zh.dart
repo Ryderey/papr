@@ -9,6 +9,35 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get githubAutomatic => '自动同步';
+
+  @override
+  String get githubUploadDelay => '本地改动上传延迟';
+
+  @override
+  String get githubCloudInterval => '云端更新检查周期';
+
+  @override
+  String get githubScheduleHint => '仅作用于本机，两次发布至少间隔 60 秒。';
+
+  @override
+  String get githubManualOnly => '已关闭自动同步，需要时点击立即同步。';
+
+  @override
+  String get errorGithubInvalidSchedule => '同步时间设置无效。';
+
+  @override
+  String get githubBackgroundInterval => '后台同步间隔';
+
+  @override
+  String get githubBackgroundHint => 'Android 可能因省电策略延迟后台执行。';
+
+  @override
+  String githubSeconds(int count) {
+    return '$count 秒';
+  }
+
+  @override
   String get githubScope =>
       '同步订阅、文件夹、文章标题和链接，以及已读、星标和稍后读状态。普通文章保留 90 天，星标或稍后读长期保留。正文及应用配置留在本地。';
 

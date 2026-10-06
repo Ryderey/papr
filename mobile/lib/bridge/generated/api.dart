@@ -352,6 +352,20 @@ Future<void> githubVerifyCredential(
     RustLib.instance.api
         .crateApiGithubVerifyCredential(core: core, token: token);
 
+Future<GithubSchedule> githubSchedule({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubSchedule(core: core);
+
+Future<void> githubSetSchedule(
+        {required PaprCoreBridge core, required GithubSchedule schedule}) =>
+    RustLib.instance.api
+        .crateApiGithubSetSchedule(core: core, schedule: schedule);
+
+Future<bool> githubAutomaticDue({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubAutomaticDue(core: core);
+
+Future<bool> githubBackgroundDue({required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubBackgroundDue(core: core);
+
 Future<String?> githubDisconnect({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGithubDisconnect(core: core);
 

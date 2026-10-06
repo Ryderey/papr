@@ -11,6 +11,7 @@ extension AppLocalizationsContext on BuildContext {
 
 extension AppErrorLocalizations on AppLocalizations {
   String localizeGithubCode(String code) => switch (code) {
+        'githubInvalidSchedule' => errorGithubInvalidSchedule,
         'githubAuthenticationFailed' => errorGithubAuthenticationFailed,
         'githubPermissionDenied' => errorGithubPermissionDenied,
         'githubRateLimited' => errorGithubRateLimited,

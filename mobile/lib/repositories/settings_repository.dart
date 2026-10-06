@@ -67,10 +67,13 @@ class AppearanceState {
 }
 
 class AppearanceController extends AsyncNotifier<AppearanceState> {
-  Future<bool> _githubEnabled() async {
-    final core=await ref.read(paprCoreBridgeProvider.future);
-    return (await bridge.githubStatus(core:core)).profile!=null;
+  Future<void> _reconcile(int interval) async {
+    final core = await ref.read(paprCoreBridgeProvider.future);
+    await ref
+        .read(backgroundRefreshServiceProvider)
+        .reconcileCore(core, refreshIntervalMin: interval);
   }
+
   @override
   Future<AppearanceState> build() async {
     final snapshot = await ref.watch(settingsRepositoryProvider).getSettings();
@@ -83,9 +86,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
       reading: snapshot.reading,
     );
     try {
-      await ref
-          .read(backgroundRefreshServiceProvider)
-          .reconcile(settings.refreshIntervalMin,githubEnabled:await _githubEnabled());
+      await _reconcile(settings.refreshIntervalMin);
     } catch (_) {
       // Settings remain usable when Android temporarily rejects scheduling.
     }
@@ -176,9 +177,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
             notificationsEnabled: next.notificationsEnabled,
             notificationQuietHours: next.notificationQuietHours,
           );
-      await ref
-          .read(backgroundRefreshServiceProvider)
-          .reconcile(next.refreshIntervalMin,githubEnabled:await _githubEnabled());
+      await _reconcile(next.refreshIntervalMin);
     } catch (error, stackTrace) {
       try {
         await ref.read(settingsRepositoryProvider).setBackground(
@@ -186,9 +185,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
               notificationsEnabled: previous.notificationsEnabled,
               notificationQuietHours: previous.notificationQuietHours,
             );
-        await ref
-            .read(backgroundRefreshServiceProvider)
-            .reconcile(previous.refreshIntervalMin,githubEnabled:await _githubEnabled());
+        await _reconcile(previous.refreshIntervalMin);
       } catch (_) {
         // Preserve the original failure; startup reconciliation repairs the
         // schedule from persisted settings on the next app launch.

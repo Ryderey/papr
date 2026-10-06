@@ -1,6 +1,35 @@
 //! Explicit, secret-free GitHub synchronization bridge DTOs.
 use flutter_rust_bridge::frb;
-use papr_core::sync::github::{model, service};
+use papr_core::sync::github::{model, schedule, service};
+
+#[derive(Debug, Clone)]
+#[frb]
+pub struct GithubSchedule {
+    pub enabled: bool,
+    pub upload_delay_secs: u32,
+    pub cloud_interval_minutes: u32,
+    pub background_interval_minutes: u32,
+}
+impl From<schedule::Schedule> for GithubSchedule {
+    fn from(s: schedule::Schedule) -> Self {
+        Self {
+            enabled: s.enabled,
+            upload_delay_secs: s.upload_delay_secs,
+            cloud_interval_minutes: s.cloud_interval_minutes,
+            background_interval_minutes: s.background_interval_minutes,
+        }
+    }
+}
+impl From<GithubSchedule> for schedule::Schedule {
+    fn from(s: GithubSchedule) -> Self {
+        Self {
+            enabled: s.enabled,
+            upload_delay_secs: s.upload_delay_secs,
+            cloud_interval_minutes: s.cloud_interval_minutes,
+            background_interval_minutes: s.background_interval_minutes,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 #[frb]
@@ -111,6 +140,7 @@ impl From<service::Status> for GithubStatus {
 #[derive(Debug, Clone)]
 #[frb]
 pub struct GithubSyncReport {
+    pub unchanged: bool,
     pub acknowledged: i64,
     pub rejected: i64,
     pub retries: i64,
@@ -119,6 +149,7 @@ pub struct GithubSyncReport {
 impl From<service::SyncReport> for GithubSyncReport {
     fn from(s: service::SyncReport) -> Self {
         Self {
+            unchanged: s.unchanged,
             acknowledged: s.acknowledged as i64,
             rejected: s.rejected as i64,
             retries: s.retries as i64,

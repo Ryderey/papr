@@ -116,6 +116,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GithubProfile dco_decode_box_autoadd_github_profile(dynamic raw);
 
   @protected
+  GithubSchedule dco_decode_box_autoadd_github_schedule(dynamic raw);
+
+  @protected
   HighlightInput dco_decode_box_autoadd_highlight_input(dynamic raw);
 
   @protected
@@ -159,6 +162,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   GithubProfile dco_decode_github_profile(dynamic raw);
+
+  @protected
+  GithubSchedule dco_decode_github_schedule(dynamic raw);
 
   @protected
   GithubStatus dco_decode_github_status(dynamic raw);
@@ -417,6 +423,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       SseDeserializer deserializer);
 
   @protected
+  GithubSchedule sse_decode_box_autoadd_github_schedule(
+      SseDeserializer deserializer);
+
+  @protected
   HighlightInput sse_decode_box_autoadd_highlight_input(
       SseDeserializer deserializer);
 
@@ -464,6 +474,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   GithubProfile sse_decode_github_profile(SseDeserializer deserializer);
+
+  @protected
+  GithubSchedule sse_decode_github_schedule(SseDeserializer deserializer);
 
   @protected
   GithubStatus sse_decode_github_status(SseDeserializer deserializer);
@@ -735,6 +748,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       GithubProfile self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_github_schedule(
+      GithubSchedule self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_highlight_input(
       HighlightInput self, SseSerializer serializer);
 
@@ -786,6 +803,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_github_profile(GithubProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_github_schedule(
+      GithubSchedule self, SseSerializer serializer);
 
   @protected
   void sse_encode_github_status(GithubStatus self, SseSerializer serializer);

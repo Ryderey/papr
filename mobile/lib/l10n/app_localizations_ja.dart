@@ -9,6 +9,35 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get githubAutomatic => '自動同期';
+
+  @override
+  String get githubUploadDelay => 'ローカル変更の送信待機時間';
+
+  @override
+  String get githubCloudInterval => 'クラウド更新の確認間隔';
+
+  @override
+  String get githubScheduleHint => 'この端末のみの設定です。送信間隔は最低60秒です。';
+
+  @override
+  String get githubManualOnly => '自動同期は無効です。必要なときに今すぐ同期を実行してください。';
+
+  @override
+  String get errorGithubInvalidSchedule => '同期スケジュールの設定が無効です。';
+
+  @override
+  String get githubBackgroundInterval => 'バックグラウンド同期の間隔';
+
+  @override
+  String get githubBackgroundHint => 'Androidの省電力設定により実行が遅れる場合があります。';
+
+  @override
+  String githubSeconds(int count) {
+    return '$count 秒';
+  }
+
+  @override
   String get githubScope =>
       '購読、フォルダー、記事のタイトルとリンク、既読・スター・後で読む状態を同期します。通常の記事は90日間、保存した記事は無期限に保持します。本文と設定は端末内に保持します。';
 

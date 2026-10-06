@@ -569,6 +569,10 @@ fn migrations() -> Vec<M<'static>> {
                  SELECT f.connection_id,j.key,json_extract(j.value,'$.first_seen_at')
                  FROM github_files f,json_each(f.content) j
                  WHERE f.path LIKE 'papr-sync/v1/articles/%.json';"),
+        // v21: indexed metadata statistics and a daily full-sync maintenance stamp.
+        M::up("CREATE INDEX idx_articles_metadata_only ON articles(metadata_only) WHERE metadata_only=1;
+               ALTER TABLE github_connections ADD COLUMN last_full_sync_at TEXT;
+               UPDATE github_connections SET last_full_sync_at=last_success_at;"),
     ]
 }
 
@@ -3901,6 +3905,23 @@ mod tests {
                 .checkpoint_dataset_id,
             "d".repeat(32)
         );
+    }
+
+    #[test]
+    fn github_v20_upgrade_preserves_data_and_indexes_metadata_statistics() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(migrations().into_iter().take(20).collect())
+            .to_latest(&mut conn).unwrap();
+        conn.execute("INSERT INTO feeds(id,feed_url,title) VALUES (1,'https://example.com/feed','Feed')", []).unwrap();
+        conn.execute("INSERT INTO articles(id,feed_id,guid,title,body_text,is_starred,read_later,metadata_only) VALUES (1,1,'g','Article','cached body',1,1,1)", []).unwrap();
+        conn.execute("INSERT INTO settings VALUES ('theme','dark')", []).unwrap();
+        conn.execute("INSERT INTO github_connections(profile,dataset_id,device_id,epoch,binding,checkpoint_dataset_id,last_success_at) VALUES ('{}','dataset','device',1,'binding','dataset','2026-01-01 00:00:00')", []).unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(conn.query_row("SELECT body_text,is_starred,read_later FROM articles WHERE id=1", [], |r| Ok((r.get::<_,String>(0)?,r.get::<_,bool>(1)?,r.get::<_,bool>(2)?))).unwrap(), ("cached body".into(), true, true));
+        assert_eq!(conn.query_row("SELECT value FROM settings WHERE key='theme'", [], |r| r.get::<_,String>(0)).unwrap(), "dark");
+        assert_eq!(conn.query_row("SELECT last_full_sync_at FROM github_connections", [], |r| r.get::<_,String>(0)).unwrap(), "2026-01-01 00:00:00");
+        let plan = conn.query_row("EXPLAIN QUERY PLAN SELECT COUNT(*) FROM articles WHERE metadata_only=1", [], |r| r.get::<_,String>(3)).unwrap();
+        assert!(plan.contains("idx_articles_metadata_only"), "{plan}");
     }
 
 }

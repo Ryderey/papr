@@ -46,8 +46,8 @@ void backgroundRefreshDispatcher() {
         );
       }
       try {
-        final github = await bridge.githubStatus(core: core);
-        if (github.profile != null && github.backgroundDue) {
+        if (await bridge.githubBackgroundDue(core: core)) {
+          final github = await bridge.githubStatus(core: core);
           final token = await platformService
               .getSyncCredential(github.profile!.credentialRef);
           if (token == null || token.isEmpty) {
@@ -97,13 +97,24 @@ void backgroundRefreshDispatcher() {
 class BackgroundRefreshService {
   const BackgroundRefreshService();
 
+  Future<void> reconcileCore(bridge.PaprCoreBridge core,
+      {int? refreshIntervalMin}) async {
+    final interval = refreshIntervalMin ??
+        (await bridge.getSettings(core: core)).refreshIntervalMin.toInt();
+    final connected = (await bridge.githubStatus(core: core)).profile != null;
+    final schedule = connected ? await bridge.githubSchedule(core: core) : null;
+    await reconcile(interval,
+        githubEnabled: connected && schedule!.enabled,
+        githubIntervalMin: schedule?.backgroundIntervalMinutes ?? 60);
+  }
+
   static Future<void> initialize() async {
     if (!Platform.isAndroid) return;
     await Workmanager().initialize(backgroundRefreshDispatcher);
   }
 
   Future<void> reconcile(int refreshIntervalMin,
-      {bool githubEnabled = false}) async {
+      {bool githubEnabled = false, int githubIntervalMin = 60}) async {
     if (!Platform.isAndroid) return;
     if (!isBackgroundRefreshEnabled(refreshIntervalMin) && !githubEnabled) {
       await Workmanager().cancelByUniqueName(backgroundRefreshUniqueName);
@@ -113,11 +124,9 @@ class BackgroundRefreshService {
       backgroundRefreshUniqueName,
       backgroundRefreshTaskName,
       frequency: Duration(
-        minutes:
-            !isBackgroundRefreshEnabled(refreshIntervalMin) && githubEnabled
-                ? 360
-                : backgroundRefreshFrequencyMinutes(refreshIntervalMin),
-      ),
+          minutes: backgroundFrequencyMinutes(refreshIntervalMin,
+              githubEnabled: githubEnabled,
+              githubIntervalMin: githubIntervalMin)),
       constraints: Constraints(networkType: NetworkType.connected),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
       backoffPolicy: BackoffPolicy.exponential,
@@ -139,6 +148,17 @@ bool isBackgroundRefreshEnabled(int refreshIntervalMin) =>
 
 int backgroundRefreshFrequencyMinutes(int refreshIntervalMin) =>
     refreshIntervalMin.clamp(15, 120);
+
+int backgroundFrequencyMinutes(int refreshIntervalMin,
+    {required bool githubEnabled, int githubIntervalMin = 60}) {
+  final rss = isBackgroundRefreshEnabled(refreshIntervalMin)
+      ? backgroundRefreshFrequencyMinutes(refreshIntervalMin)
+      : null;
+  final github = githubEnabled ? githubIntervalMin.clamp(15, 360) : null;
+  if (rss == null) return github ?? 60;
+  if (github == null) return rss;
+  return rss < github ? rss : github;
+}
 
 bool shouldShowNewArticleNotification({
   required int count,

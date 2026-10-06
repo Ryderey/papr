@@ -29,7 +29,10 @@ import type {
 export interface GitHubProfile { repository_id: number; owner: string; repo: string; branch: string; credential_ref: string }
 export interface GitHubPreview { profile: GitHubProfile; head: string; local_feeds: number; remote_feeds: number; local_articles: number; remote_articles: number; excluded_feeds: number; excluded_articles: number; warning_count: number }
 export interface GitHubStatus { profile: GitHubProfile | null; pending: number; rejected: number; metadata_only: number; last_success_at: string | null; last_error_code: string | null; retry_at: string | null; busy: boolean; uncertain_publication: boolean; background_due: boolean; automatic_due: boolean }
-export interface GitHubSyncReport { acknowledged: number; rejected: number; retries: number; pending: number }
+export interface GitHubSyncReport { acknowledged: number; rejected: number; retries: number; pending: number; unchanged: boolean }
+export interface GitHubSchedule { enabled: boolean; upload_delay_secs: number; cloud_interval_minutes: number; background_interval_minutes: number }
+export const githubSchedule = () => invoke<GitHubSchedule>("github_schedule");
+export const githubSetSchedule = (schedule: GitHubSchedule) => invoke<void>("github_set_schedule", { schedule });
 export const githubStatus = () => invoke<GitHubStatus>("github_status");
 export const githubPreview = (owner: string, repo: string, branch: string, token: string) => invoke<GitHubPreview>("github_preview", { owner, repo, branch: branch.trim() || null, token });
 export const githubConnect = (preview: GitHubPreview, token: string) => invoke<void>("github_connect", { preview, token });

@@ -18,11 +18,14 @@ class _GithubSyncCoordinatorState extends ConsumerState<GithubSyncCoordinator>
     with WidgetsBindingObserver {
   Timer? _timer;
   bool _running = false;
+  bool _visible = true;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (Platform.isAndroid) {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _visible = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    if (Platform.isAndroid && _visible) {
       _start();
     }
   }
@@ -34,12 +37,12 @@ class _GithubSyncCoordinatorState extends ConsumerState<GithubSyncCoordinator>
   }
 
   Future<void> _tick() async {
-    if (_running || !mounted) return;
+    if (_running || !mounted || !_visible) return;
     _running = true;
     try {
       final repository = ref.read(githubSyncRepositoryProvider);
-      final status = await repository.status();
-      if (mounted && status.profile != null && status.automaticDue) {
+      final due = await repository.automaticDue();
+      if (mounted && _visible && due) {
         await repository.syncNow();
       }
     } catch (_) {
@@ -52,6 +55,7 @@ class _GithubSyncCoordinatorState extends ConsumerState<GithubSyncCoordinator>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!Platform.isAndroid) return;
+    _visible = state == AppLifecycleState.resumed;
     if (state == AppLifecycleState.resumed) {
       _start();
     } else {

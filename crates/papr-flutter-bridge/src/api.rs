@@ -21,7 +21,7 @@ use crate::dto::{
 };
 use crate::error::PaprBridgeError;
 use crate::frb_generated::StreamSink;
-use crate::github_dto::{GithubPreview, GithubStatus, GithubSyncReport};
+use crate::github_dto::{GithubPreview, GithubStatus, GithubSyncReport, GithubSchedule};
 
 pub(crate) struct AiRequestRegistry {
     active: Mutex<HashMap<String, papr_core::ai::AiCancellation>>,
@@ -743,6 +743,18 @@ pub async fn github_verify_credential(
         .github_service()
         .verify_credential(&token)
         .await?)
+}
+pub async fn github_schedule(core: &PaprCoreBridge) -> Result<GithubSchedule, PaprBridgeError> {
+    Ok(core.inner.github_service().schedule().await?.into())
+}
+pub async fn github_set_schedule(core: &PaprCoreBridge, schedule: GithubSchedule) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.github_service().set_schedule(schedule.into()).await?)
+}
+pub async fn github_automatic_due(core: &PaprCoreBridge) -> Result<bool, PaprBridgeError> {
+    Ok(core.inner.github_service().automatic_due().await?)
+}
+pub async fn github_background_due(core: &PaprCoreBridge) -> Result<bool, PaprBridgeError> {
+    Ok(core.inner.github_service().background_due().await?)
 }
 pub async fn github_disconnect(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
     Ok(core.inner.github_service().disconnect().await?)

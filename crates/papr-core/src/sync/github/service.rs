@@ -3,7 +3,7 @@ use super::{
     error,
     merge::{merge, merge_with_confirmed_times, Intent, Operation},
     model::*,
-    storage,
+    schedule, storage,
     transport::{CachedFile, GitHubTransport, Publication, RemoteSnapshot, SnapshotTransport},
 };
 use crate::{db::Db, error::CoreError};
@@ -67,6 +67,7 @@ pub struct Status {
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncReport {
+    pub unchanged: bool,
     pub acknowledged: usize,
     pub rejected: usize,
     pub retries: usize,
@@ -101,18 +102,39 @@ pub struct GitHubService<S: LocalStore> {
     client: Arc<reqwest::Client>,
 }
 impl<S: LocalStore> GitHubService<S> {
+    pub async fn schedule(&self) -> Result<schedule::Schedule, CoreError> {
+        self.store.with(schedule::load).await
+    }
+    pub async fn set_schedule(&self, value: schedule::Schedule) -> Result<(), CoreError> {
+        self.store
+            .with(move |conn| schedule::save(conn, &value))
+            .await
+    }
+    pub async fn automatic_due(&self) -> Result<bool, CoreError> {
+        self.store.with(|conn| schedule::due(conn, false)).await
+    }
+    pub async fn background_due(&self) -> Result<bool, CoreError> {
+        self.store.with(|conn| schedule::due(conn, true)).await
+    }
     pub fn new(store: S, client: Arc<reqwest::Client>) -> Self {
         Self { store, client }
     }
     pub async fn status(&self) -> Result<Status, CoreError> {
-        self.store.with(|conn|{
-        let Some(info)=storage::connection(conn)? else{return Ok(Status::default())};
-        let (last_success_at,last_error_code,retry_at,busy,background_due)=conn.query_row("SELECT last_success_at,last_error_code,retry_at,lease_until IS NOT NULL AND julianday(lease_until)>julianday('now'),last_success_at IS NULL OR julianday(last_success_at)<julianday('now','-6 hours') OR EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=github_connections.id) FROM github_connections WHERE id=?1",[info.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).map_err(sql)?;
-        let count=|table:&str|conn.query_row(&format!("SELECT COUNT(*) FROM {table} WHERE connection_id=?1"),[info.id],|r|r.get::<_,usize>(0)).map_err(sql);
-        let ready: bool=conn.query_row("SELECT (last_error_code IS NULL OR last_error_code IN ('githubNetwork','githubRateLimited','githubSyncCancelled','githubConcurrentRetryLimit','githubSyncBusy')) AND (retry_at IS NULL OR julianday(retry_at)<=julianday('now')) AND (lease_until IS NULL OR julianday(lease_until)<=julianday('now')) FROM github_connections WHERE id=?1",[info.id],|r|r.get(0)).map_err(sql)?;
-        let automatic_due=conn.query_row("SELECT (last_error_code IS NULL OR last_error_code IN ('githubNetwork','githubRateLimited','githubSyncCancelled','githubConcurrentRetryLimit','githubSyncBusy')) AND (retry_at IS NULL OR julianday(retry_at)<=julianday('now')) AND (lease_until IS NULL OR julianday(lease_until)<=julianday('now')) AND ((pending_since IS NOT NULL AND (julianday(last_edit_at)<=julianday('now','-10 seconds') OR julianday(pending_since)<=julianday('now','-60 seconds')) AND (last_publish_at IS NULL OR julianday(last_publish_at)<=julianday('now','-60 seconds'))) OR last_success_at IS NULL OR julianday(last_success_at)<=julianday('now','-5 minutes')) FROM github_connections WHERE id=?1",[info.id],|r|r.get(0)).map_err(sql)?;
-        Ok(Status{profile:Some(info.profile),pending:count("github_outbox")?,rejected:count("github_rejections")?,metadata_only:conn.query_row("SELECT COUNT(*) FROM articles WHERE metadata_only=1",[],|r|r.get(0)).map_err(sql)?,last_success_at,last_error_code,retry_at,busy,uncertain_publication:count("github_attempt")?>0,background_due:background_due && ready,automatic_due})
-    }).await
+        self.store.with(|conn| {
+            let Some(info) = storage::connection(conn)? else { return Ok(Status::default()); };
+            let (last_success_at, last_error_code, retry_at, busy) = conn.query_row(
+                "SELECT last_success_at,last_error_code,retry_at,lease_until IS NOT NULL AND julianday(lease_until)>julianday('now') FROM github_connections WHERE id=?1",
+                [info.id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))
+            ).map_err(sql)?;
+            let count = |table: &str| conn.query_row(&format!("SELECT COUNT(*) FROM {table} WHERE connection_id=?1"), [info.id], |r| r.get::<_,usize>(0)).map_err(sql);
+            Ok(Status {
+                profile: Some(info.profile), pending: count("github_outbox")?, rejected: count("github_rejections")?,
+                metadata_only: conn.query_row("SELECT COUNT(*) FROM articles WHERE metadata_only=1", [], |r| r.get(0)).map_err(sql)?,
+                last_success_at, last_error_code, retry_at, busy,
+                uncertain_publication: count("github_attempt")? > 0,
+                automatic_due: schedule::due(conn, false)?, background_due: schedule::due(conn, true)?,
+            })
+        }).await
     }
 
     pub async fn preview(
@@ -320,6 +342,24 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
 ) -> Result<SyncReport, CoreError> {
     let mut info = info.clone();
     let id = info.id;
+    if let Some(head) = info.head.clone() {
+        if store
+            .with(move |conn| storage::can_skip_import(conn, id))
+            .await?
+            && cancel.wait(transport.unchanged_head(&head)).await??
+        {
+            let lease_owned = lease.to_owned();
+            if store
+                .with(move |conn| storage::confirm_unchanged(conn, id, &lease_owned, &head))
+                .await?
+            {
+                return Ok(SyncReport {
+                    unchanged: true,
+                    ..SyncReport::default()
+                });
+            }
+        }
+    }
     let cache = store.with(move |conn| storage::files(conn, id)).await?;
     let batch_info = info.clone();
     let mut batch = store
@@ -480,6 +520,7 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
             })
             .await?;
         return Ok(SyncReport {
+            unchanged: false,
             acknowledged: (new_ack - info.ack_seq) as usize,
             rejected: report.rejected.len(),
             retries: retry,
@@ -499,12 +540,28 @@ mod tests {
         lose_response: bool,
         conflicts: usize,
         descendant: bool,
+        fast_check: bool,
+        reads: usize,
+        edit_during_check: Option<CoreStore>,
     }
     impl SnapshotTransport for FakeTransport {
+        async fn unchanged_head(&mut self, expected: &str) -> Result<bool, CoreError> {
+            if let Some(store) = self.edit_during_check.take() {
+                store
+                    .with(|conn| {
+                        conn.execute("UPDATE articles SET read_later=1", [])
+                            .map_err(sql)?;
+                        Ok(())
+                    })
+                    .await?;
+            }
+            Ok(self.fast_check && self.remote.head == expected)
+        }
         async fn read(
             &mut self,
             _cache: &BTreeMap<String, CachedFile>,
         ) -> Result<RemoteSnapshot, CoreError> {
+            self.reads += 1;
             Ok(self.remote.clone())
         }
         async fn create_candidate(
@@ -634,6 +691,9 @@ mod tests {
                 lose_response: false,
                 conflicts: 0,
                 descendant: true,
+                fast_check: false,
+                reads: 0,
+                edit_during_check: None,
             },
         )
     }
@@ -1228,5 +1288,184 @@ mod tests {
             .unwrap();
         assert_eq!(age, confirmed);
         assert_eq!(body, "cached body");
+    }
+
+    #[tokio::test]
+    async fn unchanged_head_skips_reads_and_import_but_daily_maintenance_still_runs() {
+        let (_dir, store, mut transport) = fixture().await;
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        let before = transport.reads;
+        transport.fast_check = true;
+        store.with(|conn| { conn.execute_batch("CREATE TEMP TRIGGER prohibit_idle_article_update BEFORE UPDATE ON articles BEGIN SELECT RAISE(ABORT,'idle import must be skipped'); END;").map_err(sql)?; Ok(()) }).await.unwrap();
+        let report = attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert!(report.unchanged);
+        assert_eq!(transport.reads, before);
+        store.with(|conn| { conn.execute_batch("DROP TRIGGER prohibit_idle_article_update; UPDATE github_connections SET last_full_sync_at=datetime('now','-25 hours');").map_err(sql)?; Ok(()) }).await.unwrap();
+        let report = attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert!(!report.unchanged);
+        assert_eq!(transport.reads, before + 1);
+    }
+
+    #[tokio::test]
+    async fn uncertain_attempt_and_changed_head_force_full_reads() {
+        let (_dir, store, mut transport) = fixture().await;
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        transport.fast_check = true;
+        let before = transport.reads;
+        store.with(|conn| {
+            conn.execute("INSERT INTO github_attempt SELECT id,head,ack_seq,NULL FROM github_connections WHERE active=1", []).map_err(sql)?;
+            Ok(())
+        }).await.unwrap();
+        assert!(
+            !attempt(&store, &mut transport, Cancellation::default())
+                .await
+                .unwrap()
+                .unchanged
+        );
+        assert_eq!(transport.reads, before + 1);
+        transport.remote.head = "f".repeat(40);
+        assert!(
+            !attempt(&store, &mut transport, Cancellation::default())
+                .await
+                .unwrap()
+                .unchanged
+        );
+        assert_eq!(transport.reads, before + 2);
+    }
+
+    #[tokio::test]
+    async fn edit_during_head_check_falls_back_without_losing_pending_state() {
+        let (_dir, store, mut transport) = fixture().await;
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        transport.fast_check = true;
+        transport.edit_during_check = Some(store.clone());
+        let before = transport.reads;
+        let report = attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert!(!report.unchanged);
+        assert_eq!(transport.reads, before + 1);
+        assert_eq!(report.pending, 1);
+        assert!(store
+            .with(|conn| conn
+                .query_row("SELECT read_later FROM articles WHERE id=1", [], |r| r
+                    .get::<_, bool>(0))
+                .map_err(sql))
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn scheduling_policy_respects_debounce_deadlines_manual_mode_and_guards() {
+        let (_dir, store, mut transport) = fixture().await;
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        assert!(!service.automatic_due().await.unwrap());
+        store.with(|conn| { conn.execute("UPDATE articles SET read_later=1",[]).map_err(sql)?; conn.execute("UPDATE github_connections SET last_publish_at=datetime('now','-61 seconds'),last_edit_at=datetime('now','-15 seconds')",[]).map_err(sql)?; Ok(()) }).await.unwrap();
+        assert!(!service.automatic_due().await.unwrap());
+        assert!(service.background_due().await.unwrap());
+        store
+            .with(|conn| {
+                conn.execute(
+                    "UPDATE github_connections SET last_edit_at=datetime('now','-31 seconds')",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        assert!(service.automatic_due().await.unwrap());
+        store.with(|conn| { conn.execute("UPDATE github_connections SET last_edit_at=datetime('now'),pending_since=datetime('now','-61 seconds')",[]).map_err(sql)?; Ok(()) }).await.unwrap();
+        assert!(service.automatic_due().await.unwrap());
+        for field in [
+            "last_error_code='githubDatasetChanged'",
+            "retry_at=datetime('now','+1 hour')",
+            "lease_until=datetime('now','+1 hour')",
+        ] {
+            let owned = field.to_owned();
+            store
+                .with(move |conn| {
+                    conn.execute(&format!("UPDATE github_connections SET {owned}"), [])
+                        .map_err(sql)?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            assert!(!service.automatic_due().await.unwrap());
+            assert!(!service.background_due().await.unwrap());
+            store.with(|conn| {conn.execute("UPDATE github_connections SET last_error_code=NULL,retry_at=NULL,lease_until=NULL",[]).map_err(sql)?;Ok(())}).await.unwrap();
+        }
+        service
+            .set_schedule(schedule::Schedule {
+                enabled: false,
+                ..schedule::Schedule::default()
+            })
+            .await
+            .unwrap();
+        assert!(!service.automatic_due().await.unwrap());
+        assert!(!service.background_due().await.unwrap());
+        let report = attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        assert_eq!(report.pending, 0); // Explicit manual sync still publishes.
+    }
+
+    #[tokio::test]
+    async fn custom_polling_intervals_and_long_debounce_remain_independent() {
+        let (_dir, store, mut transport) = fixture().await;
+        attempt(&store, &mut transport, Cancellation::default())
+            .await
+            .unwrap();
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        service
+            .set_schedule(schedule::Schedule {
+                upload_delay_secs: 120,
+                cloud_interval_minutes: 60,
+                background_interval_minutes: 15,
+                ..schedule::Schedule::default()
+            })
+            .await
+            .unwrap();
+        for (minutes, foreground, background) in
+            [(14, false, false), (16, false, true), (61, true, true)]
+        {
+            store
+                .with(move |conn| {
+                    conn.execute(
+                        "UPDATE github_connections SET last_success_at=datetime('now',?1)",
+                        [format!("-{minutes} minutes")],
+                    )
+                    .map_err(sql)?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            assert_eq!(service.automatic_due().await.unwrap(), foreground);
+            assert_eq!(service.background_due().await.unwrap(), background);
+        }
+        store.with(|conn| {
+            conn.execute("UPDATE articles SET read_later=1", []).map_err(sql)?;
+            conn.execute("UPDATE github_connections SET last_success_at=datetime('now'),last_publish_at=NULL,last_edit_at=datetime('now','-61 seconds'),pending_since=datetime('now','-121 seconds')", []).map_err(sql)?;
+            Ok(())
+        }).await.unwrap();
+        assert!(!service.automatic_due().await.unwrap());
+        store.with(|conn| {
+            conn.execute("UPDATE github_connections SET last_edit_at=datetime('now'),pending_since=datetime('now','-241 seconds')", []).map_err(sql)?;
+            Ok(())
+        }).await.unwrap();
+        assert!(service.automatic_due().await.unwrap());
     }
 }

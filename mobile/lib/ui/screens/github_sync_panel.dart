@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bridge/generated/generated.dart' as bridge;
 import '../../l10n/l10n.dart';
 import '../../repositories/github_sync_repository.dart';
+import 'github_schedule_controls.dart';
 
 class GithubSyncPanel extends ConsumerStatefulWidget {
   final bool otherConnected;
@@ -80,6 +81,7 @@ class _GithubSyncPanelState extends ConsumerState<GithubSyncPanel> {
                     const SizedBox(height: 12),
                     Text(
                         '${profile.owner}/${profile.repo} 路 ${profile.branch}'),
+                    const GithubScheduleControls(),
                     Text(l.githubPending(value.pending.toInt())),
                     Text(l.githubLastSuccess(
                         value.lastSuccessAt ?? l.githubNever)),

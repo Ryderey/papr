@@ -2,6 +2,7 @@
 
 pub mod merge;
 pub mod model;
+pub mod schedule;
 pub mod service;
 pub mod storage;
 pub mod transport;

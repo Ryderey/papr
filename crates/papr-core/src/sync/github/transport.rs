@@ -44,6 +44,13 @@ pub enum Publication {
 }
 
 pub trait SnapshotTransport {
+    /// Implementations may confirm an unchanged immutable head without loading files.
+    fn unchanged_head(
+        &mut self,
+        _expected: &str,
+    ) -> impl std::future::Future<Output = Result<bool, CoreError>> + Send {
+        async { Ok(false) }
+    }
     fn read(
         &mut self,
         cache: &BTreeMap<String, CachedFile>,
@@ -301,6 +308,16 @@ impl GitHubTransport {
             .await?;
         serde_json::from_str(&text).map_err(|_| error("githubInvalidResponse"))
     }
+    async fn validated_repository(&mut self) -> Result<Repository, CoreError> {
+        let repository: Repository = self.get(&[], None).await?;
+        if repository.id != self.profile.repository_id {
+            return Err(error("githubRepositoryChanged"));
+        }
+        if !repository.private {
+            return Err(error("githubPrivateRepositoryRequired"));
+        }
+        Ok(repository)
+    }
     async fn head(&mut self) -> Result<String, CoreError> {
         let branch = self.profile.branch.clone();
         let reference: Reference = self.get(&["git", "ref", "heads", &branch], None).await?;
@@ -315,17 +332,18 @@ impl GitHubTransport {
 }
 
 impl SnapshotTransport for GitHubTransport {
+    async fn unchanged_head(&mut self, expected: &str) -> Result<bool, CoreError> {
+        if !is_hex_id(expected, 40) {
+            return Err(error("githubInvalidResponse"));
+        }
+        self.validated_repository().await?;
+        Ok(self.head().await? == expected)
+    }
     async fn read(
         &mut self,
         cache: &BTreeMap<String, CachedFile>,
     ) -> Result<RemoteSnapshot, CoreError> {
-        let repository: Repository = self.get(&[], None).await?;
-        if repository.id != self.profile.repository_id {
-            return Err(error("githubRepositoryChanged"));
-        }
-        if !repository.private {
-            return Err(error("githubPrivateRepositoryRequired"));
-        }
+        let repository = self.validated_repository().await?;
         let head = self.head().await?;
         let commit: Commit = self.get(&["git", "commits", &head], None).await?;
         if !is_hex_id(&commit.tree.sha, 40) {
@@ -648,6 +666,35 @@ mod tests {
     }
     fn reference(sha: &str) -> Value {
         json!({"ref":"refs/heads/main","object":{"type":"commit","sha":sha}})
+    }
+
+    #[tokio::test]
+    async fn unchanged_head_validates_identity_and_privacy_with_two_requests() {
+        let head = "a".repeat(40);
+        let (mut transport, server) = fixture(vec![
+            response(json!({"id":7,"private":true,"default_branch":"main"})),
+            response(reference(&head)),
+        ])
+        .await;
+        assert!(transport.unchanged_head(&head).await.unwrap());
+        assert_eq!(server.await.unwrap().len(), 2);
+        for (repo, code) in [
+            (
+                json!({"id":8,"private":true,"default_branch":"main"}),
+                "githubRepositoryChanged",
+            ),
+            (
+                json!({"id":7,"private":false,"default_branch":"main"}),
+                "githubPrivateRepositoryRequired",
+            ),
+        ] {
+            let (mut transport, server) = fixture(vec![response(repo)]).await;
+            assert_eq!(
+                transport.unchanged_head(&head).await.unwrap_err().code(),
+                code
+            );
+            assert_eq!(server.await.unwrap().len(), 1);
+        }
     }
 
     #[tokio::test]

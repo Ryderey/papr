@@ -39,8 +39,9 @@ The wire manifest now includes `file_hashes`, a sorted inventory of every non-ma
 
 ## Scheduling, limits, and status
 
-- Foreground coordinators check eligibility every 10 seconds. Pending edits debounce for 10 seconds, with a 60-second maximum wait; foreground pulls are due every five minutes. Ref publication is spaced by at least 60 seconds, except bounded retries of a known rejected publication.
-- Android reuses its existing WorkManager refresh task. Sync-only background scheduling uses six hours when feed refresh is disabled. With feed refresh enabled, pending edits can sync on its existing periodic task and an otherwise idle pull is due after six hours. Android scheduling is inexact and depends on OS/background policy.
+- Foreground coordinators check lightweight eligibility every 10 seconds without loading article statistics or cached snapshots. Per-device settings default to 30-second upload debounce and 10-minute cloud polling; continuous edits flush after max(60 seconds, twice debounce). Ref publication is spaced by at least 60 seconds, except bounded retries of a known rejected publication. Manual-only mode preserves queued edits and explicit sync.
+- Android reuses its existing WorkManager refresh task at the minimum enabled RSS/GitHub cadence. The default GitHub background interval is 60 minutes, configurable from 15 to 360 minutes; pending edits can sync at an eligible Worker execution. Manual-only mode preserves RSS refresh while disabling automatic GitHub work. Android scheduling is inexact and depends on OS/background policy.
+- Clean confirmed connections check repository privacy/identity and branch head with two GETs. Unchanged heads skip snapshot decoding/import and reading-list invalidation; pending/uncertain operations, concurrent edits, or 24-hour maintenance require the full path. Settings remain local; v21 adds the metadata-statistics index and full-maintenance timestamp without changing protocol v1.
 - Unknown network failures preserve the queue and back off at least 60 seconds. GitHub `Retry-After`/rate-reset headers extend the pause. Authentication, integrity, history, identity, and platform credential failures stop foreground automatic retries; the user can repair credentials or disconnect/reconnect and retry manually.
 - Cancellation interrupts a pending network await. A cancelled publication may have reached GitHub; its persisted attempt and watermark recovery remain authoritative.
 - Current bounds: 64 logical shards, at most 130 protocol files, 1 MiB per file, 50 MiB snapshot content, 500 intents per batch, 2 MiB inline tree request before separate blob creation, one-second API write spacing. Reads are sequential and reuse unchanged blob SHAs. No empty commit is created for an unchanged snapshot.
@@ -102,7 +103,7 @@ Review artifacts are local, untracked build outputs: target/debug/papr.exe and m
 
 ## Static-review follow-up
 
-The eight findings and their corrections/regressions are recorded in [the review-fix report](github-sync-review-fixes-2026-10-05.md). The local schema is now v20; the repository protocol remains v1. Real A25 account/device acceptance remains open.
+The eight findings and their corrections/regressions are recorded in [the review-fix report](github-sync-review-fixes-2026-10-05.md). The local schema is now v21; the repository protocol remains v1. Real A25 account/device acceptance remains open.
 
 
 Second review: six additional findings are fixed; see the second-pass section of the review-fix report. v20 preserves confirmed article age independently of cloud expiration. Canonical duplicate local copies remain intact while sharing one cloud entity and mirrored flags. Android mounted lists/readers follow synchronization without interrupting optimistic writes or treating a remote unread state as a new opening of the article. Rust final counts are 265/149/3; frontend 89 and Flutter 40/analyze pass. A25 still requires actual account/device evidence.

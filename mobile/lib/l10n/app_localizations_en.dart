@@ -9,6 +9,38 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get githubAutomatic => 'Automatic sync';
+
+  @override
+  String get githubUploadDelay => 'Upload local changes after';
+
+  @override
+  String get githubCloudInterval => 'Check cloud updates every';
+
+  @override
+  String get githubScheduleHint =>
+      'These settings apply only to this device. Publications remain at least 60 seconds apart.';
+
+  @override
+  String get githubManualOnly =>
+      'Automatic sync is off. Use Sync now when needed.';
+
+  @override
+  String get errorGithubInvalidSchedule => 'Invalid sync scheduling settings.';
+
+  @override
+  String get githubBackgroundInterval => 'Background sync interval';
+
+  @override
+  String get githubBackgroundHint =>
+      'Android may delay background work to save battery.';
+
+  @override
+  String githubSeconds(int count) {
+    return '$count seconds';
+  }
+
+  @override
   String get githubScope =>
       'Sync subscriptions, folders, article titles and links, read, starred and read-later states. Ordinary articles: 90 days; saved articles: retained indefinitely. Bodies and app settings stay local.';
 

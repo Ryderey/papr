@@ -92,6 +92,37 @@ class GithubProfile {
           credentialRef == other.credentialRef;
 }
 
+class GithubSchedule {
+  final bool enabled;
+  final int uploadDelaySecs;
+  final int cloudIntervalMinutes;
+  final int backgroundIntervalMinutes;
+
+  const GithubSchedule({
+    required this.enabled,
+    required this.uploadDelaySecs,
+    required this.cloudIntervalMinutes,
+    required this.backgroundIntervalMinutes,
+  });
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^
+      uploadDelaySecs.hashCode ^
+      cloudIntervalMinutes.hashCode ^
+      backgroundIntervalMinutes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GithubSchedule &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          uploadDelaySecs == other.uploadDelaySecs &&
+          cloudIntervalMinutes == other.cloudIntervalMinutes &&
+          backgroundIntervalMinutes == other.backgroundIntervalMinutes;
+}
+
 class GithubStatus {
   final GithubProfile? profile;
   final PlatformInt64 pending;
@@ -152,12 +183,14 @@ class GithubStatus {
 }
 
 class GithubSyncReport {
+  final bool unchanged;
   final PlatformInt64 acknowledged;
   final PlatformInt64 rejected;
   final PlatformInt64 retries;
   final PlatformInt64 pending;
 
   const GithubSyncReport({
+    required this.unchanged,
     required this.acknowledged,
     required this.rejected,
     required this.retries,
@@ -166,6 +199,7 @@ class GithubSyncReport {
 
   @override
   int get hashCode =>
+      unchanged.hashCode ^
       acknowledged.hashCode ^
       rejected.hashCode ^
       retries.hashCode ^
@@ -176,6 +210,7 @@ class GithubSyncReport {
       identical(this, other) ||
       other is GithubSyncReport &&
           runtimeType == other.runtimeType &&
+          unchanged == other.unchanged &&
           acknowledged == other.acknowledged &&
           rejected == other.rejected &&
           retries == other.retries &&

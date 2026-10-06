@@ -262,6 +262,8 @@ pub fn run() {
             commands::freshrss_status,
             commands::freshrss_sync,
             github_sync::github_status,
+            github_sync::github_schedule,
+            github_sync::github_set_schedule,
             github_sync::github_preview,
             github_sync::github_connect,
             github_sync::github_update_credential,

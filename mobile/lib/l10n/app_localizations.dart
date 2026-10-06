@@ -100,6 +100,60 @@ abstract class AppLocalizations {
     Locale('zh')
   ];
 
+  /// No description provided for @githubAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic sync'**
+  String get githubAutomatic;
+
+  /// No description provided for @githubUploadDelay.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload local changes after'**
+  String get githubUploadDelay;
+
+  /// No description provided for @githubCloudInterval.
+  ///
+  /// In en, this message translates to:
+  /// **'Check cloud updates every'**
+  String get githubCloudInterval;
+
+  /// No description provided for @githubScheduleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'These settings apply only to this device. Publications remain at least 60 seconds apart.'**
+  String get githubScheduleHint;
+
+  /// No description provided for @githubManualOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic sync is off. Use Sync now when needed.'**
+  String get githubManualOnly;
+
+  /// No description provided for @errorGithubInvalidSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid sync scheduling settings.'**
+  String get errorGithubInvalidSchedule;
+
+  /// No description provided for @githubBackgroundInterval.
+  ///
+  /// In en, this message translates to:
+  /// **'Background sync interval'**
+  String get githubBackgroundInterval;
+
+  /// No description provided for @githubBackgroundHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Android may delay background work to save battery.'**
+  String get githubBackgroundHint;
+
+  /// No description provided for @githubSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} seconds'**
+  String githubSeconds(int count);
+
   /// No description provided for @githubScope.
   ///
   /// In en, this message translates to:

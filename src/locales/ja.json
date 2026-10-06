@@ -1,5 +1,12 @@
 {
   "githubSync": {
+    "automatic": "自動同期",
+    "uploadDelay": "ローカル変更の送信待機時間",
+    "cloudInterval": "クラウド更新の確認間隔",
+    "seconds": "{{count}} 秒",
+    "minutes": "{{count}} 分",
+    "scheduleHint": "この端末のみの設定です。送信間隔は最低60秒です。",
+    "manualOnly": "自動同期は無効です。必要なときに今すぐ同期を実行してください。",
     "scope": "購読、フォルダー、記事のタイトルとリンク、既読・スター・後で読む状態を同期します。通常の記事は90日間、保存した記事は無期限に保持します。本文と設定は端末内に保持します。",
     "loading": "読み込み中…",
     "pending": "未送信の操作：{{count}}",
@@ -627,6 +634,7 @@
     "toastTagDeleted": "タグを削除しました"
   },
   "error": {
+    "githubInvalidSchedule": "同期スケジュールの設定が無効です。",
     "githubAuthenticationFailed": "トークンが無効または期限切れです。更新してください。",
     "githubPermissionDenied": "このリポジトリのContents読み書き権限が必要です。",
     "githubRateLimited": "GitHubの制限に達しました。表示された時刻まで待ってください。",
