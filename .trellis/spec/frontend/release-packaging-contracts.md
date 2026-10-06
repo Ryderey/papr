@@ -10,8 +10,10 @@ signing. Daily CI performs checks only; application packages require an explicit
 
 ```text
 package_release.py prepare | collect windows/android | publish
+app_version.py check | set <MAJOR.MINOR.PATCH> --android-code <positive integer>
 configure-android-signing.ps1 [-KeystorePath path] [-KeyAlias alias] [-Repository owner/repo]
 workflow inputs: platforms, release_tag, prerelease, android_build_number
+prepare outputs: sha, android_build_number (resolved source/default or override)
 Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
 ```
 
@@ -27,8 +29,25 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
 - Pin pnpm 11.5.0 in package.json; setup actions read that single source, matching local validation.
   The build-script allowlist in pnpm-workspace.yaml is incompatible with the old
   pnpm 9 setup, which failed `pnpm store path` with a missing packages-field error.
-- Validate `papr-build-*` tags with both a restricted alphabet and Git ref rules;
-  Android versionCode is explicit, > pubspec code and <= 2100000000.
+- Root `Cargo.toml` workspace version is canonical. All local Rust packages
+  inherit it; package.json, Tauri JSON, pubspec display version and all three local
+  Cargo.lock package entries must agree. `app_version.py` requires Python >=3.11
+  for stdlib TOML support; CI pins 3.12. Updates validate the entire batch, preserve
+  formatting/line endings/third-party versions and restore files on write errors.
+  Rollback skips untouched paths, tries all changed paths and reports any path
+  it cannot restore; callers must not treat that failure as a completed update.
+- New tags are exactly `papr-v<product-version>` or `papr-v<product-version>-rc.N`
+  (positive N), validated with Git ref rules. RC requires prerelease=true; stable
+  requires false. Existing `papr-build-*` releases remain historical.
+- Android code defaults to pubspec. An override is >= source, positive and
+  <=2100000000; the resolved value flows from prepare to Android and publisher.
+  Prepare and publication scan all pages of published releases with APK assets;
+  parse exactly one script-owned `Android: ... (versionCode N)` line. Missing or
+  ambiguous metadata fails closed, drafts are ignored, and reused/lower published
+  codes fail. Publisher jobs serialize across tags so the final recheck prevents
+  two releases racing the same build number. Credentials/API failures still abort.
+- Decode CLI/API subprocess output explicitly as UTF-8. Windows GBK defaults
+  cannot reliably decode international Release notes; do not rely on shell locale.
 - Direct-distribution Release splits must retain that exact versionCode. Flutter
   3.44.5 otherwise adds ABI offsets (1000/2000), and does not implement the newer
   force-version-code-ignoring-abi switch. Register the Release `configureEach`
@@ -61,6 +80,8 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
   SHA-256 values go in release notes. Titles use Papr plus app version; filenames
   use version/platform/ABI without tag dates or commit suffixes. Immutable tags
   and metadata still identify the exact SHA and Android versionCode.
+  Final stable publication uses latest=true; RC uses latest=false. Draft creation
+  always stays non-Latest. Default manual channel is stable, not prerelease.
   No automatic app updater or automatic local cache deletion.
 - Runtime deep-link registration first checks `is_registered`; skip writes when
   already registered or when the check fails. Preserve `papr://` subscriptions
@@ -71,6 +92,9 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
 | Condition | Result |
 | --- | --- |
 | Invalid tag, SHA or Android build number | Fail before building/publishing |
+| Product manifests/lock drift or tag/channel mismatch | Offline CI/preflight reject |
+| Code equals source but exceeds all published Android codes | Accept source/default code |
+| Code reused, below source, or historical APK code unreadable | Reject before publishing |
 | Existing tag points elsewhere / Release is published | Refuse; require new tag |
 | Selected platform fails | No completed Release publication |
 | Missing / altered / unexpected staged asset | Fail before GitHub writes |
@@ -93,6 +117,14 @@ existing frontend/Flutter checks. Tests cover injection/ref rejection, versionCo
 bounds, tag conflicts, API errors, annotated tags, partial/tampered assets and
 draft conflicts. Real signing setup, cloud builds, download/install and in-place
 updates require separate owner/device evidence.
+
+Version tests cover normalization/inheritance, third-party lock preservation,
+CRLF preservation, malformed input/manifest no-write, drift and write rollback.
+Include partial writes and persistent permission denial, plus UTF-8 subprocess
+output under a simulated GBK locale.
+Release tests cover source defaults/overrides, channel matching, paginated APK
+history including draft-ID recovery, fail-closed notes parsing, prepare outputs,
+and stable/RC Latest behavior. Keep existing immutable-asset/draft recovery tests.
 
 Release lookup tests must model the real API: `releases/tags/{tag}` only returns
 published releases. Find drafts through the paginated releases list and require

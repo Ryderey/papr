@@ -10,16 +10,18 @@ import subprocess
 import sys
 import zipfile
 
+import app_version
+
 
 def command(*args):
-    result = subprocess.run(args, text=True, capture_output=True, check=False)
+    result = subprocess.run(args, text=True, encoding="utf-8", capture_output=True, check=False)
     if result.returncode:
         raise ValueError(f"Command failed: {args[0]} {args[1]} (exit {result.returncode})")
     return result.stdout.strip()
 
 
 def api(path, *, optional=False):
-    result = subprocess.run(["gh", "api", path], text=True, capture_output=True, check=False)
+    result = subprocess.run(["gh", "api", path], text=True, encoding="utf-8", capture_output=True, check=False)
     if result.returncode:
         # Auth, rate-limit and server failures must not look like a missing release.
         if optional and "(HTTP 404)" in result.stderr:
@@ -43,9 +45,15 @@ def tag_commit(repo, tag):
 
 
 def config():
+    versions = app_version.check()
+    version = versions["version"]
     tag = os.environ["RELEASE_TAG"]
-    if not re.fullmatch(r"papr-build-[A-Za-z0-9][A-Za-z0-9._-]{0,79}", tag):
-        raise ValueError("Use a unique papr-build-* tag containing letters, numbers, '.', '_' or '-'")
+    match = re.fullmatch(rf"papr-v{re.escape(version)}(?:-rc\.([1-9][0-9]{{0,8}}))?", tag)
+    if not match:
+        raise ValueError(f"Release tag must be papr-v{version} or papr-v{version}-rc.N")
+    channel = os.environ.get("PUBLISH_PRERELEASE", "false")
+    if channel not in ("true", "false") or (channel == "true") != bool(match[1]):
+        raise ValueError("Release tag and prerelease channel must agree")
     command("git", "check-ref-format", f"refs/tags/{tag}")
     sha = os.environ["BUILD_SHA"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
@@ -54,19 +62,39 @@ def config():
     if platform not in ("windows", "android", "both"):
         raise ValueError("Select windows, android or both")
     platforms = ["windows", "android"] if platform == "both" else [platform]
-    desktop = json.loads(Path("src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
-    mobile = re.search(r"^version:\s*([^\s+]+)\+(\d+)\s*$", Path("mobile/pubspec.yaml").read_text(), re.M)
-    if not mobile:
-        raise ValueError("pubspec must declare versionName+versionCode")
-    code = os.environ.get("ANDROID_BUILD_NUMBER", "")
+    code = None
     if "android" in platforms:
-        if not re.fullmatch(r"[1-9][0-9]{0,9}", code) or not int(mobile[2]) < int(code) <= 2100000000:
-            raise ValueError("Android build number must exceed pubspec's code and be <= 2100000000")
-    for version in (desktop, mobile[1]):
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]*", version):
-            raise ValueError("Invalid application version")
-    return {"tag": tag, "sha": sha, "platforms": platforms, "desktop_version": desktop,
-            "android_version": mobile[1], "android_build_number": int(code) if "android" in platforms else None}
+        requested = os.environ.get("ANDROID_BUILD_NUMBER", "")
+        code = app_version.android_code(requested or versions["android_build_number"])
+        if code < versions["android_build_number"]:
+            raise ValueError("Android build number cannot be below the source build number")
+    return {"tag": tag, "sha": sha, "platforms": platforms, "desktop_version": version,
+            "android_version": version, "android_build_number": code, "prerelease": channel == "true"}
+
+
+def _check_draft(release, cfg):
+    if release is not None and not release["draft"]:
+        raise ValueError("Release is already published; use a new tag instead of replacing assets")
+    if release is not None and release["tag_name"] != cfg["tag"]:
+        raise ValueError("Release does not match the requested tag")
+    if release is not None and release["target_commitish"] != cfg["sha"]:
+        raise ValueError("Existing draft targets a different commit; use a new tag")
+
+
+def _check_android_history(cfg, releases):
+    if cfg["android_build_number"] is None:
+        return
+    highest = 0
+    for item in releases:
+        if item["draft"] or not any(a["name"].lower().endswith(".apk") for a in item["assets"]):
+            continue
+        lines = re.findall(r"^Android: [^\r\n]+", item.get("body") or "", re.M)
+        codes = re.findall(r"\(versionCode ([1-9][0-9]*)\)", lines[0]) if len(lines) == 1 else []
+        if len(codes) != 1:
+            raise ValueError("Cannot verify Android build number in a published APK release")
+        highest = max(highest, app_version.android_code(codes[0]))
+    if cfg["android_build_number"] <= highest:
+        raise ValueError(f"Android build number must exceed published maximum {highest}")
 
 
 def preflight(cfg, release_id=None):
@@ -78,27 +106,26 @@ def preflight(cfg, release_id=None):
         release = api(f"repos/{repo}/releases/{release_id}")
     else:
         release = api(f"repos/{repo}/releases/tags/{cfg['tag']}", optional=True)
+    _check_draft(release, cfg)
     # The by-tag endpoint only finds published releases. Drafts are in the list,
     # and their tag may not exist until publication.
-    if release is None:
+    releases = []
+    if release is None or cfg["android_build_number"] is not None:
         page = 1
         while True:
-            releases = api(f"repos/{repo}/releases?per_page=100&page={page}")
+            items = api(f"repos/{repo}/releases?per_page=100&page={page}")
+            releases.extend(items)
+            if len(items) < 100:
+                break
+            page += 1
+        if release is None:
             matches = [item for item in releases if item["tag_name"] == cfg["tag"]]
             if len(matches) > 1:
                 raise ValueError("Multiple releases use this tag; resolve the ambiguity first")
             if matches:
                 release = matches[0]
-                break
-            if len(releases) < 100:
-                break
-            page += 1
-    if release is not None and not release["draft"]:
-        raise ValueError("Release is already published; use a new tag instead of replacing assets")
-    if release is not None and release["tag_name"] != cfg["tag"]:
-        raise ValueError("Release does not match the requested tag")
-    if release is not None and release["target_commitish"] != cfg["sha"]:
-        raise ValueError("Existing draft targets a different commit; use a new tag")
+    _check_draft(release, cfg)
+    _check_android_history(cfg, releases)
     return release
 
 
@@ -106,6 +133,7 @@ def prepare(cfg):
     preflight(cfg)
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
         output.write(f"sha={cfg['sha']}\n")
+        output.write(f"android_build_number={cfg['android_build_number'] or ''}\n")
 
 
 def sha256(path):
@@ -230,7 +258,7 @@ def publish(cfg):
     text += "".join(f"| `{name}` | `{value['sha256']}` |\n" for name, value in assets.items())
     notes.write_text(text, encoding="utf-8")
     release = preflight(cfg)
-    prerelease = os.environ["PUBLISH_PRERELEASE"] == "true"
+    prerelease = cfg["prerelease"]
     if release is None:
         request = Path(os.environ["RUNNER_TEMP"]) / "papr-release-request.json"
         request.write_text(json.dumps({"tag_name": cfg["tag"], "target_commitish": cfg["sha"],
@@ -247,7 +275,7 @@ def publish(cfg):
     if release is None:
         raise ValueError("Release/tag changed before publication")
     check_remote_assets(release, files, complete=True)
-    command("gh", "release", "edit", cfg["tag"], "--repo", repo, "--draft=false", "--latest=false",
+    command("gh", "release", "edit", cfg["tag"], "--repo", repo, "--draft=false", f"--latest={str(not prerelease).lower()}",
             f"--prerelease={str(prerelease).lower()}", "--notes-file", str(notes))
     if tag_commit(repo, cfg["tag"]) != cfg["sha"]:
         raise ValueError("Published tag does not match the verified build commit")
