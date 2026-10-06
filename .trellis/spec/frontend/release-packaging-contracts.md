@@ -19,6 +19,11 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
 
 - Every job validates/builds the same full SHA. Reuse `ci.yml` with `workflow_call`
   and its `ref` input; do not use a branch's moving HEAD in downstream jobs.
+- Android `settings.gradle.kts` must declare plugin repositories in
+  `pluginManagement`: Google Maven for AGP, Maven Central and the Gradle Plugin
+  Portal. Project dependency repositories do not configure plugin resolution.
+  A cached local Gradle configuration check cannot establish fresh-runner
+  availability; real cloud packaging must verify that boundary.
 - Pin pnpm 11.5.0 in package.json; setup actions read that single source, matching local validation.
   The build-script allowlist in pnpm-workspace.yaml is incompatible with the old
   pnpm 9 setup, which failed `pnpm store path` with a missing packages-field error.
