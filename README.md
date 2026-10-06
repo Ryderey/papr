@@ -145,19 +145,19 @@ Android 当前面向自用／内部测试，安装 APK 前请核对包名、版�
 **Android 签名配置（一次性）**：直接分发 APK 也需要固定签名，无需 Google Play 或付费证书。准备好已有 keystore 的 alias、密码及私钥密码，安装并登录 [GitHub CLI](https://cli.github.com/)，在仓库根目录用 PowerShell 7 运行：
 
 ```powershell
-pwsh -NoProfile -File .\scripts\configure-android-signing.ps1
+pwsh -NoProfile -File .\scripts\configure-android-signing.ps1 -KeystorePath 'D:\keys\papr-release.p12' -KeyAlias 'your-alias'
 ```
 
-脚本默认沿用根目录的 `papr-release.keystore`，不生成或覆盖密钥；只有一个 alias 时自动读取，多个 alias 时在本地选择，密码隐藏输入。其它位置可用 `-KeystorePath 'D:\secure\papr-release.keystore' -KeyAlias 'your-alias'`。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
+上面的路径和 alias 仅为示例，请替换成自己的值；建议将密钥保存在项目目录之外。脚本不生成或覆盖密钥；只有一个 alias 时可自动读取，多个 alias 时在本地选择，密码隐藏输入。`Keystore password` 必须输入创建密钥时设置的密码；`Key password` 可直接回车沿用前者。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
 
 - `ANDROID_KEYSTORE_BASE64`
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-不要把密码发到聊天或写进命令参数；keystore、密码和 `key.properties` 不提交到 Git。CI 在缺少配置或 APK 签名不匹配时失败。请将密钥和密码安全备份；第一次从 Debug 签名切换时，先核对现有安装的证书，签名不同不能直接覆盖更新，不要为了安装而直接卸载并丢失数据。
+不要把密码发到聊天或写进命令参数；keystore、密码和 `key.properties` 不提交到 Git。CI 在缺少配置或 APK 签名不匹配时失败。密钥文件至少保留一份额外的加密备份，密码、alias 和文件路径记录在密码管理器中；GitHub Secrets 用于构建，不作为唯一备份。以后发布继续使用同一份密钥。第一次从 Debug 签名切换时，先核对现有安装的证书，签名不同不能直接覆盖更新，不要为了安装而直接卸载并丢失数据。
 
-安装包长期放在 Release，Actions 中转 artifacts 只保留 3 天。当前公开仓库的 Release 可供他人下载；其中不应包含个人数据库、同步 Token、AI 配置或签名密钥。云端打包不会自动删除本地已有的构建缓存；确认 Release 下载可用后，再单独清理可再生的 `target/`、`mobile/build/` 等目录，保留用户数据与密钥备份。完整机制和验收步骤见 [CI 打包设计](docs/ci-packaging-design-2026-10-05.md)。
+安装包长期放在 Release，Actions 中转 artifacts 只保留 3 天。当前公开仓库的 Release 可供他人下载；其中不应包含个人数据库、同步 Token、AI 配置或签名密钥。云端打包不会自动删除本地已有的构建缓存；确认 Release 下载可用后，再单独清理可再生的 `target/`、`mobile/build/` 等目录，保留用户数据与密钥备份。
 
 ### 上游原版（macOS／桌面）
 

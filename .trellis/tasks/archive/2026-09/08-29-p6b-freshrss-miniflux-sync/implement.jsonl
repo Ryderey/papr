@@ -1,3 +1,0 @@
-{"file": "docs/flutter-android-phased-development-plan.md", "reason": "P6 scope and exit criteria for implementation."}
-{"file": "src-tauri/src/sync.rs", "reason": "GReader protocol reference and desktop behavior to avoid duplicating blindly."}
-{"file": "mobile/plugins/papr_credentials/android/src/main/kotlin/com/papr/papr_mobile/AiCredentialStore.kt", "reason": "Android Keystore boundary with isolated sync aliases, available to the background engine."}

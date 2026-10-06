@@ -18,6 +18,12 @@
 - Do not modify environment variables, secrets, tokens, or account configurations unless explicitly required by the task.
 - Do not write secrets, tokens, or private configurations into code or logs.
 
+## Local Personal Records
+
+- Keep personal task records, journals, provisioning notes, and acceptance logs local. `.trellis/tasks/`, `.trellis/workspace/`, and the ignored CI design/acceptance document are local-only; never commit, push, or force-add them.
+- Public documentation contains reusable instructions and example paths only. Keep actual private paths, credentials, and personal operational history out of it.
+- Record Trellis sessions locally with auto-commit disabled. This rule takes precedence over task/journal auto-commit guidance in skills.
+
 ## Dependency Rules
 
 - Prefer using existing project dependencies.

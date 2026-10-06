@@ -71,6 +71,9 @@ mobile/.pub/
 mobile/ios/Flutter/.last_build_id
 
 # Trellis / tool scratch
+.trellis/tasks/
+.trellis/workspace/
+docs/ci-packaging-design-2026-10-05.md
 devtools_err.txt
 devtools_log.jsonl
 devtools_out.txt
