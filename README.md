@@ -156,7 +156,7 @@ Android 当前面向自用／内部测试，安装 APK 前请核对包名、版�
 4. `prerelease` 默认关闭，正式版发布后标为 Latest；测试版必须勾选，且标签使用 `-rc.N` 后缀。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
 5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。下载区只提供安装包，SHA-256 和构建来源列在 Release 正文；内部构建信息仅留在短期中转 artifact 中。
 
-桌面与移动端使用统一产品版本。正式标签对应产品版本，测试标签额外标记 RC 批次；既有 `papr-build-*` 发行保留为历史记录。已发布标签/资产不会被自动覆盖。客户端仍需手动下载安装更新。旧的上游多平台发布和 Homebrew 工作流在本 fork 跳过；只创建标签不会触发本仓库打包。
+桌面与移动端使用统一产品版本。正式标签对应产品版本，测试标签额外标记 RC 批次；既有 `papr-build-*` 发行保留为历史记录。已发布标签/资产不会被自动覆盖。客户端仍需手动下载安装更新。本仓库仅保留日常检查 `CI` 和手动打包 `Package Release` 两个工作流；已移除上游 Claude、多平台发布、Homebrew 工作流及被替代的 Android 发布草稿。只创建标签不会触发本仓库打包。
 
 **维护版本（Python 3.11 或以上，CI 使用 3.12）**：在仓库根目录执行，例如：
 
@@ -204,7 +204,7 @@ brew install --cask l0ng-ai/papr/papr
 - [pnpm](https://pnpm.io/) 11.5.0, matching `package.json` and CI. The workspace's build-script allowlist needs this configuration support; do not use the former pnpm 9 CI setup.
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable via rustup)
 - **Windows only**: WebView2 runtime (usually pre-installed), Visual Studio C++ Build Tools with the Windows SDK, and the Rust MSVC toolchain installed through rustup.
-- **Linux only**: WebKitGTK 4.1 development libraries, AppIndicator, librsvg, and patchelf; see the package list in [the desktop release workflow](.github/workflows/release.yml).
+- **Linux only**: WebKitGTK 4.1 development libraries, AppIndicator, librsvg, and patchelf; see the package list in [the CI workflow](.github/workflows/ci.yml).
 
 ### Install dependencies
 

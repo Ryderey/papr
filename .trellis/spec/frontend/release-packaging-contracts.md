@@ -6,6 +6,11 @@ Use for CI, installer/APK collection, GitHub Release publication and Android
 signing. Daily CI performs checks only; application packages require an explicit
 `workflow_dispatch` in `package-release.yml`.
 
+The maintained workflow inventory is `ci.yml` and `package-release.yml` only.
+Inherited Claude, desktop release and Homebrew workflows, plus the superseded
+Android release draft, are removed. Keep the reusable CI dependency intact;
+tag pushes alone must not build or publish application packages.
+
 ## 2. Signatures
 
 ```text
