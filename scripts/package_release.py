@@ -69,12 +69,15 @@ def config():
             "android_version": mobile[1], "android_build_number": int(code) if "android" in platforms else None}
 
 
-def preflight(cfg):
+def preflight(cfg, release_id=None):
     repo = os.environ["GITHUB_REPOSITORY"]
     commit = tag_commit(repo, cfg["tag"])
     if commit is not None and commit != cfg["sha"]:
         raise ValueError("Existing tag points to a different commit; use a new tag")
-    release = api(f"repos/{repo}/releases/tags/{cfg['tag']}", optional=True)
+    if release_id is not None:
+        release = api(f"repos/{repo}/releases/{release_id}")
+    else:
+        release = api(f"repos/{repo}/releases/tags/{cfg['tag']}", optional=True)
     # The by-tag endpoint only finds published releases. Drafts are in the list,
     # and their tag may not exist until publication.
     if release is None:
@@ -92,6 +95,8 @@ def preflight(cfg):
             page += 1
     if release is not None and not release["draft"]:
         raise ValueError("Release is already published; use a new tag instead of replacing assets")
+    if release is not None and release["tag_name"] != cfg["tag"]:
+        raise ValueError("Release does not match the requested tag")
     if release is not None and release["target_commitish"] != cfg["sha"]:
         raise ValueError("Existing draft targets a different commit; use a new tag")
     return release
@@ -227,19 +232,18 @@ def publish(cfg):
     release = preflight(cfg)
     prerelease = os.environ["PUBLISH_PRERELEASE"] == "true"
     if release is None:
-        args = ["gh", "release", "create", cfg["tag"], "--repo", repo, "--target", cfg["sha"],
-                "--draft", "--latest=false", "--title", f"Papr {cfg['desktop_version'] if 'windows' in cfg['platforms'] else cfg['android_version']}", "--notes-file", str(notes)]
-        if prerelease:
-            args.append("--prerelease")
-        command(*args)
-        release = preflight(cfg)
-        if release is None:
-            raise ValueError("Created release draft could not be found")
+        request = Path(os.environ["RUNNER_TEMP"]) / "papr-release-request.json"
+        request.write_text(json.dumps({"tag_name": cfg["tag"], "target_commitish": cfg["sha"],
+            "name": f"Papr {cfg['desktop_version'] if 'windows' in cfg['platforms'] else cfg['android_version']}",
+            "body": text, "draft": True, "prerelease": prerelease, "make_latest": "false"}), encoding="utf-8")
+        # The create response contains the stable ID even before list indexes catch up.
+        created = json.loads(command("gh", "api", "--method", "POST", f"repos/{repo}/releases", "--input", str(request)))
+        release = preflight(cfg, created["id"])
     remote = check_remote_assets(release, files, complete=False)
     missing = [str(path) for name, path in files.items() if name not in remote]
     if missing:
         command("gh", "release", "upload", cfg["tag"], *missing, "--repo", repo)
-    release = preflight(cfg)
+    release = preflight(cfg, release["id"])
     if release is None:
         raise ValueError("Release/tag changed before publication")
     check_remote_assets(release, files, complete=True)

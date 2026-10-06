@@ -99,6 +99,9 @@ published releases. Find drafts through the paginated releases list and require
 their `target_commitish` to equal the immutable build SHA. A draft's Git tag may
 not exist until publication; recheck existing tag conflicts before publishing,
 then verify the resulting tag after publication.
+Create via the REST response and retain its release ID for subsequent checks;
+fresh draft creation may not immediately appear in the paginated list. Tests
+must keep that list empty after creation while the ID endpoint remains valid.
 
 ## 7. Wrong vs Correct
 

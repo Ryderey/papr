@@ -80,6 +80,10 @@ class ReleaseSafety(unittest.TestCase):
              patch.object(release, "api", side_effect=[None, [{**draft, "target_commitish": "b" * 40}]]):
             with self.assertRaisesRegex(ValueError, "draft targets a different commit"):
                 release.preflight(cfg)
+        with patch.object(release, "tag_commit", return_value=None), \
+             patch.object(release, "api", return_value={**draft, "tag_name": "papr-build-other"}):
+            with self.assertRaisesRegex(ValueError, "requested tag"):
+                release.preflight(cfg, release_id=1)
 
     def test_annotated_tag_is_peeled_to_its_actual_commit(self):
         with patch.object(release, "api", side_effect=[{"object": {"type": "tag", "sha": "b" * 40}},
@@ -151,12 +155,16 @@ class ReleaseSafety(unittest.TestCase):
                 "assets": {exe.name: {"size": exe.stat().st_size, "sha256": release.sha256(exe)}}}))
             remote = None
             writes = []
+            created_request = {}
 
             def fake_command(*args):
                 nonlocal remote
                 writes.append(args)
-                if args[2] == "create":
-                    remote = {"tag_name": cfg["tag"], "target_commitish": SHA, "draft": True, "assets": []}
+                if args[1] == "api":
+                    self.assertEqual(args[2:4], ("--method", "POST"))
+                    created_request.update(json.loads(Path(args[-1]).read_text()))
+                    remote = {**created_request, "id": 1, "assets": []}
+                    return json.dumps(remote)
                 elif args[2] == "upload":
                     for path in map(Path, args[4:-2]):
                         name = path.name
@@ -170,7 +178,10 @@ class ReleaseSafety(unittest.TestCase):
                 if "/releases/tags/" in path:
                     # Match GitHub: the by-tag endpoint cannot find a draft.
                     return remote if remote and not remote["draft"] else None
-                return [remote] if remote else []
+                if "/releases?" in path:
+                    return []  # List indexes may lag even after draft creation.
+                self.assertTrue(path.endswith("/releases/1"))
+                return remote
 
             env = {"RUNNER_TEMP": temporary, "GITHUB_RUN_ID": "123", "PUBLISH_PRERELEASE": "true",
                    "GITHUB_STEP_SUMMARY": str(Path(temporary) / "summary.md")}
@@ -182,9 +193,10 @@ class ReleaseSafety(unittest.TestCase):
                     release.publish(cfg)
             finally:
                 os.chdir(previous)
-            self.assertEqual([args[2] for args in writes], ["create", "upload", "edit"])
-            self.assertIn("--draft", writes[0])
-            self.assertEqual(writes[0][writes[0].index("--title") + 1], "Papr 0.9.0")
+            self.assertEqual(["create" if args[1] == "api" else args[2] for args in writes], ["create", "upload", "edit"])
+            self.assertTrue(created_request["draft"])
+            self.assertEqual(created_request["target_commitish"], SHA)
+            self.assertEqual(created_request["name"], "Papr 0.9.0")
             self.assertIn("--draft=false", writes[-1])
             self.assertFalse(any("--clobber" in args for args in writes))
             self.assertFalse(remote["draft"])
