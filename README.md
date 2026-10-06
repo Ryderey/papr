@@ -25,7 +25,7 @@ A local-first RSS reader with desktop and Android clients.
 
 ### 平台范围
 
-当前分支已整合 Tauri 桌面端与 Flutter Android 端，自用验证以 Windows 和 Android 为主。两端共用 `papr-core`，界面与部分功能按平台实现。
+本项目包含 Tauri 桌面端与 Flutter Android 端，当前发行面向 Windows 和 Android。两端共用 `papr-core`，界面与部分功能按平台实现。
 
 | 范围 | 当前能力 |
 |---|---|
@@ -34,15 +34,15 @@ A local-first RSS reader with desktop and Android clients.
 | 桌面功能 | 全局 Ask/RAG、Digest、Newsletter/IMAP、Send to Kindle，以及托盘、快捷键、拖动等桌面交互 |
 | Android | 触控界面、系统分享、WorkManager 后台任务、Media3 后台音频；上述桌面专属功能未移植 |
 
-桌面仍保留 macOS／Linux 构建配置。Android 完整范围及后续验收见 [移动端范围矩阵](docs/mobile-rc-scope-matrix.md)；GitHub 新增能力以本文同步章节为准。Android 后台同步、休眠及重启场景的实际验收记录在 [Android 后续验收任务](.trellis/tasks/09-28-mobile-deferred-acceptance/prd.md)。
+桌面仍保留 macOS／Linux 构建配置。GitHub 同步能力以本文同步章节为准。Android 后台任务的实际执行时间受系统省电、休眠和网络条件影响。
 
 ## 基于原仓库的修改
 
-本仓库基于原始项目 [l0ng-ai/papr](https://github.com/l0ng-ai/papr) 的 `0.9.0` 版本继续改造。当前分支相对原仓库的主要变化如下。
+本仓库基于原始项目 [l0ng-ai/papr](https://github.com/l0ng-ai/papr) 的 `0.9.0` 版本继续改造。主要功能差异如下。
 
 ### 已实现的功能改造
 
-- **多模型 AI 配置**：将原先固定的 Anthropic / OpenAI 配置改造成协议化配置档，支持 Anthropic Messages 与 OpenAI Chat Completions 兼容接口；可配置 API Key、模型、Base URL、认证方式和自定义请求头，并保留旧版 `ai_provider`、`ai_api_key`、`ai_model`、`ai_base_url` 设置的兼容回退。
+- **多模型 AI 配置**：支持多个 AI 配置档，可使用 Anthropic Messages 与 OpenAI Chat Completions 兼容接口；可配置 API Key、模型、Base URL、认证方式和自定义请求头。
 - **AI 连接测试**：在设置页新增 AI 配置保存与连接测试能力，测试失败时会隐藏 API Key，并对 TLS / 证书类错误给出更明确的提示。
 - **摘要模板**：新增多种文章摘要模板，包括 Classic TL;DR、5W1H News、Decision helper、Three-layer funnel、Argument deconstruction、Ultra-minimal；默认模板可在设置中保存，也可以在阅读器的 AI 摘要面板里临时切换。
 - **摘要追问**：在 AI 摘要抽屉中加入追问输入框，用户可以基于已经生成的摘要继续提问；追问回答保持流式输出，并使用当前摘要和临时问答历史作为上下文。
@@ -54,19 +54,6 @@ A local-first RSS reader with desktop and Android clients.
 - **AI 抽屉布局优化**：默认宽度为 480px，可拖动调整并保存宽度偏好，配置范围为 320–640px；实际宽度受可用空间限制。窗口变窄时会依次收起文章列表和侧栏，为正文与 AI 面板保留空间。
 - **LLM 翻译配置对齐**：LLM 翻译会复用新的 AI 配置解析逻辑，同时保留 Google、DeepL、Bing 等独立翻译引擎选项。
 - **国际化补充**：为新增的 AI 配置、摘要模板、追问和连接测试文案补齐 English、Japanese、Simplified Chinese 三套语言资源。
-
-### 工程与构建调整
-
-- **TLS / 打包修复**：调整 `reqwest` TLS 特性，启用 `rustls-tls-webpki-roots`、`system-proxy`、`http2` 等能力；同时在 Tauri 打包配置中启用 `useLocalToolsDir`，降低 Windows 环境下载/证书问题对打包流程的影响。
-- **Windows 开发体验**：`pnpm dev` 启动前会先尝试释放 Vite 默认端口 `1430` 上遗留的 Node / Vite 进程，避免热重载服务因端口占用启动失败。
-- **pnpm 构建脚本允许列表**：新增 `pnpm-workspace.yaml`，允许 `esbuild` 的构建脚本，减少安装依赖后的手工确认。
-- **忽略本地敏感与工具状态**：扩展 `.gitignore`，忽略 `.env*`、本地 SQLite 数据库、CodeGraph、Playwright MCP、历史记录、缓存和覆盖率目录，避免把本地凭据或工具产物提交进仓库。
-
-### 文档与规划补充
-
-- **多 LLM 配置规格**：新增 `docs/multi-llm-provider-adapter-spec.md`，记录多供应商 LLM 配置层的目标架构、兼容策略和后续演进方向。
-- **协作规则文档**：新增 `AGENTS.md` 以及 `docs/agents/*`，记录本仓库的 Agent 协作规则、Issue 追踪方式、标签约定和领域说明。
-- **TLS 排障记录**：新增 `tls.md`，记录 Windows / 代理 / 证书链相关的 Tauri 打包排障过程和建议操作。
 
 ## GitHub 私有仓库同步
 
@@ -102,8 +89,6 @@ Windows 与 Android Papr 可以连接同一个 GitHub 私有仓库，双向同�
 | 私有仓库名称 | `papr-sync`，只填名称，不带 URL 或 `.git` |
 | 分支 | 留空使用默认分支；也可以填写实际分支名，例如 `main` |
 | GitHub 精细权限 Token | 刚生成的完整 Token，不是 GitHub 登录密码 |
-
-例如仓库为 `Ryderey/papr-sync` 时，所有者填写 `Ryderey`，仓库名称填写 `papr-sync`，分支填写 `main` 或留空。
 
 先点击 **预览连接**，核对本地与云端订阅、文章数量及排除提示，再点击 **确认连接**，然后点击 **立即同步**，等待成功。预览只读取仓库；首次同步成功才能确认 Token 的写入权限正常。
 
@@ -142,49 +127,12 @@ Windows 与 Android Papr 可以连接同一个 GitHub 私有仓库，双向同�
 
 ### 本仓库版本
 
-查看 [Ryderey/papr Releases](https://github.com/Ryderey/papr/releases)，选择与所需分支和功能对应的构建，并核对发行说明。源码合并或推送不等于已生成安装包；如果没有包含本分支改造的发行版，请按下面的开发步骤从源码构建。
+从 [最新发行版](https://github.com/Ryderey/papr/releases/latest) 下载安装包；测试版本可在 [全部发行版](https://github.com/Ryderey/papr/releases) 中查看。
 
-Android 当前面向自用／内部测试，安装 APK 前请核对包名、版本和签名；操作步骤见 [Android RC 安装与升级说明](docs/mobile-rc-release.md)。
+- **Windows x64**：下载以 `windows-x64-setup.exe` 结尾的安装程序。
+- **Android**：多数现代 ARM 手机选择 `arm64-v8a.apk`，32 位 ARM 手机选择 `armeabi-v7a.apk`。
 
-### 按需构建并上传 GitHub Release
-
-`master` 是本仓库默认开发分支。普通 push／PR 只运行前端、Rust workspace、Flutter 和发布保护检查，不生成安装包。需要归档时，手动运行 [Package Release](https://github.com/Ryderey/papr/actions/workflows/package-release.yml)；工作流文件提交到默认分支后才会出现 **Run workflow** 入口。
-
-1. 打开 Actions → **Package Release** → **Run workflow**，分支通常选择 `master`。
-2. `platforms` 选择 `both`、`windows` 或 `android`；`release_tag` 必须匹配源码产品版本，正式版例如 `papr-v0.9.1`，测试版例如 `papr-v0.9.1-rc.1`。
-3. 包含 Android 时，`android_build_number` 留空使用 `mobile/pubspec.yaml` 的构建号。覆盖值不得低于源码值，且发布值必须高于所有已发布 Android APK 的构建号；版本号变更不会重置这个计数。构建号仍需高于设备上已安装的版本。
-4. `prerelease` 默认关闭，正式版发布后标为 Latest；测试版必须勾选，且标签使用 `-rc.N` 后缀。工作流检查选定提交，构建全部选中平台后统一发布；任一选中平台失败，本轮不发布为完成状态。
-5. 到 [Releases](https://github.com/Ryderey/papr/releases) 下载：Windows x64 选 `setup.exe`；多数现代 ARM 安卓手机选 `arm64-v8a.apk`，32 位 ARM 手机选 `armeabi-v7a.apk`。下载区只提供安装包，SHA-256 和构建来源列在 Release 正文；内部构建信息仅留在短期中转 artifact 中。
-
-桌面与移动端使用统一产品版本。正式标签对应产品版本，测试标签额外标记 RC 批次；既有 `papr-build-*` 发行保留为历史记录。已发布标签/资产不会被自动覆盖。客户端仍需手动下载安装更新。本仓库仅保留日常检查 `CI` 和手动打包 `Package Release` 两个工作流；已移除上游 Claude、多平台发布、Homebrew 工作流及被替代的 Android 发布草稿。只创建标签不会触发本仓库打包。
-
-**维护版本（Python 3.11 或以上，CI 使用 3.12）**：在仓库根目录执行，例如：
-
-```powershell
-python scripts/app_version.py set 0.9.1 --android-code 5
-python scripts/app_version.py check
-```
-
-版本命令以根目录 `Cargo.toml` 的 workspace 版本为入口，统一更新前端、Tauri、Android 及 Cargo.lock 中本项目包的版本；Rust 子包继承 workspace。第三方依赖版本保持不变。上面的值是示例，后续按实际版本递增；修改后先提交并通过 CI，再手动打包。CI 会拒绝版本漂移、标签/渠道不匹配、Android 构建号复用，以及缺少可靠构建号记录的历史 APK 发行。
-
-修复与维护更新递增补丁号，例如 `0.9.2`；新增功能更新次版本，例如 `0.10.0`。Android 构建号独立递增。README 中“基于上游 0.9.0”的说明记录项目来源，不是当前产品版本。
-
-**Android 签名配置（一次性）**：直接分发 APK 也需要固定签名，无需 Google Play 或付费证书。准备好已有 keystore 的 alias、密码及私钥密码，安装并登录 [GitHub CLI](https://cli.github.com/)，在仓库根目录用 PowerShell 7 运行：
-
-```powershell
-pwsh -NoProfile -File .\scripts\configure-android-signing.ps1 -KeystorePath 'D:\keys\papr-release.p12' -KeyAlias 'your-alias'
-```
-
-上面的路径和 alias 仅为示例，请替换成自己的值；建议将密钥保存在项目目录之外。脚本不生成或覆盖密钥；只有一个 alias 时可自动读取，多个 alias 时在本地选择，密码隐藏输入。`Keystore password` 必须输入创建密钥时设置的密码；`Key password` 可直接回车沿用前者。脚本验证密码和证书后，通过 stdin 设置以下 Actions Secrets，并设置公开证书指纹变量 `ANDROID_SIGNING_CERT_SHA256`：
-
-- `ANDROID_KEYSTORE_BASE64`
-- `ANDROID_KEYSTORE_PASSWORD`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-
-不要把密码发到聊天或写进命令参数；keystore、密码和 `key.properties` 不提交到 Git。CI 在缺少配置或 APK 签名不匹配时失败。密钥文件至少保留一份额外的加密备份，密码、alias 和文件路径记录在密码管理器中；GitHub Secrets 用于构建，不作为唯一备份。以后发布继续使用同一份密钥。第一次从 Debug 签名切换时，先核对现有安装的证书，签名不同不能直接覆盖更新，不要为了安装而直接卸载并丢失数据。
-
-安装包长期放在 Release，Actions 中转 artifacts 只保留 3 天。当前公开仓库的 Release 可供他人下载；其中不应包含个人数据库、同步 Token、AI 配置或签名密钥。云端打包不会自动删除本地已有的构建缓存；确认 Release 下载可用后，再单独清理可再生的 `target/`、`mobile/build/` 等目录，保留用户数据与密钥备份。
+版本信息、SHA-256 和构建来源见发行说明。客户端需手动下载安装更新；Android 覆盖升级要求签名一致且构建号兼容。如遇签名不匹配，请先保留应用数据，不要直接卸载。需要自行构建时，参见下方开发说明。
 
 ### 上游原版（macOS／桌面）
 
@@ -201,7 +149,7 @@ brew install --cask l0ng-ai/papr/papr
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) — Node 20.x requires 20.19.0 or newer; Node 22 and later require 22.12.0 or newer. Node 22 matches the desktop CI configuration. These bounds follow the locked Vite dependency.
-- [pnpm](https://pnpm.io/) 11.5.0, matching `package.json` and CI. The workspace's build-script allowlist needs this configuration support; do not use the former pnpm 9 CI setup.
+- [pnpm](https://pnpm.io/) 11.5.0, matching `package.json` and CI.
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable via rustup)
 - **Windows only**: WebView2 runtime (usually pre-installed), Visual Studio C++ Build Tools with the Windows SDK, and the Rust MSVC toolchain installed through rustup.
 - **Linux only**: WebKitGTK 4.1 development libraries, AppIndicator, librsvg, and patchelf; see the package list in [the CI workflow](.github/workflows/ci.yml).
@@ -307,7 +255,7 @@ for each Android ABI and bundles `libpapr_flutter_bridge.so` into the APK, so a
 plain `flutter build apk` picks up Rust changes with no extra step.
 
 - `--debug` produces a Debug-signed APK for development and device testing.
-- `--release` produces an optimized APK. A complete ignored `mobile/android/key.properties` or the four `PAPR_ANDROID_*` signing environment values selects the persistent signing key; without either, local internal builds use Debug signing. CI sets `paprRequireReleaseSigning=true` and refuses this fallback. See [signing setup](#按需构建并上传-github-release) and [the Android RC procedure](docs/mobile-rc-release.md).
+- `--release` produces an optimized APK. A complete ignored `mobile/android/key.properties` or the four `PAPR_ANDROID_*` signing environment values selects the persistent signing key; without either, local internal builds use Debug signing. CI sets `paprRequireReleaseSigning=true` and refuses this fallback.
 - `--no-pub` is suitable for repeat builds only after `flutter pub get` has completed and the dependency configuration is unchanged. A committed lockfile does not download dependencies or create `.dart_tool/package_config.json`.
 
 The APK is written to:
