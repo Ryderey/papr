@@ -4,12 +4,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import * as api from "../api";
 import { errorText } from "../lib/errors";
-import type { ArticleSummary } from "../types";
+import { patchArticleFlags, writeArticleFlag, type ArticleFlags } from "../lib/articleCache";
 import { refreshArticleQueries } from "../lib/readingQueries";
 
-type Patch = Partial<
-  Pick<ArticleSummary, "isRead" | "isStarred" | "readLater">
->;
+type Patch = Partial<ArticleFlags>;
 
 
 /**
@@ -20,30 +18,7 @@ type Patch = Partial<
 export function useArticleActions(onError?: (msg: string) => void) {
   const qc = useQueryClient();
 
-  /** Optimistically patch an article across every cache that may hold it. */
-  const patch = (id: number, p: Patch) => {
-    // Paginated browse lists.
-    qc.setQueriesData({ queryKey: ["articles"] }, (old: any) => {
-      if (!old?.pages) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page: ArticleSummary[]) =>
-          page.map((x) => (x.id === id ? { ...x, ...p } : x)),
-        ),
-      };
-    });
-    // Flat result arrays: hybrid search and the command-palette search.
-    const patchFlat = (old: any) =>
-      Array.isArray(old)
-        ? old.map((x: ArticleSummary) => (x.id === id ? { ...x, ...p } : x))
-        : old;
-    qc.setQueriesData({ queryKey: ["search"] }, patchFlat);
-    qc.setQueriesData({ queryKey: ["cp-search"] }, patchFlat);
-    // The open article detail.
-    qc.setQueryData(["article", id], (old: any) =>
-      old ? { ...old, ...p } : old,
-    );
-  };
+  const patch = (id: number, p: Patch) => patchArticleFlags(qc, id, p);
 
   const refreshLists = () => {
     qc.invalidateQueries({ queryKey: ["counts"] });
@@ -74,36 +49,29 @@ export function useArticleActions(onError?: (msg: string) => void) {
   // is added because the new articles grow the database.
   const refreshAfterFetch = () => refreshArticleKeys([["storage-stats"]]);
 
+  const applyFlag = async (
+    id: number,
+    field: keyof ArticleFlags,
+    value: boolean,
+    write: () => Promise<unknown>,
+  ) => {
+    try {
+      await writeArticleFlag(qc, id, field, value, write);
+      refreshLists();
+    } catch (e) {
+      onError?.(errorText(e));
+    }
+  };
+
   return {
     patch,
     refreshAfterBulk,
     refreshAfterFetch,
-    async setRead(id: number, read: boolean) {
-      try {
-        await api.markRead(id, read);
-        patch(id, { isRead: read });
-        refreshLists();
-      } catch (e) {
-        onError?.(errorText(e));
-      }
-    },
-    async setStarred(id: number, starred: boolean) {
-      try {
-        await api.markStarred(id, starred);
-        patch(id, { isStarred: starred });
-        refreshLists();
-      } catch (e) {
-        onError?.(errorText(e));
-      }
-    },
-    async setReadLater(id: number, value: boolean) {
-      try {
-        await api.markReadLater(id, value);
-        patch(id, { readLater: value });
-        refreshLists();
-      } catch (e) {
-        onError?.(errorText(e));
-      }
-    },
+    setRead: (id: number, read: boolean) =>
+      applyFlag(id, "isRead", read, () => api.markRead(id, read)),
+    setStarred: (id: number, starred: boolean) =>
+      applyFlag(id, "isStarred", starred, () => api.markStarred(id, starred)),
+    setReadLater: (id: number, value: boolean) =>
+      applyFlag(id, "readLater", value, () => api.markReadLater(id, value)),
   };
 }

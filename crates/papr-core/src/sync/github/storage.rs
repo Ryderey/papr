@@ -5,6 +5,7 @@ use super::{
     error,
     merge::{InitialData, Intent, Operation},
     model::*,
+    service::Cancellation,
 };
 use crate::error::CoreError;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -496,10 +497,109 @@ fn mapped(conn: &Connection, id: i64, kind: &str, key: &str) -> Result<Option<i6
     conn.query_row("SELECT local_id FROM github_entity_map WHERE connection_id=?1 AND kind=?2 AND entity_key=?3",params![id,kind,key],|r|r.get(0)).optional().map_err(db)
 }
 
-fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<(), CoreError> {
+/// Identity key → every local article row that carries it. Resolved once per
+/// import: the projection used to re-run the `github_article_capture` subquery
+/// (a full article scan with one `papr_catalog` evaluation per row) for every
+/// article in the snapshot, which made the import quadratic.
+fn load_capture_ids(
+    conn: &Connection,
+    cancel: &Cancellation,
+) -> Result<BTreeMap<String, Vec<i64>>, CoreError> {
+    let mut statement = conn
+        .prepare(
+            "SELECT papr_article_key(entry),id FROM github_article_capture WHERE entry IS NOT NULL",
+        )
+        .map_err(db)?;
+    let rows = statement
+        .query_map([], |r| {
+            Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?))
+        })
+        .map_err(db)?;
+    let mut ids: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    for row in rows {
+        cancel.check()?;
+        let (key, local) = row.map_err(db)?;
+        if let Some(key) = key {
+            ids.entry(key).or_default().push(local);
+        }
+    }
+    Ok(ids)
+}
+
+/// The rows the projection must update for one snapshot key: the mapped (or
+/// freshly inserted) row plus any capture row sharing the identity key.
+fn article_targets(ids: &BTreeMap<String, Vec<i64>>, key: &str, local: i64) -> Vec<i64> {
+    let mut targets = ids.get(key).cloned().unwrap_or_default();
+    if !targets.contains(&local) {
+        targets.push(local);
+    }
+    targets
+}
+
+/// Every local feed id carrying a canonical feed key, resolved once. Twin
+/// subscriptions can share one key, and the cloud identity must be able to adopt
+/// any of the copies — the pre-fix guid lookup matched all of them per article.
+fn load_feed_keys(
+    conn: &Connection,
+    cancel: &Cancellation,
+) -> Result<BTreeMap<String, Vec<i64>>, CoreError> {
+    let mut statement = conn
+        .prepare("SELECT entity_key,id FROM github_feed_capture ORDER BY id")
+        .map_err(db)?;
+    let rows = statement
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+        .map_err(db)?;
+    let mut ids: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    for row in rows {
+        cancel.check()?;
+        let (key, local) = row.map_err(db)?;
+        ids.entry(key).or_default().push(local);
+    }
+    Ok(ids)
+}
+
+/// The pre-fix guid lookup, without the per-article view scan: the lowest article
+/// id across every local copy of the feed key, plus the feed chosen for this
+/// snapshot entry so a non-captured twin cannot collide with a unique index.
+fn guid_target(
+    conn: &Connection,
+    feeds: &BTreeMap<String, Vec<i64>>,
+    key: &str,
+    chosen: i64,
+    guid: &str,
+) -> Result<Option<i64>, CoreError> {
+    let mut candidates = feeds.get(key).cloned().unwrap_or_default();
+    if !candidates.contains(&chosen) {
+        candidates.push(chosen);
+    }
+    let mut best: Option<i64> = None;
+    for feed_id in candidates {
+        let hit = conn
+            .query_row(
+                "SELECT id FROM articles WHERE feed_id=?1 AND guid=?2 ORDER BY id LIMIT 1",
+                params![feed_id, guid],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(db)?;
+        if let Some(hit) = hit {
+            best = Some(best.map_or(hit, |current| current.min(hit)));
+        }
+    }
+    Ok(best)
+}
+
+fn import_projection(
+    conn: &Connection,
+    id: i64,
+    snapshot: &Snapshot,
+    cancel: &Cancellation,
+) -> Result<(), CoreError> {
+    cancel.check()?;
     // Remove tombstones and temporarily vacate names inside the import transaction.
     // Final valid cloud names can otherwise collide with the previous local projection.
     for (key, folder) in &snapshot.subscriptions.folders {
+        cancel.check()?;
         if folder.deleted && !snapshot.subscriptions.folder_aliases.contains_key(key) {
             if let Some(local) = mapped(conn, id, "folder", key)? {
                 conn.execute(
@@ -514,6 +614,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
     conn.execute("UPDATE folders SET name='papr-sync-'||lower(hex(randomblob(16))) WHERE EXISTS(SELECT 1 FROM github_entity_map m WHERE m.connection_id=?1 AND m.kind='folder' AND m.local_id=folders.id AND m.entity_key=folders.sync_id)",[id]).map_err(db)?;
     let mut folder_ids = BTreeMap::new();
     for key in &snapshot.subscriptions.folder_order {
+        cancel.check()?;
         let folder = &snapshot.subscriptions.folders[key];
         let mut local = mapped(conn, id, "folder", key)?.filter(|local| {
             conn.query_row(
@@ -548,6 +649,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         map_entity(conn, id, "folder", key, local, None)?;
     }
     for (alias, _) in &snapshot.subscriptions.folder_aliases {
+        cancel.check()?;
         let target = snapshot.resolve_folder(alias)?;
         if let Some(&target_local) = folder_ids.get(&target) {
             if let Some(old) = mapped(conn, id, "folder", alias)? {
@@ -573,6 +675,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         }
     }
     for (position, key) in snapshot.subscriptions.folder_order.iter().enumerate() {
+        cancel.check()?;
         conn.execute(
             "UPDATE folders SET name=?2,position=?3,sync_id=?4 WHERE id=?1",
             params![
@@ -586,6 +689,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
     }
     let mut feed_ids = BTreeMap::new();
     for (key, feed) in &snapshot.subscriptions.feeds {
+        cancel.check()?;
         let folder = feed
             .folder_id
             .as_ref()
@@ -612,21 +716,37 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
         map_entity(conn, id, "feed", key, local, None)?;
     }
     let mut mappings=conn.prepare("SELECT entity_key,local_id FROM github_entity_map WHERE connection_id=?1 AND kind='article'").map_err(db)?;
-    let known = mappings
+    let tombstones: Vec<(String, i64)> = mappings
         .query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
         .map_err(db)?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(db)?;
-    for (key, local) in known {
-        if !snapshot.articles.contains_key(&key) {
+        .map_err(db)?
+        .into_iter()
+        .filter(|(key, _)| !snapshot.articles.contains_key(key))
+        .collect();
+    let capture_ids = if snapshot.articles.is_empty() && tombstones.is_empty() {
+        BTreeMap::new()
+    } else {
+        load_capture_ids(conn, cancel)?
+    };
+    let feed_keys = if snapshot.articles.is_empty() {
+        BTreeMap::new()
+    } else {
+        load_feed_keys(conn, cancel)?
+    };
+    for (key, local) in tombstones {
+        cancel.check()?;
+        for target in article_targets(&capture_ids, &key, local) {
+            cancel.check()?;
             conn.execute(
-                "UPDATE articles SET is_starred=0,read_later=0 WHERE id=?1 OR id IN (SELECT id FROM github_article_capture WHERE papr_article_key(entry)=?2)",
-                params![local,key],
+                "UPDATE articles SET is_starred=0,read_later=0 WHERE id=?1",
+                [target],
             )
             .map_err(db)?;
         }
     }
     for (key, entry) in &snapshot.articles {
+        cancel.check()?;
         let state = snapshot.states.get(key).cloned().unwrap_or_default();
         let suppressed:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM github_suppressed WHERE connection_id=?1 AND entity_key=?2)",params![id,key],|r|r.get(0)).map_err(db)?;
         if suppressed && !state.protected() {
@@ -642,14 +762,7 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
             .unwrap_or(false)
         });
         if local.is_none() && !entry.guid.is_empty() {
-            local = conn
-                .query_row(
-                    "SELECT a.id FROM articles a JOIN github_feed_capture f ON f.id=a.feed_id WHERE f.entity_key=?1 AND a.guid=?2 ORDER BY a.id LIMIT 1",
-                    params![entry.feed_key, entry.guid],
-                    |r| r.get(0),
-                )
-                .optional()
-                .map_err(db)?;
+            local = guid_target(conn, &feed_keys, &entry.feed_key, feed_id, &entry.guid)?;
         }
         let local = match local {
             Some(local) => local,
@@ -669,20 +782,22 @@ fn import_projection(conn: &Connection, id: i64, snapshot: &Snapshot) -> Result<
                 local
             }
         };
-        conn.execute(
-            "UPDATE articles SET is_read=?2,is_starred=?3,read_later=?4 WHERE id=?1 OR id IN (SELECT id FROM github_article_capture WHERE papr_article_key(entry)=?5)",
-            params![
-                local,
-                state.read.value,
-                state.starred.value,
-                state.read_later.value,
-                key
-            ],
-        )
-        .map_err(db)?;
+        for target in article_targets(&capture_ids, key, local) {
+            cancel.check()?;
+            conn.execute(
+                "UPDATE articles SET is_read=?2,is_starred=?3,read_later=?4 WHERE id=?1",
+                params![
+                    target,
+                    state.read.value,
+                    state.starred.value,
+                    state.read_later.value
+                ],
+            )
+            .map_err(db)?;
+        }
         map_entity(conn, id, "article", key, local, Some(entry))?;
     }
-    Ok(())
+    cancel.check()
 }
 
 /// Skip only a confirmed, clean snapshot until its next full maintenance round.
@@ -695,9 +810,16 @@ pub fn can_skip_import(conn: &Connection, id: i64) -> Result<bool, CoreError> {
         FROM github_connections WHERE id=?1 AND active=1", [id], |r| r.get(0)).map_err(db)
 }
 
-pub fn confirm_unchanged(conn: &Connection, id: i64, lease: &str, head: &str) -> Result<bool, CoreError> {
+pub fn confirm_unchanged(
+    conn: &Connection,
+    id: i64,
+    lease: &str,
+    head: &str,
+) -> Result<bool, CoreError> {
     guard(conn, id, lease)?;
-    if !can_skip_import(conn, id)? { return Ok(false); }
+    if !can_skip_import(conn, id)? {
+        return Ok(false);
+    }
     Ok(conn.execute("UPDATE github_connections SET last_success_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1 AND head=?2", params![id,head]).map_err(db)? == 1)
 }
 
@@ -708,7 +830,9 @@ pub fn finish(
     id: i64,
     lease: &str,
     remote: &RemoteSnapshot,
+    cancel: &Cancellation,
 ) -> Result<(), CoreError> {
+    cancel.check()?;
     guard(conn, id, lease)?;
     let info = connection(conn)?
         .filter(|i| i.id == id)
@@ -733,15 +857,17 @@ pub fn finish(
     // Apply pending batches in order; the reducer itself has a 500-op bound.
     let mut projection = snapshot.clone();
     for batch in pending.chunks(BATCH_SIZE) {
+        cancel.check()?;
         projection = super::merge::merge(&projection, batch, None)?.snapshot;
     }
     conn.execute("UPDATE github_connections SET applying=1 WHERE id=?1", [id])
         .map_err(db)?;
-    import_projection(conn, id, &projection)?;
+    import_projection(conn, id, &projection, cancel)?;
     conn.execute("DELETE FROM github_versions WHERE connection_id=?1", [id])
         .map_err(db)?;
     let put =
         |kind: &str, key: &str, field: &str, version: Option<&str>| -> Result<(), CoreError> {
+            cancel.check()?;
             conn.execute(
                 "INSERT INTO github_versions VALUES (?1,?2,?3,?4,?5)",
                 params![id, kind, key, field, version],
@@ -772,8 +898,11 @@ pub fn finish(
             put("article", key, field, flag.version.as_deref())?;
         }
     }
+    cancel.check()?;
     save_rejections(conn, id, lease, snapshot)?;
+    cancel.check()?;
     save_files(conn, id, &remote.files)?;
+    cancel.check()?;
     conn.execute(
         "DELETE FROM github_outbox WHERE connection_id=?1 AND seq<=?2",
         params![id, ack],
@@ -786,7 +915,9 @@ pub fn finish(
     .map_err(db)?;
     conn.execute("UPDATE github_connections SET applying=0,initializing=0,ack_seq=?2,head=?3,last_success_at=datetime('now'),last_full_sync_at=datetime('now'),last_error_code=NULL,retry_at=NULL WHERE id=?1",params![id,ack,remote.head]).map_err(db)?;
     conn.execute("UPDATE github_connections SET pending_since=NULL WHERE id=?1 AND NOT EXISTS(SELECT 1 FROM github_outbox WHERE connection_id=?1)",[id]).map_err(db)?;
-    Ok(())
+    // The caller commits only after this check; cancellation during the final
+    // SQL statements must roll back the acknowledgement with the projection.
+    cancel.check()
 }
 
 fn db(error: rusqlite::Error) -> CoreError {
@@ -856,6 +987,14 @@ fn date(value: &str) -> Option<String> {
         })
 }
 
+/// The pure part of the `papr_article_key` SQL scalar: catalog JSON → identity
+/// key. Named so tests can wrap it with a counter.
+fn article_key(value: Option<String>) -> Option<String> {
+    value
+        .and_then(|s| serde_json::from_str::<CatalogEntry>(&s).ok())
+        .map(|entry| entry.key())
+}
+
 pub fn register(conn: &Connection) -> Result<(), CoreError> {
     let flags = FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC;
     conn.create_scalar_function("papr_feed_key", 1, flags, |ctx| {
@@ -865,9 +1004,7 @@ pub fn register(conn: &Connection) -> Result<(), CoreError> {
     .map_err(db)?;
     conn.create_scalar_function("papr_article_key", 1, flags, |ctx| {
         let value: Option<String> = ctx.get(0)?;
-        Ok(value
-            .and_then(|s| serde_json::from_str::<CatalogEntry>(&s).ok())
-            .map(|entry| entry.key()))
+        Ok(article_key(value))
     })
     .map_err(db)?;
     conn.create_scalar_function("papr_catalog", 8, flags, |ctx| {
@@ -1066,6 +1203,10 @@ END;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
     fn setup() -> (Connection, ConnectionInfo, Snapshot) {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", true).unwrap();
@@ -1182,7 +1323,14 @@ mod tests {
         conn.execute("UPDATE articles SET is_starred=1 WHERE id=1", [])
             .unwrap();
         let tx = conn.unchecked_transaction().unwrap();
-        finish(&tx, info.id, &lease, &remote(accepted)).unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(accepted),
+            &Cancellation::default(),
+        )
+        .unwrap();
         tx.commit().unwrap();
         let current = connection(&conn).unwrap().unwrap();
         assert_eq!(current.ack_seq, 1);
@@ -1201,6 +1349,330 @@ mod tests {
             Snapshot::from_files(&files.into_iter().map(|(p, f)| (p, f.content)).collect())
                 .unwrap();
         assert!(!confirmed.states.values().any(|s| s.starred.value));
+    }
+
+    /// A library of `n` articles already captured by a fresh connection: the
+    /// seed operation is merged, so the snapshot holds every article.
+    fn library(n: usize) -> (Connection, ConnectionInfo, Snapshot) {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        crate::db::migrate(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO feeds(feed_url,title) VALUES ('https://example.com/feed','Feed')",
+            [],
+        )
+        .unwrap();
+        for i in 0..n {
+            conn.execute(
+                "INSERT INTO articles(feed_id,guid,url,title,body_text) VALUES (1,?1,?2,?3,'body')",
+                params![
+                    format!("guid-{i}"),
+                    format!("https://example.com/a/{i}"),
+                    format!("Article {i}")
+                ],
+            )
+            .unwrap();
+        }
+        let empty = Snapshot::empty("d".repeat(32), "1970-01-01T00:00:00Z".into());
+        let profile = GitHubProfile {
+            repository_id: 1,
+            owner: "owner".into(),
+            repo: "repo".into(),
+            branch: "main".into(),
+            credential_ref: "papr.sync.test".into(),
+        };
+        let tx = conn.unchecked_transaction().unwrap();
+        let info = connect(&tx, &profile, &remote(empty.clone()), "installation:path").unwrap();
+        tx.commit().unwrap();
+        let ops = operations(&conn, &info, 0, 500).unwrap();
+        let snapshot = super::super::merge::merge(&empty, &ops, None)
+            .unwrap()
+            .snapshot;
+        (conn, info, snapshot)
+    }
+
+    #[test]
+    fn import_evaluates_article_keys_a_bounded_number_of_times() {
+        let n = 64usize;
+        let (conn, info, snapshot) = library(n);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        {
+            let calls = Arc::clone(&calls);
+            conn.create_scalar_function(
+                "papr_article_key",
+                1,
+                FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+                move |ctx| {
+                    calls.fetch_add(1, Ordering::Relaxed);
+                    let value: Option<String> = ctx.get(0)?;
+                    Ok(article_key(value))
+                },
+            )
+            .unwrap();
+        }
+        let tx = conn.unchecked_transaction().unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(snapshot),
+            &Cancellation::default(),
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        let count = calls.load(Ordering::Relaxed);
+        // One pass over the library is expected; the pre-fix projection
+        // evaluated the key once per article per row (n²).
+        assert!(
+            count <= 2 * n,
+            "article keys evaluated {count} times for {n} articles"
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM github_entity_map WHERE kind='article'",
+                [],
+                |r| r.get::<_, usize>(0)
+            )
+            .unwrap(),
+            n
+        );
+    }
+
+    #[test]
+    fn import_adopts_a_cached_twin_copy_when_the_mapping_is_gone() {
+        let (conn, info, base) = library(2);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        let mut snapshot = base;
+        // A second local subscription to the same canonical feed URL holds the
+        // cached copy of one snapshot article; the first copy is deleted, which
+        // drops the entity mapping and suppresses the key.
+        conn.execute(
+            "INSERT INTO feeds(feed_url,title) VALUES ('https://example.com/feed#twin','Feed copy')",
+            [],
+        )
+        .unwrap();
+        let twin = conn.last_insert_rowid();
+        let key = snapshot.articles.keys().next().unwrap().clone();
+        let mut entry = snapshot.articles[&key].clone();
+        entry.url = Some("https://example.com/a/cached".into());
+        snapshot.articles.insert(key.clone(), entry.clone());
+        // Keep the state protected so the tombstone suppression still projects;
+        // a set flag always carries the device version that set it.
+        let state = snapshot.states.get_mut(&key).unwrap();
+        state.starred.value = true;
+        state.starred.version = Some(format!("{}:1", info.device_id));
+        conn.execute(
+            "INSERT INTO articles(feed_id,guid,url,title,body_text) VALUES (?1,?2,?3,?4,'cached body')",
+            params![twin, entry.guid, entry.url, entry.title],
+        )
+        .unwrap();
+        let cached = conn.last_insert_rowid();
+        conn.execute(
+            "DELETE FROM articles WHERE feed_id=1 AND guid=?1",
+            [&entry.guid],
+        )
+        .unwrap();
+        assert!(mapped(&conn, info.id, "article", &key).unwrap().is_none());
+        let before = conn
+            .query_row("SELECT COUNT(*) FROM articles", [], |r| {
+                r.get::<_, usize>(0)
+            })
+            .unwrap();
+        let tx = conn.unchecked_transaction().unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(snapshot),
+            &Cancellation::default(),
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        let after = conn
+            .query_row("SELECT COUNT(*) FROM articles", [], |r| {
+                r.get::<_, usize>(0)
+            })
+            .unwrap();
+        assert_eq!(
+            after, before,
+            "the cached twin copy is adopted, not duplicated"
+        );
+        assert_eq!(
+            mapped(&conn, info.id, "article", &key).unwrap(),
+            Some(cached)
+        );
+        let (body, starred): (String, bool) = conn
+            .query_row(
+                "SELECT body_text,is_starred FROM articles WHERE id=?1",
+                [cached],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(body, "cached body");
+        assert!(starred, "the adopted copy receives the cloud state");
+    }
+
+    #[test]
+    fn a_cancel_during_the_import_rolls_every_projection_back() {
+        let n = 96usize;
+        let (conn, info, snapshot) = library(n);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        let cancel = Cancellation::default();
+        let article_calls = Arc::new(AtomicUsize::new(0));
+        let feed_calls = Arc::new(AtomicUsize::new(0));
+        {
+            let cancel = cancel.clone();
+            let article_calls = Arc::clone(&article_calls);
+            conn.create_scalar_function(
+                "papr_article_key",
+                1,
+                FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+                move |ctx| {
+                    if article_calls.fetch_add(1, Ordering::Relaxed) == n / 2 {
+                        cancel.cancel();
+                    }
+                    let value: Option<String> = ctx.get(0)?;
+                    Ok(article_key(value))
+                },
+            )
+            .unwrap();
+        }
+        {
+            let feed_calls = Arc::clone(&feed_calls);
+            conn.create_scalar_function(
+                "papr_feed_key",
+                1,
+                FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+                move |ctx| {
+                    feed_calls.fetch_add(1, Ordering::Relaxed);
+                    let url: String = ctx.get(0)?;
+                    Ok(feed_key(&url).ok())
+                },
+            )
+            .unwrap();
+        }
+        let before_ops = operations(&conn, &info, 0, 500).unwrap().len();
+        let before_files = files(&conn, info.id).unwrap().len();
+        let tx = conn.unchecked_transaction().unwrap();
+        let error = finish(&tx, info.id, &lease, &remote(snapshot), &cancel).unwrap_err();
+        assert_eq!(error.code(), "githubSyncCancelled");
+        drop(tx);
+        // Work had already started when the cancel landed: the feed projection
+        // ran and the capture pass was halfway through.
+        assert!(feed_calls.load(Ordering::Relaxed) > 0);
+        assert!(article_calls.load(Ordering::Relaxed) >= n / 2);
+        // The rollback leaves cursor, outbox, projection, files and the
+        // `applying` guard exactly as they were.
+        let current = connection(&conn).unwrap().unwrap();
+        assert_eq!(current.ack_seq, info.ack_seq);
+        assert_eq!(current.next_seq, info.next_seq);
+        assert_eq!(
+            operations(&conn, &current, 0, 500).unwrap().len(),
+            before_ops
+        );
+        assert_eq!(files(&conn, info.id).unwrap().len(), before_files);
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM articles", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            n
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM github_versions", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row("SELECT applying FROM github_connections", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    fn assert_late_cancel_rolls_back(trigger_sql: &str) {
+        let (conn, info, mut snapshot) = library(1);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        let state = snapshot.states.values_mut().next().unwrap();
+        state.read.value = true;
+        state.read.version = Some(format!("{}:1", info.device_id));
+        let cancel = Cancellation::default();
+        let trigger = cancel.clone();
+        conn.create_scalar_function("request_cancel", 0, FunctionFlags::SQLITE_UTF8, move |_| {
+            trigger.cancel();
+            Ok(1i64)
+        })
+        .unwrap();
+        conn.execute_batch(trigger_sql).unwrap();
+        let before_ops = operations(&conn, &info, 0, 500).unwrap().len();
+        let before_files: BTreeMap<_, _> = files(&conn, info.id)
+            .unwrap()
+            .into_iter()
+            .map(|(path, file)| (path, file.content))
+            .collect();
+        let tx = conn.unchecked_transaction().unwrap();
+        let result = finish(&tx, info.id, &lease, &remote(snapshot), &cancel);
+        assert!(cancel.is_cancelled(), "the target import stage must run");
+        let error = result.unwrap_err();
+        assert_eq!(error.code(), "githubSyncCancelled");
+        drop(tx);
+
+        let current = connection(&conn).unwrap().unwrap();
+        assert_eq!(current.ack_seq, info.ack_seq);
+        assert_eq!(
+            operations(&conn, &current, 0, 500).unwrap().len(),
+            before_ops
+        );
+        let after_files: BTreeMap<_, _> = files(&conn, info.id)
+            .unwrap()
+            .into_iter()
+            .map(|(path, file)| (path, file.content))
+            .collect();
+        assert_eq!(after_files, before_files);
+        assert!(!conn
+            .query_row("SELECT is_read FROM articles WHERE id=1", [], |r| r
+                .get::<_, bool>(0))
+            .unwrap());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM github_versions", [], |r| r
+                .get::<_, usize>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row("SELECT applying FROM github_connections", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        fail(&conn, info.id, &lease, error.code(), None).unwrap();
+        let (last_error, released): (String, bool) = conn
+            .query_row("SELECT last_error_code,lease IS NULL AND lease_until IS NULL FROM github_connections", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!(last_error, "githubSyncCancelled");
+        assert!(released);
+    }
+
+    #[test]
+    fn cancel_after_the_final_article_rolls_back() {
+        assert_late_cancel_rolls_back("CREATE TEMP TRIGGER cancel_late AFTER UPDATE OF is_read ON articles BEGIN SELECT request_cancel(); END;");
+    }
+
+    #[test]
+    fn cancel_during_version_persistence_rolls_back() {
+        assert_late_cancel_rolls_back("CREATE TEMP TRIGGER cancel_late AFTER INSERT ON github_versions BEGIN SELECT request_cancel(); END;");
+    }
+
+    #[test]
+    fn cancel_during_file_persistence_rolls_back() {
+        assert_late_cancel_rolls_back("CREATE TEMP TRIGGER cancel_late AFTER INSERT ON github_files BEGIN SELECT request_cancel(); END;");
+    }
+
+    #[test]
+    fn cancel_during_acknowledgement_rolls_back() {
+        assert_late_cancel_rolls_back("CREATE TEMP TRIGGER cancel_late AFTER UPDATE OF ack_seq ON github_connections WHEN new.ack_seq>old.ack_seq BEGIN SELECT request_cancel(); END;");
     }
 
     #[test]
@@ -1264,9 +1736,15 @@ mod tests {
         {
             let tx = conn.unchecked_transaction().unwrap();
             assert_eq!(
-                finish(&tx, info.id, &lease, &remote(base))
-                    .unwrap_err()
-                    .code(),
+                finish(
+                    &tx,
+                    info.id,
+                    &lease,
+                    &remote(base),
+                    &Cancellation::default()
+                )
+                .unwrap_err()
+                .code(),
                 "githubDatasetChanged"
             );
         }
@@ -1373,7 +1851,14 @@ mod tests {
         .snapshot;
         {
             let tx = second.unchecked_transaction().unwrap();
-            finish(&tx, other.id, &lease, &remote(combined.clone())).unwrap();
+            finish(
+                &tx,
+                other.id,
+                &lease,
+                &remote(combined.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         let (feed_id,folder_id,article_id,starred,later,placeholder,body):(i64,i64,i64,bool,bool,bool,String)=second.query_row("SELECT f.id,f.folder_id,a.id,a.is_starred,a.read_later,a.metadata_only,a.body_text FROM articles a JOIN feeds f ON f.id=a.feed_id WHERE a.guid='guid'",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?))).unwrap();
@@ -1418,7 +1903,14 @@ mod tests {
         let (_, lease) = acquire(&second, "second-installation").unwrap();
         {
             let tx = second.unchecked_transaction().unwrap();
-            finish(&tx, other.id, &lease, &remote(cleared.clone())).unwrap();
+            finish(
+                &tx,
+                other.id,
+                &lease,
+                &remote(cleared.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         let before = operations(&second, &connection(&second).unwrap().unwrap(), 0, 500)
@@ -1435,7 +1927,14 @@ mod tests {
         );
         {
             let tx = second.unchecked_transaction().unwrap();
-            finish(&tx, other.id, &lease, &remote(cleared)).unwrap();
+            finish(
+                &tx,
+                other.id,
+                &lease,
+                &remote(cleared),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         assert_eq!(
@@ -1472,7 +1971,8 @@ mod tests {
                 &remote(Snapshot::empty(
                     info.dataset_id,
                     "1970-01-01T00:00:00Z".into()
-                ))
+                )),
+                &Cancellation::default()
             )
             .unwrap_err()
             .code(),
@@ -1493,7 +1993,14 @@ mod tests {
         let (_, lease) = acquire(&conn, "installation:path").unwrap();
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(initial.clone())).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(initial.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         let alpha = initial
@@ -1552,7 +2059,14 @@ mod tests {
         .snapshot;
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(swapped.clone())).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(swapped.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         assert_eq!(
@@ -1586,7 +2100,14 @@ mod tests {
         .snapshot;
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(reused)).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(reused),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         assert_eq!(
@@ -1616,7 +2137,14 @@ mod tests {
             Some("2000-01-01T00:00:00Z".into());
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(accepted.clone())).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(accepted.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         let expired = super::super::merge::merge(&accepted, &[], Some("2026-07-07T00:00:00Z"))
@@ -1625,7 +2153,14 @@ mod tests {
         assert!(expired.articles.is_empty());
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(expired)).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(expired),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         assert_eq!(
@@ -1657,7 +2192,14 @@ mod tests {
         let (_, lease) = acquire(&conn, "installation:path").unwrap();
         {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(initial.clone())).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(initial.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         conn.execute("DELETE FROM folders WHERE id=?1", [old_id])
@@ -1681,7 +2223,14 @@ mod tests {
         .snapshot;
         for _ in 0..2 {
             let tx = conn.unchecked_transaction().unwrap();
-            finish(&tx, info.id, &lease, &remote(next.clone())).unwrap();
+            finish(
+                &tx,
+                info.id,
+                &lease,
+                &remote(next.clone()),
+                &Cancellation::default(),
+            )
+            .unwrap();
             tx.commit().unwrap();
             assert_eq!(
                 conn.query_row(
@@ -1736,7 +2285,14 @@ mod tests {
             .snapshot;
         let (_, lease) = acquire(&conn, "installation:path").unwrap();
         let tx = conn.unchecked_transaction().unwrap();
-        finish(&tx, info.id, &lease, &remote(accepted.clone())).unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(accepted.clone()),
+            &Cancellation::default(),
+        )
+        .unwrap();
         tx.commit().unwrap();
         assert_eq!(
             conn.query_row("SELECT COUNT(*) FROM articles", [], |r| r.get::<_, i64>(0))
@@ -1780,7 +2336,14 @@ mod tests {
             .unwrap()
             .active = false;
         let tx = conn.unchecked_transaction().unwrap();
-        finish(&tx, info.id, &lease, &remote(accepted)).unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(accepted),
+            &Cancellation::default(),
+        )
+        .unwrap();
         tx.commit().unwrap();
         assert_eq!(
             conn.query_row(

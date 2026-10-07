@@ -84,8 +84,13 @@ impl Cancellation {
         self.flag.store(true, Ordering::Relaxed);
         self.wake.notify_one();
     }
-    fn check(&self) -> Result<(), CoreError> {
-        if self.flag.load(Ordering::Relaxed) {
+    /// Cheap, non-blocking probe for code paths that cannot await (the import
+    /// transaction checks this between synchronous SQL steps).
+    pub fn is_cancelled(&self) -> bool {
+        self.flag.load(Ordering::Relaxed)
+    }
+    pub(super) fn check(&self) -> Result<(), CoreError> {
+        if self.is_cancelled() {
             Err(error("githubSyncCancelled"))
         } else {
             Ok(())
@@ -503,8 +508,11 @@ async fn run<S: LocalStore, T: SnapshotTransport>(
         };
         let lease_owned = lease.to_string();
         let confirmed_owned = confirmed.clone();
+        let cancel_owned = cancel.clone();
         store
-            .with(move |conn| storage::finish(conn, id, &lease_owned, &confirmed_owned))
+            .with(move |conn| {
+                storage::finish(conn, id, &lease_owned, &confirmed_owned, &cancel_owned)
+            })
             .await?;
         let device = info.device_id.clone();
         let new_ack = confirmed

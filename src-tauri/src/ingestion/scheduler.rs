@@ -140,7 +140,24 @@ pub async fn refresh_all(
     };
 
     let (feeds, newsletters, concurrency, dedup, rules) = {
-        let conn = state.db.lock().await;
+        // A scheduled (`Due`) tick must not wait on the writer: the sync import
+        // can hold it for a while, and blocking here would keep `refresh_lock`
+        // for the whole stall, silently disabling every later tick. Manual runs
+        // keep queueing — the user explicitly asked for those.
+        let conn = match scope {
+            RefreshScope::Due => match state.db.try_lock() {
+                Ok(conn) => conn,
+                Err(_) => {
+                    log::debug!("writer busy; skipping this scheduled refresh tick");
+                    if let Some(p) = &progress {
+                        let _ = p.send(RefreshProgress::Started { total: 0 });
+                        let _ = p.send(RefreshProgress::Finished { new_articles: 0 });
+                    }
+                    return Ok(0);
+                }
+            },
+            RefreshScope::All | RefreshScope::Feed(_) => state.db.lock().await,
+        };
         // The global default interval for feeds without a per-feed override.
         // Matches `refresh_interval_minutes`' parsing, in i64 for the DB query.
         let global_min = db::get_setting(&conn, "refresh_interval_min")

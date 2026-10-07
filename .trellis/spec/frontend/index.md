@@ -22,6 +22,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 | [Mobile Cross-Layer Contracts](./mobile-cross-layer-contracts.md) | Core, FRB, Flutter, and Android integration contracts | Active |
 | [Release Packaging Contracts](./release-packaging-contracts.md) | Manual CI packaging, persistent Android signing and guarded publication | Active |
+| [Desktop State Write Contracts](../../../docs/agents/desktop-state-write-contracts.md) | Article write ordering, query races, and atomic sync cancellation | Active |
 
 ---
 
