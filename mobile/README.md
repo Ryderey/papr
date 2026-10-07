@@ -1,17 +1,10 @@
-# papr_mobile
+# Papr for Android
 
-A new Flutter project.
+The Flutter Android client shares its data and synchronization logic with `papr-core` through `papr-flutter-bridge`.
 
-## Getting Started
+For features, synchronization scope, development setup, and checks, see:
 
-This project is a starting point for a Flutter application.
+- [English documentation](../README.md)
+- [简体中文文档](../README.zh-CN.md)
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Android build instructions are maintained in the root documentation to keep toolchain requirements consistent.
