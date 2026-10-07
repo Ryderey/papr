@@ -98,7 +98,7 @@ Use this contract when a mobile subscription or reading feature crosses SQLite, 
 
 ## 2. Signatures
 
-The bridge surface is defined in `crates/papr-flutter-bridge/src/api.rs`. P1 subscription APIs are:
+The bridge surface is defined in `crates/papr-flutter-bridge/src/api.rs`. The subscription APIs are:
 
 ```rust
 add_feed(core, AddFeedInput { input }) -> Result<Feed, PaprBridgeError>
@@ -118,7 +118,7 @@ search_directory(query, lang) -> Vec<DiscoveryResult>
 parse_deep_link(url) -> Option<String>
 ```
 
-P2 reading APIs are:
+The reading APIs are:
 
 ```rust
 list_articles(core, ArticleFilter) -> Result<Vec<ArticleSummary>, PaprBridgeError>
@@ -131,7 +131,7 @@ extract_article_fulltext(core, id) -> Result<ArticleDetail, PaprBridgeError>
 set_reading_settings(core, ReadingSettings) -> Result<(), PaprBridgeError>
 ```
 
-P3 organization APIs are:
+The organization APIs are:
 
 ```rust
 list_article_tags(core) -> Result<Vec<TagSummary>, PaprBridgeError>
@@ -805,7 +805,7 @@ Db::new(path) -> Result<Db, CoreError>
 
 ### 3. Contracts
 
-- Historical P7 internal Release APKs used Android Debug signing without
+- Historical internal Release APKs used Android Debug signing without
   `key.properties`. Current local internal builds retain that fallback when
   no signing material is supplied. Manual Package Release CI requires the
   persistent key; store distribution remains outside scope.
@@ -814,7 +814,7 @@ Db::new(path) -> Result<Db, CoreError>
   one-time reset applies only to the older validation schema lacking FTS5.
 - Internal test APK upgrade requires matching signing certificates and a higher
   RC version code. Formal Alpha APK upgrade and physical-device testing are
-  outside P7; neither is inferred from the Core migration test.
+  outside that internal-RC scope; neither is inferred from the Core migration test.
 
 ### 4. Validation & Error Matrix
 

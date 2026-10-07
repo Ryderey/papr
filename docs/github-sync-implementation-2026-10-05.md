@@ -2,15 +2,9 @@
 
 This records the implementation following the approved [protocol design](github-personal-sync-design-2026-10-05.md). Desktop and Android share the protocol, merge engine, database capture/import helpers, and GitHub transport in `crates/papr-core/src/sync/github/`. Platform adapters provide existing database access, secure credentials, scheduling, and UI.
 
-## Repository and branch state
+## Repository configuration
 
-- Sync repository: a dedicated private repository (for example `<owner>/papr-sync`), default branch `main`.
-- Immutable GitHub repository ID recorded and verified through a read-only GitHub CLI request on 2026-10-05.
-- Integration commit: `71176d7`; local `optimize-bugfix` was advanced to it by fast-forward.
-- Feature branch: `codex/github-personal-sync`, based on that integrated commit.
-- Original mobile checkout and its uncommitted Android signing/release files remain untouched. No branch was pushed and no sync content was uploaded.
-
-The app accepts repository coordinates in settings; this user's account is not hardcoded into the product. The GitHub CLI login was used only for repository metadata, not as the app's credential source.
+Sync runs against a dedicated private repository (for example `<owner>/papr-sync`), default branch `main`. The app accepts repository coordinates in settings; this user's account is not hardcoded into the product. The GitHub CLI login was used only for repository metadata, not as the app's credential source.
 
 ## Set up both clients
 
@@ -47,30 +41,6 @@ The wire manifest now includes `file_hashes`, a sorted inventory of every non-ma
 - Status exposes pending/rejected counts, metadata-only count, last success/error, retry deadline, busy state, and uncertain publication. Rejections are cumulative per connection. Detailed per-field conflict inspection and dismissing individual rejections are not implemented; the reducer computes overwrite diagnostics, while the current UI exposes rejection counts.
 - Repository history grows normally; the client never rewrites it. Automatic Git-history size alarms and an automated migration to a replacement repository are not implemented. Repository switching is explicit disconnect/preview/connect.
 
-## Acceptance evidence
-
-Tests use temporary databases and fake transports or loopback HTTP fixtures. They do not use the user's reading database, real token, or remote repository writes.
-
-| Design scenario | Evidence |
-| --- | --- |
-| A01–A02: different local IDs, remote-only metadata | `two_databases_import_stable_ids_and_metadata_then_local_cleanup_stays_local` verifies folder association, a different feed/folder ID, title FTS, metadata-only body, and independent saved flags. |
-| A03–A05: independent fields, false, ordering | `independent_fields_merge_and_explicit_false_survives_retry`; operation versions contain device/sequence, not device timestamps. The two-database test also propagates explicit false. |
-| A06: competing publication | `rejected_ref_rebases_only_when_head_changed`, `publication_preserves_tree_parent_and_never_forces_ref`, and bounded service retries. Independent-field convergence is exercised separately in the reducer; an actual simultaneous two-client GitHub race remains part of manual network validation. |
-| A07: lost successful response | `lost_ref_response_recovers_watermark_without_replaying_after_other_device_edit`. |
-| A08–A09: transaction rollback and in-flight writes | `capture_rolls_back_and_never_contains_bodies_or_configuration`, `import_ack_and_inflight_edit_commit_together_without_echo`, changed-dataset rollback, and the invalid-seed reducer rollback test. |
-| A10: same-row hydration/extraction | `metadata_hydration_preserves_flags_and_never_emits_a_new_article_intent`; desktop archive/extraction regression. Core/desktop return false before rules and new-article counting. |
-| A11–A14: folder/source lifecycle | Folder deletion/stale move, source tombstone/generation, initial inactive source, same-name alias/collision, folder swap/name-reuse, and Core business re-subscription tests. |
-| A15–A17: retention and initial union | `retention_keeps_old_saved_items_and_releases_unprotected_items`, `cloud_retention_removes_catalog_without_deleting_local_cached_body`, initial saved-state union and inactive-source tests. |
-| A18: failure/rate limit/cancel | Loopback HTTP rate-limit fixture, durable retry/backoff test, lost-response test, and `cancellation_interrupts_a_pending_network_future`. Expiring an actual PAT is not simulated against GitHub. |
-| A19: malformed/incomplete format | Required files, duplicate JSON keys, unknown schema fields, strict shard paths, file inventory corruption/missing-file tests, and truncated-tree transport fixture. |
-| A20–A21: identity/history/clone/restore | Repository ID fixture, rewritten-history service test, clone/lease/epoch guard test, stale response after reconnect, and secure checkpoint rollback test. |
-| A22: bulk/rules/OPML/cache | `core_business_writes_capture_rules_bulk_read_and_resubscription`, folder/bulk SQL capture, and local-cleanup suppression. OPML reuses the tested feed/folder writer path; no additional network-dependent OPML import fixture was run for GitHub mode. |
-| A23: exclusions | Outbox payload assertions exclude bodies/local private configuration; strict wire fields exclude token/unknown fields; transport errors omit credential and response content. Windows isolated secure-storage round trip succeeds and removes its test item. |
-| A24: no empty commits | `unchanged_head_has_no_commit_and_cooldown_keeps_edits_pending`, `a_new_maintenance_clock_without_changes_does_not_create_a_commit`. |
-| A25: real network and background | **Partially validated.** On 2026-10-05 the user reported that desktop and mobile validation passed. This records user-confirmed two-client validation, without inventing a per-scenario result or claiming an agent-run live test. Earlier isolated emulator foreground/headless Worker credential/Core smoke also passed. Production GitHub-connected background/Doze/reboot convergence has not been explicitly confirmed. |
-
-Final build/test counts and artifact paths are recorded in the active Trellis task's `implement.md`. Existing warnings include FRB `frb_expand` cfg warnings, Gradle deprecations, and the desktop bundle-size advisory.
-
 ## Manual acceptance checklist
 
 - Back up local reading data, then enter scoped device tokens in the two apps.
@@ -82,7 +52,7 @@ Final build/test counts and artifact paths are recorded in the active Trellis ta
 - Test Android after reboot, in the background, and under battery restrictions. Record actual delay and secure credential availability; an APK build alone proves none of these.
 - Keep GitHub history intact. A dedicated replacement repository/reconnection is the recovery path for an intentionally rebuilt dataset.
 
-## Changed-file groups and final verification
+## Changed-file groups
 
 | Files | Purpose |
 | --- | --- |
@@ -95,26 +65,3 @@ Final build/test counts and artifact paths are recorded in the active Trellis ta
 | mobile/lib/ui/{screens/github_sync_panel,screens/sync_settings_screen,navigation/github_sync_coordinator}.dart and app.dart | Android sync settings, lifecycle coordinator and data-cache refresh |
 | mobile/lib/l10n/*.arb, app_localizations*.dart, l10n.dart | English/Chinese/Japanese messages and generated localization |
 | crates/papr-core/Cargo.toml, src-tauri/Cargo.toml, Cargo.lock, Trellis task/spec, this document | Reuse existing transitive sha2/windows-sys as direct dependencies, record contracts/evidence |
-
-After static-review fixes, final Rust tests pass: desktop 265, Core 143 (39 shared GitHub tests plus the v18-to-v19 regression), Bridge 3. Frontend 89 tests/build and Windows debug executable build pass. Flutter analyze and 35 tests pass. The updated FRB credential-repair API is regenerated and reproducible; evidence is recorded in the task. All four Android Rust ABIs and the standard Debug APK build successfully. The isolated emulator smoke logs foreground/Worker pass markers and shows the GitHub form. These results do not replace A25 real account/device acceptance.
-
-Review artifacts are local, untracked build outputs: target/debug/papr.exe and mobile/build/github-sync/papr-sync-debug.apk. The latter is the standard com.papr.papr_mobile package at 0.1.0+1, preserved separately from the isolated test package and updated after the final adapter-only rebuild. Its Debug signing/version may not upgrade an existing installed app; preserve the original signing/version work and data instead of uninstalling to bypass an upgrade mismatch.
-
-## Static-review follow-up
-
-The eight findings and their corrections/regressions are recorded in the maintainer's local review-fix report, which is not published with the repository. The local schema is now v21; the repository protocol remains v1. Real account and physical-device acceptance remains open.
-
-
-Second review: six additional findings are fixed; see the second-pass section of the review-fix report. v20 preserves confirmed article age independently of cloud expiration. Canonical duplicate local copies remain intact while sharing one cloud entity and mirrored flags. Android mounted lists/readers follow synchronization without interrupting optimistic writes or treating a remote unread state as a new opening of the article. Rust final counts are 265/149/3; frontend 89 and Flutter 40/analyze pass. A25 still requires actual account/device evidence.
-
-## User validation and README setup — 2026-10-05
-
-The user confirmed that desktop and mobile validation passed. This supersedes the earlier lack of two-client user acceptance recorded in the development passes above. The user did not provide a detailed scenario log or explicitly confirm production background synchronization, Doze/reboot behavior, or actual token-expiry testing; those remain unconfirmed. No new live account/device tests were run by the agent for this documentation update.
-
-The root README now documents private repository initialization, fine-grained PAT creation with repository-scoped Contents read/write permission, all four connection fields, first synchronization on both devices, initial merge behavior, and credential renewal. PAT instructions were checked against GitHub's official documentation. This update changes documentation and task evidence only.
-
-## Delivered main branch and deferred checks — 2026-10-05
-
-Merge, push and cleanup were authorized after desktop/mobile validation. `optimize-bugfix` was fast-forwarded to `0b81c4d` and the GitHub remote was verified at that SHA. The implementation task is archived in the maintainer's local task records, which are not published with the repository; production GitHub-connected background/Doze/reboot and actual token-expiry acceptance are tracked the same way. Earlier pending statements above describe historical development passes, not the current foreground/manual delivery status.
-
-Before archiving the temporary integration checkout, retain its verified Windows program at target/github-sync/papr.exe and its standard APK at mobile/build/github-sync/papr-sync-debug.apk in the original checkout. The earlier worktree-specific installation paths then become historical. Both SHA256 values remain those recorded in the final build evidence. User signing/release changes and local data are preserved.

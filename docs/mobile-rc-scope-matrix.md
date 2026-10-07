@@ -1,6 +1,6 @@
 # Android RC scope matrix
 
-Status as of 2026-09-28. “Implemented” means a code path exists; it does not imply that the deferred acceptance checks the maintainer tracks locally have passed. The product boundary follows [the phased plan](flutter-android-phased-development-plan.md) and the archived P0–P6 tasks.
+Status as of 2026-09-28. “Implemented” means a code path exists; it does not imply that the deferred acceptance checks the maintainer tracks locally have passed. The product boundary follows the phases of [the phased plan](flutter-android-phased-development-plan.md).
 
 | Area | Implemented mobile path | Android replacement / RC boundary | Evidence |
 | --- | --- | --- | --- |
