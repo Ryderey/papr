@@ -27,7 +27,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get githubCloudInterval => '云端更新检查周期';
 
   @override
-  String get githubScheduleHint => '仅作用于本机，两次发布至少间隔 60 秒。';
+  String get githubScheduleHint => '仅本机生效；两次发布至少间隔 60 秒。';
 
   @override
   String get githubManualOnly => '已关闭自动同步，需要时点击立即同步。';
@@ -48,7 +48,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get githubScope =>
-      '同步订阅、文件夹、文章标题和链接，以及已读、星标和稍后读状态。普通文章保留 90 天，星标或稍后读长期保留。正文及应用配置留在本地。';
+      '同步订阅、文件夹、文章列表与阅读状态；正文和设置留在本地。星标、稍后读长期保留，其余保留 90 天。';
 
   @override
   String get githubLoading => '加载中…';
@@ -72,7 +72,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get githubUncertain => '上次发布结果尚不确定。请重试，客户端会先检查云端是否已接收。';
+  String get githubUncertain => '上次发布结果不确定；重试会先核对云端。';
 
   @override
   String githubRetryAt(String time) {
@@ -125,7 +125,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get githubPreviewHint => '首次同步合并订阅与保存状态；已有云端订阅设置优先。文章正文不会上传。';
+  String get githubPreviewHint => '首次同步合并订阅与保存状态；已有云端订阅设置优先。';
 
   @override
   String get githubConfirm => '确认连接';

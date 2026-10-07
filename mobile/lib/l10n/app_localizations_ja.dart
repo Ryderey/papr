@@ -48,7 +48,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get githubScope =>
-      '購読、フォルダー、記事のタイトルとリンク、既読・スター・後で読む状態を同期します。通常の記事は90日間、保存した記事は無期限に保持します。本文と設定は端末内に保持します。';
+      '購読・フォルダー・記事一覧と閲覧状態を同期します。本文と設定は端末内に保持します。スターと後で読むは無期限、その他は90日間保持します。';
 
   @override
   String get githubLoading => '読み込み中…';
@@ -125,8 +125,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get githubPreviewHint =>
-      '初回同期では購読と保存状態を統合します。既存のクラウドの購読設定が優先され、本文は送信されません。';
+  String get githubPreviewHint => '初回同期では購読と保存状態を統合します。既存のクラウドの購読設定が優先されます。';
 
   @override
   String get githubConfirm => '接続を確認';

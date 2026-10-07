@@ -29,7 +29,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubScheduleHint =>
-      'These settings apply only to this device. Publications remain at least 60 seconds apart.';
+      'Device-only settings. Publications stay at least 60 seconds apart.';
 
   @override
   String get githubManualOnly =>
@@ -52,7 +52,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubScope =>
-      'Sync subscriptions, folders, article titles and links, read, starred and read-later states. Ordinary articles: 90 days; saved articles: retained indefinitely. Bodies and app settings stay local.';
+      'Sync subscriptions, folders, article list, and reading states; bodies and settings stay local. Starred and Read Later items are kept indefinitely, the rest for 90 days.';
 
   @override
   String get githubLoading => 'Loading…';
@@ -77,7 +77,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubUncertain =>
-      'The last publication result is uncertain. Retry to check the cloud before sending again.';
+      'Last publication result is uncertain; retry checks the cloud first.';
 
   @override
   String githubRetryAt(String time) {
@@ -132,7 +132,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get githubPreviewHint =>
-      'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative. No article bodies are uploaded.';
+      'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative.';
 
   @override
   String get githubConfirm => 'Confirm connection';

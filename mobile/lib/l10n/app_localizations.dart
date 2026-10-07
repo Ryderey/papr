@@ -139,7 +139,7 @@ abstract class AppLocalizations {
   /// No description provided for @githubScheduleHint.
   ///
   /// In en, this message translates to:
-  /// **'These settings apply only to this device. Publications remain at least 60 seconds apart.'**
+  /// **'Device-only settings. Publications stay at least 60 seconds apart.'**
   String get githubScheduleHint;
 
   /// No description provided for @githubManualOnly.
@@ -175,7 +175,7 @@ abstract class AppLocalizations {
   /// No description provided for @githubScope.
   ///
   /// In en, this message translates to:
-  /// **'Sync subscriptions, folders, article titles and links, read, starred and read-later states. Ordinary articles: 90 days; saved articles: retained indefinitely. Bodies and app settings stay local.'**
+  /// **'Sync subscriptions, folders, article list, and reading states; bodies and settings stay local. Starred and Read Later items are kept indefinitely, the rest for 90 days.'**
   String get githubScope;
 
   /// No description provided for @githubLoading.
@@ -211,7 +211,7 @@ abstract class AppLocalizations {
   /// No description provided for @githubUncertain.
   ///
   /// In en, this message translates to:
-  /// **'The last publication result is uncertain. Retry to check the cloud before sending again.'**
+  /// **'Last publication result is uncertain; retry checks the cloud first.'**
   String get githubUncertain;
 
   /// No description provided for @githubRetryAt.
@@ -302,7 +302,7 @@ abstract class AppLocalizations {
   /// No description provided for @githubPreviewHint.
   ///
   /// In en, this message translates to:
-  /// **'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative. No article bodies are uploaded.'**
+  /// **'First sync merges subscriptions and saved states. Existing cloud subscriptions stay authoritative.'**
   String get githubPreviewHint;
 
   /// No description provided for @githubConfirm.
