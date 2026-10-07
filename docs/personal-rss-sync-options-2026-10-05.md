@@ -28,12 +28,12 @@ Miniflux 的 GReader `edit-tag` 当前支持 read/unread、starred；其他不�
 
 ## 2. 当前 Papr 的客户端缺口
 
-Papr 有两条实现，不能只改一个文件便声称桌面和 Android 一致：桌面使用 [src-tauri/src/sync.rs](D:/Work/sync_remote_projtcts/papr/src-tauri/src/sync.rs:320)，Flutter 方向使用 [papr-core GReader port](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/sync/greader.rs:190) 与 [SyncService](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/services/sync.rs:190)。
+Papr 有两条实现，不能只改一个文件便声称桌面和 Android 一致：桌面使用 [src-tauri/src/sync.rs](src-tauri/src/sync.rs:320)，Flutter 方向使用 [papr-core GReader port](crates/papr-core/src/sync/greader.rs:190) 与 [SyncService](crates/papr-core/src/services/sync.rs:190)。
 
-- **文章列表未导入**：桌面响应结构不读取文章 title/origin/published，仅在本地 URL 匹配成功时更新 read/starred；core 同样只产出状态变更，DB 匹配不到现有 URL 就跳过。两端 RSS 拉取时间/上游历史窗口不同，列表会不同；部署后端本身不能解决。[桌面 Item](D:/Work/sync_remote_projtcts/papr/src-tauri/src/sync.rs:194)、[桌面应用 pull](D:/Work/sync_remote_projtcts/papr/src-tauri/src/sync.rs:456)、[core Item](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/sync/greader.rs:468)、[core DB](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2248)
-- **稍后读仅本地**：数据库已有 `read_later`，core 同步批次只筛 read/starred，pull DB 也只允许这两字段；桌面 setter 只更新列。需要把稍后读写入可靠待发队列并接标签映射。[core setter](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:1673)、[core 出站筛选](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2095)、[桌面 setter](D:/Work/sync_remote_projtcts/papr/src-tauri/src/db.rs:1018)
-- **文件夹/订阅不是完整镜像**：桌面拉取按文件夹名匹配，仅给无分类源补分类；core 类似。改名、已归类源移动、删除可能漂移或被重新补回。core 明确确认 Folder 与 tombstone 操作但不发对应远端请求，pull 也跳过墓碑。[桌面归类](D:/Work/sync_remote_projtcts/papr/src-tauri/src/sync.rs:398)、[core push](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/sync/greader.rs:243)、[core pull 删除](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2202)
-- **历史覆盖有限**：桌面只拉最近 1000 条，没有跟进 continuation；core 分页最多 2 万条且为全量状态快照，不能当成永久增量游标。应独立拉取所有星标和稍后读，避免较旧保存条目漏同步。[桌面窗口](D:/Work/sync_remote_projtcts/papr/src-tauri/src/sync.rs:460)、[core 上限](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/sync/greader.rs:123)
+- **文章列表未导入**：桌面响应结构不读取文章 title/origin/published，仅在本地 URL 匹配成功时更新 read/starred；core 同样只产出状态变更，DB 匹配不到现有 URL 就跳过。两端 RSS 拉取时间/上游历史窗口不同，列表会不同；部署后端本身不能解决。[桌面 Item](src-tauri/src/sync.rs:194)、[桌面应用 pull](src-tauri/src/sync.rs:456)、[core Item](crates/papr-core/src/sync/greader.rs:468)、[core DB](crates/papr-core/src/db.rs:2248)
+- **稍后读仅本地**：数据库已有 `read_later`，core 同步批次只筛 read/starred，pull DB 也只允许这两字段；桌面 setter 只更新列。需要把稍后读写入可靠待发队列并接标签映射。[core setter](crates/papr-core/src/db.rs:1673)、[core 出站筛选](crates/papr-core/src/db.rs:2095)、[桌面 setter](src-tauri/src/db.rs:1018)
+- **文件夹/订阅不是完整镜像**：桌面拉取按文件夹名匹配，仅给无分类源补分类；core 类似。改名、已归类源移动、删除可能漂移或被重新补回。core 明确确认 Folder 与 tombstone 操作但不发对应远端请求，pull 也跳过墓碑。[桌面归类](src-tauri/src/sync.rs:398)、[core push](crates/papr-core/src/sync/greader.rs:243)、[core pull 删除](crates/papr-core/src/db.rs:2202)
+- **历史覆盖有限**：桌面只拉最近 1000 条，没有跟进 continuation；core 分页最多 2 万条且为全量状态快照，不能当成永久增量游标。应独立拉取所有星标和稍后读，避免较旧保存条目漏同步。[桌面窗口](src-tauri/src/sync.rs:460)、[core 上限](crates/papr-core/src/sync/greader.rs:123)
 
 ## 3. 若采用 FreshRSS，建议的最小扩展范围
 
@@ -70,7 +70,7 @@ Contents API 更新文件必须提供被替换文件的 blob SHA，并有 409 �
 
 例如电脑给文章加星标，同时手机将它加入稍后读，合并后两个字段都应为真。不同字段可独立合并；同一字段的相反操作、删除与编辑冲突需要制定确定的规则，不能靠整份 JSON 最后覆盖，也不能简单对布尔值取 OR，否则取消星标无法传播。离线改动要持久化，远端应用要避免反复回传。
 
-NewsNook 的本地投影、已确认 shadow、待发送队列、初次同步选择、崩溃恢复和失败退避值得借鉴。服务端 per-user revision、账号体系和 PostgreSQL 不必照搬：GitHub 提供文件版本检测，但客户端需承担更多合并工作。NewsNook V1 不同步文章目录与阅读状态，不能直接满足这里的同步范围。[已有 NewsNook 调研](D:/Work/sync_remote_projtcts/papr/docs/newsnook-cloud-sync-research-2026-10-04.md:5)
+NewsNook 的本地投影、已确认 shadow、待发送队列、初次同步选择、崩溃恢复和失败退避值得借鉴。服务端 per-user revision、账号体系和 PostgreSQL 不必照搬：GitHub 提供文件版本检测，但客户端需承担更多合并工作。NewsNook V1 不同步文章目录与阅读状态，不能直接满足这里的同步范围。[已有 NewsNook 调研](docs/newsnook-cloud-sync-research-2026-10-04.md:5)
 
 ### 费用、限制与适用规模
 

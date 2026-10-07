@@ -36,7 +36,7 @@
 | 删除 feed 会级联删除 articles | GitHub 模式取消订阅要保留保存文章，不能直接复用级联删除 |
 | Android 已有凭据插件及后台引擎支持 | 复用插件；Windows 新增系统安全存储 |
 
-源码依据：[共享迁移](D:/Work/sync_remote_projtcts/papr/src-tauri/src/db.rs:39)、[桌面连接](D:/Work/sync_remote_projtcts/papr/src-tauri/src/state.rs:10)、[Core Db](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:673)、[现有协议](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/sync.rs:82)、[文章应用](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2248)、[出站筛选](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2095)、[Core 插入](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:2350)、[桌面插入](D:/Work/sync_remote_projtcts/papr/src-tauri/src/db.rs:663)、[源删除](D:/Work/sync_remote_projtcts/papr/crates/papr-core/src/db.rs:1057)、[Android 凭据插件](D:/Work/sync_remote_projtcts/papr/mobile/plugins/papr_credentials/android/src/main/kotlin/com/papr/papr_mobile/SyncCredentialPlugin.kt:7)。
+源码依据：[共享迁移](src-tauri/src/db.rs:39)、[桌面连接](src-tauri/src/state.rs:10)、[Core Db](crates/papr-core/src/db.rs:673)、[现有协议](crates/papr-core/src/sync.rs:82)、[文章应用](crates/papr-core/src/db.rs:2248)、[出站筛选](crates/papr-core/src/db.rs:2095)、[Core 插入](crates/papr-core/src/db.rs:2350)、[桌面插入](src-tauri/src/db.rs:663)、[源删除](crates/papr-core/src/db.rs:1057)、[Android 凭据插件](mobile/plugins/papr_credentials/android/src/main/kotlin/com/papr/papr_mobile/SyncCredentialPlugin.kt:7)。
 
 ## 3. 架构与模块 Interface
 
@@ -81,7 +81,7 @@ Windows 使用系统 Credential Manager；Android 复用现有 Android Keystore 
 
 首期不用 OAuth App/GitHub App，也不把客户端 secret 打入安装包。私有仓库提供访问控制，V1 不提供端到端加密；GitHub 及具有仓库权限者能读取同步数据。
 
-依据：[GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)、[GitHub Tree 权限](https://docs.github.com/en/rest/git/trees)、[Windows CredWrite](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew)、[Android 当前存储](D:/Work/sync_remote_projtcts/papr/mobile/plugins/papr_credentials/android/src/main/kotlin/com/papr/papr_mobile/AiCredentialStore.kt:17)。
+依据：[GitHub PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)、[GitHub Tree 权限](https://docs.github.com/en/rest/git/trees)、[Windows CredWrite](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew)、[Android 当前存储](mobile/plugins/papr_credentials/android/src/main/kotlin/com/papr/papr_mobile/AiCredentialStore.kt:17)。
 
 ## 5. 仓库布局与数据合同
 
@@ -555,4 +555,4 @@ SyncReport 至少包括 pull_catalog_added、state_updates、processed_operation
 - 接受 V1 只支持 Windows/Android 的安全凭据路径；其他桌面系统不能明文降级，需要另行适配。
 - 用真实目录样本验证固定 64 分片、50 MiB 软预算及首次导入耗时，再冻结具体性能上限。
 
-这些是评审合同和验证任务，不是本轮实施授权。前期调研参考：[个人同步方案](D:/Work/sync_remote_projtcts/papr/docs/personal-rss-sync-options-2026-10-05.md:1)、[NewsNook 可借鉴机制](D:/Work/sync_remote_projtcts/papr/docs/newsnook-cloud-sync-research-2026-10-04.md:19)。
+这些是评审合同和验证任务，不是本轮实施授权。前期调研参考：[个人同步方案](docs/personal-rss-sync-options-2026-10-05.md:1)、[NewsNook 可借鉴机制](docs/newsnook-cloud-sync-research-2026-10-04.md:19)。

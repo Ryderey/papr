@@ -821,7 +821,7 @@ After phase 1 is stable:
   - Installed CLI (`cargo install flutter_rust_bridge_codegen --version "^2.0"`)
   - Config file at `rust_frb_codegen.yaml`
   - Generated Dart bindings committed
-- [x] Added Android NDK linkers to `C:\Users\Ryder\.cargo\config.toml`.
+- [x] Added Android NDK linkers to `~/.cargo/config.toml`.
 - [x] Verified `cargo check -p papr-core -p papr-flutter-bridge` passes.
 - [x] Verified `cargo build -p papr-flutter-bridge --target aarch64-linux-android` produces `libpapr_flutter_bridge.so`.
 - [x] Verified `flutter analyze --no-pub` passes with no issues.
@@ -869,7 +869,7 @@ mobile/                                           (new/regenerated)
   lib/...                                         (custom app code)
   lib/bridge/generated/...                        (FRB + freezed generated)
 rust_frb_codegen.yaml                           (new)
-C:\Users\Ryder\.cargo\config.toml               (added Android NDK linkers)
+~/.cargo/config.toml               (added Android NDK linkers)
 ```
 
 ### Immediate Next Steps (When Work Resumes)

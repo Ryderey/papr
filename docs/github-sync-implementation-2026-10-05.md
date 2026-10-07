@@ -4,11 +4,10 @@ This records the implementation following the approved [protocol design](github-
 
 ## Repository and branch state
 
-- Sync repository: `Ryderey/papr-sync`, private, default branch `main`.
-- Immutable GitHub repository ID: `1405209831`, verified through a read-only GitHub CLI request on 2026-10-05.
+- Sync repository: a dedicated private repository (for example `<owner>/papr-sync`), default branch `main`.
+- Immutable GitHub repository ID recorded and verified through a read-only GitHub CLI request on 2026-10-05.
 - Integration commit: `71176d7`; local `optimize-bugfix` was advanced to it by fast-forward.
 - Feature branch: `codex/github-personal-sync`, based on that integrated commit.
-- Implementation checkout: `C:/Users/Ryder/.codex/worktrees/integrate-desktop-mobile/papr`.
 - Original mobile checkout and its uncommitted Android signing/release files remain untouched. No branch was pushed and no sync content was uploaded.
 
 The app accepts repository coordinates in settings; this user's account is not hardcoded into the product. The GitHub CLI login was used only for repository metadata, not as the app's credential source.
@@ -16,8 +15,8 @@ The app accepts repository coordinates in settings; this user's account is not h
 ## Set up both clients
 
 1. Export an OPML backup and keep a backup of each device's pre-upgrade database before opening the new client. The append-only schema migration upgrades to v20; an older binary must not open that upgraded database. A rollback uses the old database backup.
-2. Create a fine-grained personal access token, preferably one per device, with resource owner `Ryderey`, repository access limited to `papr-sync`, and repository **Contents: Read and write**. Metadata read access is included by GitHub. Choose an expiry you can maintain. No Actions, workflow, or administration permission is needed. See [GitHub token guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) and [Git reference permissions](https://docs.github.com/en/rest/git/refs?apiVersion=2026-03-10).
-3. In Papr's synchronization settings, disconnect any GReader backend, then enter owner `Ryderey`, repository `papr-sync`, branch `main`, and the token. The form takes the repository name, not its `.git` URL.
+2. Create a fine-grained personal access token, preferably one per device, with resource owner set to the repository owner, repository access limited to the sync repository, and repository **Contents: Read and write**. Metadata read access is included by GitHub. Choose an expiry you can maintain. No Actions, workflow, or administration permission is needed. See [GitHub token guidance](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) and [Git reference permissions](https://docs.github.com/en/rest/git/refs?apiVersion=2026-03-10).
+3. In Papr's synchronization settings, disconnect any GReader backend, then enter the owner, the repository name, branch `main`, and the token. The form takes the repository name, not its `.git` URL.
 4. Preview the local/remote counts and exclusions, then confirm connection. Preview and confirmation read GitHub; the first sync performs the initial publication. Saved states are initially combined, while an existing cloud unsubscribe is preserved.
 5. Run a manual sync on the first device, then preview/connect and sync on the second. Bodies remain local; a metadata article can be read, saved, or hydrated through a normal fetch/full-text extraction.
 
@@ -103,7 +102,7 @@ Review artifacts are local, untracked build outputs: target/debug/papr.exe and m
 
 ## Static-review follow-up
 
-The eight findings and their corrections/regressions are recorded in [the review-fix report](github-sync-review-fixes-2026-10-05.md). The local schema is now v21; the repository protocol remains v1. Real A25 account/device acceptance remains open.
+The eight findings and their corrections/regressions are recorded in the maintainer's local review-fix report, which is not published with the repository. The local schema is now v21; the repository protocol remains v1. Real account and physical-device acceptance remains open.
 
 
 Second review: six additional findings are fixed; see the second-pass section of the review-fix report. v20 preserves confirmed article age independently of cloud expiration. Canonical duplicate local copies remain intact while sharing one cloud entity and mirrored flags. Android mounted lists/readers follow synchronization without interrupting optimistic writes or treating a remote unread state as a new opening of the article. Rust final counts are 265/149/3; frontend 89 and Flutter 40/analyze pass. A25 still requires actual account/device evidence.
@@ -116,6 +115,6 @@ The root README now documents private repository initialization, fine-grained PA
 
 ## Delivered main branch and deferred checks — 2026-10-05
 
-The user authorized merge, normal push and cleanup after confirming desktop/mobile validation. optimize-bugfix was fast-forwarded to 0b81c4d and the GitHub remote was verified at that SHA. Final task/journal bookkeeping is pushed afterward. The implementation task is archived at .trellis/tasks/archive/2026-10/10-05-github-personal-sync; production GitHub-connected background/Doze/reboot and actual Token-expiry acceptance is carried by .trellis/tasks/09-28-mobile-deferred-acceptance. Earlier pending statements above describe historical development passes, not the current foreground/manual delivery status.
+Merge, push and cleanup were authorized after desktop/mobile validation. `optimize-bugfix` was fast-forwarded to `0b81c4d` and the GitHub remote was verified at that SHA. The implementation task is archived in the maintainer's local task records, which are not published with the repository; production GitHub-connected background/Doze/reboot and actual token-expiry acceptance are tracked the same way. Earlier pending statements above describe historical development passes, not the current foreground/manual delivery status.
 
 Before archiving the temporary integration checkout, retain its verified Windows program at target/github-sync/papr.exe and its standard APK at mobile/build/github-sync/papr-sync-debug.apk in the original checkout. The earlier worktree-specific installation paths then become historical. Both SHA256 values remain those recorded in the final build evidence. User signing/release changes and local data are preserved.

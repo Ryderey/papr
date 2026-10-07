@@ -2,11 +2,7 @@
 
 ## 0. Scope
 
-Project path:
-
-```text
-D:\Work\SSG\papr
-```
+Applies to this repository.
 
 This document is a specification for a future Codex implementation task.
 

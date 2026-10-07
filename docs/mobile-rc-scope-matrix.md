@@ -1,6 +1,6 @@
 # Android RC scope matrix
 
-Status as of 2026-09-28. “Implemented” means a code path exists; it does not imply the deferred acceptance checks passed. The product boundary follows [the phased plan](flutter-android-phased-development-plan.md) and the archived P0–P6 tasks.
+Status as of 2026-09-28. “Implemented” means a code path exists; it does not imply that the deferred acceptance checks the maintainer tracks locally have passed. The product boundary follows [the phased plan](flutter-android-phased-development-plan.md) and the archived P0–P6 tasks.
 
 | Area | Implemented mobile path | Android replacement / RC boundary | Evidence |
 | --- | --- | --- | --- |
@@ -13,12 +13,3 @@ Status as of 2026-09-28. “Implemented” means a code path exists; it does not
 | Settings | Language, theme, reading, refresh, notifications, preference reset and confirmed local-data clear | Android notification permission/channel; Android app-data clear | `mobile/lib/ui/screens/settings_screen.dart`, `mobile/lib/services/platform_service.dart` |
 
 The following desktop capabilities remain excluded from this RC: tray/window/taskbar behavior, startup and in-app updater, desktop shortcuts/command palette, hover/right-click/desktop drag, focus mode, scroll-to-mark-read, embedded YouTube iframe, Send to Kindle, global Ask/RAG, Digest, Newsletter/IMAP, experimental deduplication, custom RSSHub instance setup, and advanced proxy/concurrency/storage maintenance panels. Basic RSSHub URL support remains. This is the exclusion decision in [the phased plan](flutter-android-phased-development-plan.md#11-明确不做), not a claim that every desktop command has been ported.
-
-## Deferred acceptance
-
-The checks below are tracked in [Android deferred acceptance](../.trellis/tasks/09-28-mobile-deferred-acceptance/prd.md). They do not block the current self-use internal RC.
-
-- Localization keys are present in English, Chinese and Japanese; translated wording, TalkBack, font scaling, contrast, reduced motion, dark mode and touch targets still need review. The AI profile delete action now has a localized accessibility label and a narrow-screen Japanese Widget test.
-- API 37 `Medium_Phone` simulator runs cover a test-package upgrade, cold start, retained language/theme and settings appearance. Android 10, an intermediate API level and a tablet simulator still need runs; physical-device testing is outside the current self-use scope.
-- Cold start, large data, long article/audio and background recovery still need recorded results. Core v16 Alpha schema migration has an automated data-retention test; formal Alpha APK upgrade is outside scope.
-- The internal RC APK build, matching-certificate version 1→2 emulator installation and cold launch are recorded in the [RC procedure](mobile-rc-release.md). Temporary AI profile deletion removed its private credential preference entry. In-app data clear ended the process and relaunched with default language and no AI profiles. Direct database-file and Keystore-alias checks, sync credential deletion and the full simulated flow remain unverified.

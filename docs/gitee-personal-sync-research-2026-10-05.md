@@ -68,7 +68,7 @@ Gitee 官方首页明确列出“私有仓库免费”；在当前个人社区�
 
 在“仅个人、电脑与 Android 都用 Papr、只同步元数据和状态、优先国内网络、免服务器运维”这个范围内，Gitee 是可行候选，可以排在 GitHub 前面进行连接与并发验证。国内网络优势来自用户使用场景，本轮未在其电脑和 Android 网络做延迟/成功率测试，不承诺全国或所有运营商都更稳定。
 
-当前 Papr 没有 Gitee 同步提供方。需要新增提供方、文章元数据上传/导入、独立 read_later 双向传播、文件夹/订阅生命周期、冲突合并、持久化待发队列与失败恢复。桌面和 Android 的两条实现要保持一致。可复用与 NewsNook 类似的可靠性设计，不需要搬入其账号服务器与 PostgreSQL，也不需要启动现有腾讯云服务器。[完整客户端缺口](D:/Work/sync_remote_projtcts/papr/docs/personal-rss-sync-options-2026-10-05.md:25)
+当前 Papr 没有 Gitee 同步提供方。需要新增提供方、文章元数据上传/导入、独立 read_later 双向传播、文件夹/订阅生命周期、冲突合并、持久化待发队列与失败恢复。桌面和 Android 的两条实现要保持一致。可复用与 NewsNook 类似的可靠性设计，不需要搬入其账号服务器与 PostgreSQL，也不需要启动现有腾讯云服务器。[完整客户端缺口](docs/personal-rss-sync-options-2026-10-05.md:25)
 
 配置上建议专用私有仓库与专用同步凭据，保存到各端安全存储；实际可授权范围以 Gitee 当前设置和验证结果为准，不能照搬 GitHub fine-grained PAT 的单仓库 Contents 权限承诺。API 文档存在 access_token 查询/表单参数，实现应避免令牌落入 URL 日志或诊断输出，并在接入时核对支持的认证传递方式。
 
