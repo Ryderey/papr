@@ -9,6 +9,15 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get githubScheduleUnsaved => '修改尚未生效，点击保存后应用。';
+
+  @override
+  String get githubScheduleSaved => '同步设置已保存';
+
+  @override
+  String get githubScheduleSaveFailed => '同步设置未保存成功，请重试。';
+
+  @override
   String get githubAutomatic => '自动同步';
 
   @override

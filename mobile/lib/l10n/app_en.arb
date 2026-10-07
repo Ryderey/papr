@@ -1,4 +1,7 @@
 {
+  "githubScheduleUnsaved": "Changes take effect after you tap Save.",
+  "githubScheduleSaved": "Sync settings saved",
+  "githubScheduleSaveFailed": "Sync settings were not saved. Please retry.",
   "githubAutomatic": "Automatic sync",
   "githubUploadDelay": "Upload local changes after",
   "githubCloudInterval": "Check cloud updates every",

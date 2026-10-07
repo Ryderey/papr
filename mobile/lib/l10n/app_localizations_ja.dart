@@ -9,6 +9,15 @@ class AppLocalizationsJa extends AppLocalizations {
   AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
+  String get githubScheduleUnsaved => '変更は保存後に適用されます。';
+
+  @override
+  String get githubScheduleSaved => '同期設定を保存しました';
+
+  @override
+  String get githubScheduleSaveFailed => '同期設定を保存できませんでした。再試行してください。';
+
+  @override
   String get githubAutomatic => '自動同期';
 
   @override

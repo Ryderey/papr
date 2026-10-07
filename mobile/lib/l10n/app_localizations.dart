@@ -100,6 +100,24 @@ abstract class AppLocalizations {
     Locale('zh')
   ];
 
+  /// No description provided for @githubScheduleUnsaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes take effect after you tap Save.'**
+  String get githubScheduleUnsaved;
+
+  /// No description provided for @githubScheduleSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync settings saved'**
+  String get githubScheduleSaved;
+
+  /// No description provided for @githubScheduleSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync settings were not saved. Please retry.'**
+  String get githubScheduleSaveFailed;
+
   /// No description provided for @githubAutomatic.
   ///
   /// In en, this message translates to:

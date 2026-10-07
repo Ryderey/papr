@@ -1,4 +1,7 @@
 {
+  "githubScheduleUnsaved": "変更は保存後に適用されます。",
+  "githubScheduleSaved": "同期設定を保存しました",
+  "githubScheduleSaveFailed": "同期設定を保存できませんでした。再試行してください。",
   "githubAutomatic": "自動同期",
   "githubUploadDelay": "ローカル変更の送信待機時間",
   "githubCloudInterval": "クラウド更新の確認間隔",

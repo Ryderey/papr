@@ -5,6 +5,12 @@ import * as api from "../api";
 import { errorText } from "../lib/errors";
 import { useArticleActions } from "../hooks/articleActions";
 
+function sameSchedule(a: api.GitHubSchedule, b: api.GitHubSchedule) {
+  return a.enabled === b.enabled && a.upload_delay_secs === b.upload_delay_secs &&
+    a.cloud_interval_minutes === b.cloud_interval_minutes &&
+    a.background_interval_minutes === b.background_interval_minutes;
+}
+
 export default function GitHubSyncSection({ otherConnected, onToast }: { otherConnected: boolean; onToast: (message: string) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -18,6 +24,9 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
   const [preview, setPreview] = useState<api.GitHubPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<api.GitHubSchedule | null>(null);
+  const editedSchedule = scheduleDraft ?? schedule.data;
+  const scheduleChanged = !!schedule.data && !!editedSchedule && !sameSchedule(editedSchedule, schedule.data);
   const connected = status.data?.profile;
   const run = async (operation: () => Promise<void>) => {
     setBusy(true); setError(null);
@@ -26,8 +35,15 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
   };
   const sync = () => run(async () => { const report = await api.githubSyncNow(); if (!report.unchanged) { actions.refreshAfterBulk(); await queryClient.invalidateQueries({ queryKey: ["folders"] }); await queryClient.invalidateQueries({ queryKey: ["feeds"] }); } onToast(t("githubSync.completed")); });
   const updateSchedule = (next: api.GitHubSchedule) => run(async () => {
+    await queryClient.cancelQueries({ queryKey: ["github-sync-schedule"] });
     await api.githubSetSchedule(next);
-    await queryClient.invalidateQueries({ queryKey: ["github-sync-schedule"] });
+    const saved = await api.githubSchedule();
+    // Reopening settings during the write may have started another old read.
+    await queryClient.cancelQueries({ queryKey: ["github-sync-schedule"] });
+    queryClient.setQueryData(["github-sync-schedule"], saved);
+    if (!sameSchedule(saved, next)) throw new Error(t("githubSync.scheduleSaveFailed"));
+    setScheduleDraft(null);
+    onToast(t("githubSync.scheduleSaved"));
   });
   return <div className="settings-group">
     <h3 className="settings-group-title">GitHub</h3>
@@ -38,15 +54,16 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
     {connected ? <>
       <p>{connected.owner}/{connected.repo} · {connected.branch}</p>
       {schedule.error && <p role="alert">{errorText(schedule.error)}</p>}
-      {schedule.data && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-        <label><input type="checkbox" checked={schedule.data.enabled} disabled={busy} onChange={(e) => void updateSchedule({ ...schedule.data!, enabled: e.target.checked })} /> {t("githubSync.automatic")}</label>
-        <label>{t("githubSync.uploadDelay")} <select className="modal-input" aria-label={t("githubSync.uploadDelay")} disabled={busy || !schedule.data.enabled} value={schedule.data.upload_delay_secs} onChange={(e) => void updateSchedule({ ...schedule.data!, upload_delay_secs: Number(e.target.value) })}>
+      {editedSchedule && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <label><input type="checkbox" checked={editedSchedule.enabled} disabled={busy} onChange={(e) => setScheduleDraft({ ...editedSchedule, enabled: e.target.checked })} /> {t("githubSync.automatic")}</label>
+        <label>{t("githubSync.uploadDelay")} <select className="modal-input" aria-label={t("githubSync.uploadDelay")} disabled={busy || !editedSchedule.enabled} value={editedSchedule.upload_delay_secs} onChange={(e) => setScheduleDraft({ ...editedSchedule, upload_delay_secs: Number(e.target.value) })}>
           {[10, 30, 60, 120].map((n) => <option key={n} value={n}>{t("githubSync.seconds", { count: n })}</option>)}
         </select></label>
-        <label>{t("githubSync.cloudInterval")} <select className="modal-input" aria-label={t("githubSync.cloudInterval")} disabled={busy || !schedule.data.enabled} value={schedule.data.cloud_interval_minutes} onChange={(e) => void updateSchedule({ ...schedule.data!, cloud_interval_minutes: Number(e.target.value) })}>
+        <label>{t("githubSync.cloudInterval")} <select className="modal-input" aria-label={t("githubSync.cloudInterval")} disabled={busy || !editedSchedule.enabled} value={editedSchedule.cloud_interval_minutes} onChange={(e) => setScheduleDraft({ ...editedSchedule, cloud_interval_minutes: Number(e.target.value) })}>
           {[5, 10, 15, 30, 60].map((n) => <option key={n} value={n}>{t("githubSync.minutes", { count: n })}</option>)}
         </select></label>
-        <p className="modal-hint">{t(schedule.data.enabled ? "githubSync.scheduleHint" : "githubSync.manualOnly")}</p>
+        <p className="modal-hint">{t(scheduleChanged ? "githubSync.scheduleUnsaved" : schedule.data?.enabled ? "githubSync.scheduleHint" : "githubSync.manualOnly")}</p>
+        <div><button className="s-btn primary" disabled={busy || !scheduleChanged} onClick={() => void updateSchedule(editedSchedule)}>{t("common.save")}</button></div>
       </div>}
       <p>{t("githubSync.pending", { count: status.data?.pending ?? 0 })}</p>
       <p>{t("githubSync.lastSuccess", { time: status.data?.last_success_at || t("githubSync.never") })}</p>
@@ -56,7 +73,7 @@ export default function GitHubSyncSection({ otherConnected, onToast }: { otherCo
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button className="s-btn primary" disabled={busy || status.data?.busy} onClick={sync}>{t("settings.sync.syncNow")}</button>
         {(busy || status.data?.busy) && <button className="s-btn" onClick={() => void api.githubCancelSync().catch((e) => setError(errorText(e)))}>{t("githubSync.cancel")}</button>}
-        <button className="s-btn" disabled={busy || status.data?.busy} onClick={() => void run(async () => { await api.githubDisconnect(); setToken(""); onToast(t("settings.sync.disconnected")); })}>{t("settings.sync.disconnect")}</button>
+        <button className="s-btn" disabled={busy || status.data?.busy} onClick={() => void run(async () => { await api.githubDisconnect(); setToken(""); setScheduleDraft(null); onToast(t("settings.sync.disconnected")); })}>{t("settings.sync.disconnect")}</button>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <input className="modal-input" type="password" autoComplete="off" aria-label={t("githubSync.token")} placeholder={t("githubSync.token")} value={token} onChange={(e) => setToken(e.target.value)} disabled={busy} />

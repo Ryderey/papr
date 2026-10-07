@@ -1,4 +1,7 @@
 {
+  "githubScheduleUnsaved": "修改尚未生效，点击保存后应用。",
+  "githubScheduleSaved": "同步设置已保存",
+  "githubScheduleSaveFailed": "同步设置未保存成功，请重试。",
   "githubAutomatic": "自动同步",
   "githubUploadDelay": "本地改动上传延迟",
   "githubCloudInterval": "云端更新检查周期",

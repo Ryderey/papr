@@ -9,6 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get githubScheduleUnsaved => 'Changes take effect after you tap Save.';
+
+  @override
+  String get githubScheduleSaved => 'Sync settings saved';
+
+  @override
+  String get githubScheduleSaveFailed =>
+      'Sync settings were not saved. Please retry.';
+
+  @override
   String get githubAutomatic => 'Automatic sync';
 
   @override
