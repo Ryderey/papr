@@ -1,6 +1,6 @@
 /* ===== RSS Reader — Editorial Quiet ===== */
 
-:root {
+:root, [data-theme="light"] {
   /* Drives the native UI (scrollbars, form controls, text selection) — macOS
      draws the overlay scrollbar itself and only this picks its light/dark
      variant. [data-theme="dark"] flips it below. */
@@ -1528,6 +1528,185 @@ body.ai-resizing .reader-scroll { transition: none; }
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Appearance presets — miniature reading layouts share the actual theme tokens. */
+.appearance-presets-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.appearance-presets-heading h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+.appearance-current { font-size: 11.5px; color: var(--accent-ink); }
+.appearance-presets-intro {
+  margin: 8px 0 18px;
+  max-width: 48ch;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.appearance-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.appearance-preset {
+  min-width: 0;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--hair-strong);
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.appearance-preset:hover { border-color: var(--muted); }
+.appearance-preset.on {
+  border-color: var(--accent-ink);
+  box-shadow: 0 0 0 1px var(--accent-ink);
+}
+.appearance-preset:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 4px;
+}
+.appearance-preview {
+  position: relative;
+  display: grid;
+  grid-template-columns: 19% 27% minmax(0, 1fr);
+  height: 116px;
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  overflow: hidden;
+  color: var(--ink);
+}
+.appearance-preview-sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--hair-strong);
+  padding: 10px 6px;
+}
+.appearance-preview-brand {
+  display: block;
+  margin-bottom: 14px;
+  font-family: var(--serif);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+}
+.appearance-preview-nav {
+  display: block;
+  width: 90%;
+  height: 4px;
+  margin: 9px 0;
+  background: var(--hair-strong);
+  border-radius: 2px;
+}
+.appearance-preview-nav.active { background: var(--accent); }
+.appearance-preview-nav.short { width: 60%; }
+.appearance-preview-list {
+  padding-top: 11px;
+  background: var(--panel-2);
+  border-right: 1px solid var(--hair-strong);
+}
+.appearance-preview-list-heading {
+  display: block;
+  height: 4px;
+  width: 55%;
+  margin: 0 7px 9px;
+  background: var(--ink-2);
+  border-radius: 2px;
+}
+.appearance-preview-item {
+  display: block;
+  padding: 7px;
+  border-bottom: 1px solid var(--hair);
+}
+.appearance-preview-item.active {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 var(--accent);
+}
+.appearance-preview-item i {
+  display: block;
+  height: 3px;
+  margin: 3px 0;
+  border-radius: 1px;
+  background: var(--hair-strong);
+}
+.appearance-preview-item i:first-child { width: 88%; background: var(--muted); }
+.appearance-preview-item i:last-child { width: 60%; }
+.appearance-preview[data-density="compact"] .appearance-preview-item { padding-block: 5px; }
+.appearance-preview[data-density="spacious"] .appearance-preview-item { padding-block: 9px; }
+.appearance-preview[data-view-mode="card"] .appearance-preview-item {
+  margin: 5px;
+  padding: 6px;
+  border: 1px solid var(--hair);
+  border-radius: 3px;
+}
+.appearance-preview[data-theme="dark"] .appearance-preview-item.active { background: var(--selected); }
+.appearance-preview-reader { padding: 12px 10px; background: var(--reader); }
+.appearance-preview-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--accent-ink);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: .025em;
+}
+.appearance-preview-title {
+  display: block;
+  font-family: var(--preview-font);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+.appearance-preview-rule { display: block; width: 18px; height: 1px; background: var(--accent); margin: 8px 0; }
+.appearance-preview-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-family: var(--preview-font);
+  font-size: var(--preview-size);
+  line-height: var(--preview-leading);
+}
+.appearance-preview-mode {
+  position: absolute;
+  right: 7px;
+  bottom: 5px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.appearance-preset-caption { display: block; padding: 10px 7px 8px; }
+.appearance-preset-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.appearance-preset-title svg { color: var(--accent-ink); }
+.appearance-preset-desc { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+@media (max-width: 1000px) {
+  .appearance-preset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .appearance-preset-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Toggle */

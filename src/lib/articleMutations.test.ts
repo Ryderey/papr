@@ -38,6 +38,31 @@ beforeEach(() => {
 afterEach(() => mocks.client?.clear());
 
 describe("article state writes", () => {
+  it.each([
+    { view: "unread", field: "isRead", value: true, action: "setRead", api: "markRead" },
+    { view: "starred", field: "isStarred", value: false, action: "setStarred", api: "markStarred" },
+    { view: "readLater", field: "readLater", value: false, action: "setReadLater", api: "markReadLater" },
+  ] as const)("updates $view safely with read-only cached rows", async ({ view, field, value, action, api }) => {
+    const client = mocks.client!;
+    const original = Object.freeze({ ...article(), isStarred: true, readLater: true });
+    const pages = Object.freeze([Object.freeze([original])]);
+    const key = ["articles", { kind: view }, false, false];
+    client.setQueryData(key, Object.freeze({ pages, pageParams: [0] }));
+    client.setQueryData(["article", 1], original);
+    const onError = vi.fn();
+    mocks[api].mockResolvedValueOnce(undefined);
+
+    await useArticleActions(onError)[action](1, value);
+
+    expect(mocks[api]).toHaveBeenCalledWith(1, value);
+    expect(onError).not.toHaveBeenCalled();
+    const updated = client.getQueryData<{ pages: ArticleSummary[][] }>(key)!;
+    expect(updated.pages[0][0][field]).toBe(value);
+    expect(client.getQueryData<ArticleSummary>(["article", 1])?.[field]).toBe(value);
+    expect(original).toMatchObject({ isRead: false, isStarred: true, readLater: true });
+    expect(pages[0]).toEqual([original]);
+  });
+
   it("keeps a successful read change after an older detail query returns", async () => {
     const client = mocks.client!;
     const query = deferred<ArticleSummary>();

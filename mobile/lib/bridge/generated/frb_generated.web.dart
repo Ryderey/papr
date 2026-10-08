@@ -140,6 +140,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SyncProfile dco_decode_box_autoadd_sync_profile(dynamic raw);
 
   @protected
+  VisualSettings dco_decode_box_autoadd_visual_settings(dynamic raw);
+
+  @protected
   DiscoveryResult dco_decode_discovery_result(dynamic raw);
 
   @protected
@@ -329,6 +332,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  VisualSettings dco_decode_visual_settings(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
@@ -450,6 +456,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncProfile sse_decode_box_autoadd_sync_profile(SseDeserializer deserializer);
+
+  @protected
+  VisualSettings sse_decode_box_autoadd_visual_settings(
+      SseDeserializer deserializer);
 
   @protected
   DiscoveryResult sse_decode_discovery_result(SseDeserializer deserializer);
@@ -649,6 +659,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
+  VisualSettings sse_decode_visual_settings(SseDeserializer deserializer);
+
+  @protected
   void sse_encode_AnyhowException(
       AnyhowException self, SseSerializer serializer);
 
@@ -778,6 +791,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_sync_profile(
       SyncProfile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_visual_settings(
+      VisualSettings self, SseSerializer serializer);
 
   @protected
   void sse_encode_discovery_result(
@@ -996,6 +1013,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_visual_settings(
+      VisualSettings self, SseSerializer serializer);
 }
 
 // Section: wire_class

@@ -330,6 +330,27 @@ pub struct SettingsSnapshot {
     pub notifications_enabled: bool,
     pub notification_quiet_hours: bool,
     pub reading: ReadingSettings,
+    pub visual: VisualSettings,
+}
+
+/// Local visual preferences; not included in cloud synchronization.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VisualSettings {
+    pub accent: String,
+    pub dark_shade: String,
+    pub density: String,
+    pub view_mode: String,
+}
+
+impl Default for VisualSettings {
+    fn default() -> Self {
+        Self {
+            accent: "clay".to_string(),
+            dark_shade: "default".to_string(),
+            density: "cozy".to_string(),
+            view_mode: "card".to_string(),
+        }
+    }
 }
 
 /// Reader appearance and behaviour persisted by the Core settings service.
@@ -365,6 +386,7 @@ impl Default for SettingsSnapshot {
             notifications_enabled: false,
             notification_quiet_hours: false,
             reading: ReadingSettings::default(),
+            visual: VisualSettings::default(),
         }
     }
 }

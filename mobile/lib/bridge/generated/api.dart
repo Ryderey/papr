@@ -11,7 +11,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `cancel`, `emit_ai_stream_error`, `finish`, `github_binding`, `invalid_ai_request`, `new`, `register`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AiRequestLease`, `AiRequestRegistry`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 /// Initialise `PaprCore` with platform-provided configuration.
 Future<PaprCoreBridge> initPaprCore({required PaprCoreConfig config}) =>
@@ -261,6 +261,15 @@ Future<String> exportOpml({required PaprCoreBridge core}) =>
 /// Read a snapshot of user settings.
 Future<SettingsSnapshot> getSettings({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGetSettings(core: core);
+
+/// Persist all visual and reader preferences atomically.
+Future<void> setAppearanceSettings(
+        {required PaprCoreBridge core,
+        required String theme,
+        required VisualSettings visual,
+        required ReadingSettings reading}) =>
+    RustLib.instance.api.crateApiSetAppearanceSettings(
+        core: core, theme: theme, visual: visual, reading: reading);
 
 /// Persist the application theme (`system`, `light`, or `dark`).
 Future<void> setTheme({required PaprCoreBridge core, required String theme}) =>

@@ -1081,4 +1081,115 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get errorSyncCredentialStore => '保存済みパスワードに安全にアクセスできません。';
+
+  @override
+  String get appearancePresetsTitle => '読書を、自分らしく';
+
+  @override
+  String get appearancePresetsDescription =>
+      'テーマ、アクセント、一覧レイアウト、本文の書体をまとめて設定します。適用後も下の項目や「読書」で調整できます。';
+
+  @override
+  String get appearanceCustom => 'カスタムの外観';
+
+  @override
+  String get appearancePreviewTitle => 'ひと息ついて、読む。';
+
+  @override
+  String get appearancePreviewBody => 'よい物語を、じっくりと。落ち着いた空間で、次のページを開きましょう。';
+
+  @override
+  String get appearanceAccent => 'アクセントカラー';
+
+  @override
+  String get appearanceDarkShade => 'ダーク背景';
+
+  @override
+  String get appearanceDensity => '密度';
+
+  @override
+  String get appearanceListStyle => '記事リストのスタイル';
+
+  @override
+  String get viewModeList => 'リスト';
+
+  @override
+  String get viewModeCard => 'カード';
+
+  @override
+  String get darkShadeDefault => '標準';
+
+  @override
+  String get darkShadeDimmer => 'より暗く';
+
+  @override
+  String get darkShadeBlack => 'ブラック';
+
+  @override
+  String get accentClay => 'クレイ';
+
+  @override
+  String get accentPine => 'パイン';
+
+  @override
+  String get accentIndigo => 'インディゴ';
+
+  @override
+  String get accentInk => 'インク';
+
+  @override
+  String get densityCompact => 'コンパクト';
+
+  @override
+  String get densityCozy => '標準';
+
+  @override
+  String get densitySpacious => 'ゆったり';
+
+  @override
+  String get appearanceTitle => '外観';
+
+  @override
+  String get appearanceAdjustments => '細かな調整';
+
+  @override
+  String appearanceCurrent(String name) {
+    return '現在：$name';
+  }
+
+  @override
+  String get presetPaperName => '紙面';
+
+  @override
+  String get presetPaperDescription => '温かな紙色、テラコッタとクラシックなセリフ体。';
+
+  @override
+  String get presetPineName => '松林';
+
+  @override
+  String get presetPineDescription => '松の緑、ゆったりしたカードと大きめの文字。';
+
+  @override
+  String get presetInkName => '墨色';
+
+  @override
+  String get presetInkDescription => 'モノクロ、コンパクトな一覧と明快なサンセリフ体。';
+
+  @override
+  String get presetDuskName => '夕暮れ';
+
+  @override
+  String get presetDuskDescription => '温かなチャコールと柔らかなセリフ体で夜の読書を。';
+
+  @override
+  String get presetMidnightName => '真夜中';
+
+  @override
+  String get presetMidnightDescription => '深い背景、インディゴとすっきりしたカード表示。';
+
+  @override
+  String get presetFocusName => '集中';
+
+  @override
+  String get presetFocusDescription => '最も暗い背景、松の緑とコンパクトな一覧。';
 }

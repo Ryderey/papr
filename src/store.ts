@@ -6,6 +6,7 @@ import { create } from "zustand";
 import i18n from "./i18n";
 import * as api from "./api";
 import { AI_DRAWER_BOUNDS } from "./lib/aiDrawerLayout";
+import { APPEARANCE_PRESETS, type AppearancePresetId } from "./lib/appearance";
 import type { ArticleQuery } from "./types";
 
 export type Theme = "light" | "dark";
@@ -123,6 +124,7 @@ interface UiState {
   toggleSort: () => void;
 
   setTheme: (t: Theme) => void;
+  applyAppearancePreset: (id: AppearancePresetId) => void;
   setDarkShade: (s: DarkShade) => void;
   setAccent: (a: Accent) => void;
   setDensity: (d: Density) => void;
@@ -243,6 +245,14 @@ export const useUi = create<UiState>((set) => ({
   toggleSort: () => set((s) => ({ sortOldest: !s.sortOldest })),
 
   setTheme: (theme) => { ls.set("theme", theme); mirrorTheme(theme); set({ theme }); },
+  applyAppearancePreset: (id) => {
+    const preset = APPEARANCE_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    for (const [key, value] of Object.entries(preset.settings)) ls.set(key, value);
+    mirrorTheme(preset.settings.theme);
+    mirrorDarkShade(preset.settings.darkShade);
+    set(preset.settings);
+  },
   setDarkShade: (darkShade) => { ls.set("darkShade", darkShade); mirrorDarkShade(darkShade); set({ darkShade }); },
   setAccent: (accent) => { ls.set("accent", accent); set({ accent }); },
   setDensity: (density) => { ls.set("density", density); set({ density }); },

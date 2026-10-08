@@ -10,6 +10,46 @@ import 'package:papr_mobile/ui/screens/article_list_screen.dart';
 
 void main() {
   testWidgets(
+      'opening an unread article removes its row without an error toast',
+      (tester) async {
+    final data = _Data()..read = false;
+    await _mount(tester, data,
+        reader: false,
+        filter: articleFilter(kind: const bridge.ArticleFilterKind.unread()));
+    await tester.tap(find.text('Original title'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ArticleDetailScreen), findsOneWidget);
+    expect(find.text('Empty', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('fixed-length'), findsNothing);
+    expect(data.readWrites, 1);
+    expect(tester.takeException(), isNull);
+  });
+  for (final scenario in [
+    (const bridge.ArticleFilterKind.unread(), 'Mark read'),
+    (const bridge.ArticleFilterKind.starred(), 'Unstar'),
+    (const bridge.ArticleFilterKind.readLater(), 'Remove from read later'),
+  ]) {
+    testWidgets(
+        'removes a filtered row after ${scenario.$2} without a list mutation error',
+        (tester) async {
+      final data = _Data()
+        ..read = false
+        ..starred = true
+        ..later = true;
+      await _mount(tester, data,
+          reader: false, filter: articleFilter(kind: scenario.$1));
+      expect(find.text('Original title'), findsOneWidget);
+      await tester.tap(find.byTooltip('Article actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(scenario.$2));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('fixed-length'), findsNothing);
+      expect(find.text('Original title'), findsNothing);
+      expect(find.text('Empty'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+  testWidgets(
       'sync refreshes an already mounted empty list and removes old rows',
       (tester) async {
     final data = _Data()..empty = true;
@@ -101,7 +141,7 @@ void main() {
 }
 
 Future<ProviderContainer> _mount(WidgetTester tester, _Data data,
-    {required bool reader}) async {
+    {required bool reader, bridge.ArticleFilter? filter}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
       articleRepositoryProvider.overrideWith((ref) => _Repository(ref, data))
@@ -113,7 +153,7 @@ Future<ProviderContainer> _mount(WidgetTester tester, _Data data,
           ? const ArticleDetailScreen(articleId: 1)
           : Scaffold(
               body: ArticleCollectionView(
-                  filter:
+                  filter: filter ??
                       articleFilter(kind: const bridge.ArticleFilterKind.all()),
                   emptyText: 'Empty')),
     ),
@@ -181,6 +221,11 @@ class _Repository extends ArticleRepository {
   Future<void> setRead(int id, bool value) async {
     data.readWrites++;
     data.read = value;
+  }
+
+  @override
+  Future<void> setReadLater(int id, bool value) async {
+    data.later = value;
   }
 
   @override

@@ -18,6 +18,7 @@ import Icon, { type IconName } from "./Icon";
 import ConfirmDialog from "./ConfirmDialog";
 import FeedAvatar from "./FeedAvatar";
 import GitHubSyncSection from "./GitHubSyncSection";
+import AppearancePresets from "./AppearancePresets";
 
 interface Props {
   onClose: () => void;
@@ -577,6 +578,7 @@ function AppearanceSection() {
 
   return (
     <>
+      <AppearancePresets />
       <div className="settings-group">
         <h3 className="settings-group-title">{t("settings.appearance.language")}</h3>
         <Row

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::ai::{AiProfile, AiPurpose};
 use crate::db::{Db, REFRESH_OFF_MINUTES};
-use crate::dto::{ReadingSettings, SettingsSnapshot};
+use crate::dto::{ReadingSettings, SettingsSnapshot, VisualSettings};
 use crate::error::{CoreError, ErrorCategory};
 use crate::sync::SyncProfile;
 
@@ -53,6 +53,16 @@ impl SettingsService {
             self.bool_setting("reading_show_time", snapshot.reading.show_reading_time)?;
         snapshot.reading.auto_extract =
             self.bool_setting("reading_auto_extract", snapshot.reading.auto_extract)?;
+        for (key, target, allowed) in [
+            ("appearance_accent", &mut snapshot.visual.accent, &["clay", "pine", "indigo", "ink"][..]),
+            ("appearance_dark_shade", &mut snapshot.visual.dark_shade, &["default", "dimmer", "black"][..]),
+            ("appearance_density", &mut snapshot.visual.density, &["compact", "cozy", "spacious"][..]),
+            ("appearance_view_mode", &mut snapshot.visual.view_mode, &["list", "card"][..]),
+        ] {
+            if let Some(value) = self.db.get_setting(key)? {
+                if allowed.contains(&value.as_str()) { *target = value; }
+            }
+        }
 
         Ok(snapshot)
     }
@@ -202,31 +212,36 @@ impl SettingsService {
     }
 
     pub async fn set_reading_settings(&self, settings: ReadingSettings) -> Result<(), CoreError> {
-        if !matches!(settings.font.as_str(), "system" | "serif" | "sans") {
-            return Err(CoreError::coded(
-                ErrorCategory::InvalidInput,
-                "invalidReadingFont",
-                Some(settings.font),
-            ));
-        }
-        validate_range(settings.font_size, 14.0, 24.0, "invalidReadingFontSize")?;
-        validate_range(settings.line_height, 1.3, 2.0, "invalidReadingLineHeight")?;
-        validate_range(settings.content_width, 320.0, 840.0, "invalidReadingWidth")?;
+        let values = reading_values(settings)?;
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || db.set_settings(&values))
+            .await
+            .map_err(|e| CoreError::Platform(format!("blocking task failed: {e}")))?
+    }
 
-        let values = vec![
-            ("reading_font", settings.font),
-            ("reading_font_size", settings.font_size.to_string()),
-            ("reading_line_height", settings.line_height.to_string()),
-            ("reading_content_width", settings.content_width.to_string()),
-            (
-                "reading_show_time",
-                if settings.show_reading_time { "1" } else { "0" }.to_string(),
-            ),
-            (
-                "reading_auto_extract",
-                if settings.auto_extract { "1" } else { "0" }.to_string(),
-            ),
-        ];
+    /// Validate and save the complete appearance in one SQLite transaction.
+    pub async fn set_appearance_settings(
+        &self, theme: String, visual: VisualSettings, reading: ReadingSettings,
+    ) -> Result<(), CoreError> {
+        for (value, allowed, code) in [
+            (&theme, &["system", "light", "dark"][..], "invalidTheme"),
+            (&visual.accent, &["clay", "pine", "indigo", "ink"][..], "invalidAppearance"),
+            (&visual.dark_shade, &["default", "dimmer", "black"][..], "invalidAppearance"),
+            (&visual.density, &["compact", "cozy", "spacious"][..], "invalidAppearance"),
+            (&visual.view_mode, &["list", "card"][..], "invalidAppearance"),
+        ] {
+            if !allowed.contains(&value.as_str()) {
+                return Err(CoreError::coded(ErrorCategory::InvalidInput, code, None));
+            }
+        }
+        let mut values = reading_values(reading)?;
+        values.extend([
+            ("theme", theme),
+            ("appearance_accent", visual.accent),
+            ("appearance_dark_shade", visual.dark_shade),
+            ("appearance_density", visual.density),
+            ("appearance_view_mode", visual.view_mode),
+        ]);
         let db = Arc::clone(&self.db);
         tokio::task::spawn_blocking(move || db.set_settings(&values))
             .await
@@ -372,6 +387,23 @@ impl SettingsService {
     }
 }
 
+fn reading_values(settings: ReadingSettings) -> Result<Vec<(&'static str, String)>, CoreError> {
+    if !matches!(settings.font.as_str(), "system" | "serif" | "sans") {
+        return Err(CoreError::coded(ErrorCategory::InvalidInput, "invalidReadingFont", Some(settings.font)));
+    }
+    validate_range(settings.font_size, 14.0, 24.0, "invalidReadingFontSize")?;
+    validate_range(settings.line_height, 1.3, 2.0, "invalidReadingLineHeight")?;
+    validate_range(settings.content_width, 320.0, 840.0, "invalidReadingWidth")?;
+    Ok(vec![
+        ("reading_font", settings.font),
+        ("reading_font_size", settings.font_size.to_string()),
+        ("reading_line_height", settings.line_height.to_string()),
+        ("reading_content_width", settings.content_width.to_string()),
+        ("reading_show_time", if settings.show_reading_time { "1" } else { "0" }.to_string()),
+        ("reading_auto_extract", if settings.auto_extract { "1" } else { "0" }.to_string()),
+    ])
+}
+
 fn validate_range(value: f64, min: f64, max: f64, code: &'static str) -> Result<(), CoreError> {
     if value.is_finite() && (min..=max).contains(&value) {
         Ok(())
@@ -398,6 +430,45 @@ mod tests {
     use crate::ai::{AiAuthMode, AiProtocol, AiPurpose};
     use crate::sync::SyncProvider;
     use std::collections::BTreeMap;
+
+    #[tokio::test]
+    async fn complete_appearance_is_atomic_and_survives_reopen() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("appearance.db");
+        let db = Arc::new(Db::new(&path).unwrap());
+        let service = SettingsService::new(Arc::clone(&db));
+        let visual = VisualSettings { accent: "pine".into(), dark_shade: "black".into(), density: "compact".into(), view_mode: "list".into() };
+        let reading = ReadingSettings { font: "sans".into(), auto_extract: true, ..ReadingSettings::default() };
+        service.set_language("ja".into()).await.unwrap();
+        service.set_appearance_settings("dark".into(), visual.clone(), reading.clone()).await.unwrap();
+        let invalid = VisualSettings { accent: "invalid".into(), ..visual.clone() };
+        assert_eq!(service.set_appearance_settings("light".into(), invalid, ReadingSettings::default()).await.unwrap_err().code(), "invalidAppearance");
+        assert_eq!(service.set_appearance_settings("light".into(), visual.clone(), ReadingSettings { font_size: f64::NAN, ..reading.clone() }).await.unwrap_err().code(), "invalidReadingFontSize");
+        db.transact(|tx| {
+            tx.execute_batch("CREATE TRIGGER reject_appearance BEFORE UPDATE ON settings WHEN NEW.key = 'appearance_accent' BEGIN SELECT RAISE(ABORT, 'appearance test failure'); END;")
+                .map_err(|e| CoreError::Db(e.to_string()))?;
+            Ok(())
+        }).unwrap();
+        assert!(service.set_appearance_settings("light".into(), VisualSettings::default(), ReadingSettings::default()).await.is_err());
+        drop(service);
+        drop(db);
+        let reopened = SettingsService::new(Arc::new(Db::new(&path).unwrap())).get_settings().await.unwrap();
+        assert_eq!(reopened.theme, "dark");
+        assert_eq!(reopened.visual, visual);
+        assert_eq!(reopened.reading, reading);
+        assert_eq!(reopened.language, "ja");
+    }
+
+    #[tokio::test]
+    async fn legacy_or_corrupt_visual_settings_use_compatible_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::new(&tmp.path().join("legacy.db")).unwrap());
+        db.set_setting("appearance_accent", "unknown").unwrap();
+        db.set_setting("reading_font_size", "19").unwrap();
+        let saved = SettingsService::new(db).get_settings().await.unwrap();
+        assert_eq!(saved.visual, VisualSettings::default());
+        assert_eq!(saved.reading.font_size, 19.0);
+    }
 
     #[tokio::test]
     async fn appearance_settings_validate_and_persist() {

@@ -31,10 +31,11 @@ void main() {
     expect(find.text('Manage tags'), findsNothing);
     expect(find.text('AI profiles'), findsOneWidget);
     expect(find.text('Reader sync'), findsOneWidget);
-    expect(find.text('Manage rules'), findsOneWidget);
     expect(find.text('Background refresh'), findsOneWidget);
     expect(find.text('New article notifications'), findsOneWidget);
     expect(find.text('Night quiet hours'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Manage rules'), 200);
+    expect(find.text('Manage rules'), findsOneWidget);
     await tester.ensureVisible(find.text('Reader sync'));
     await tester.tap(find.text('Reader sync'));
     await tester.pumpAndSettle();
@@ -125,7 +126,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(find.byIcon(Icons.delete_forever_outlined), 300);
+    await tester.scrollUntilVisible(
+        find.byIcon(Icons.delete_forever_outlined), 300);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

@@ -350,5 +350,48 @@
   "errorSyncProviderFailed": "阅读器服务未能完成请求，请重试。",
   "errorSyncInvalidResponse": "阅读器服务返回了意外的数据。",
   "errorSyncTooManyItems": "单次同步的条目过多，请缩减服务端历史后重试。",
-  "errorSyncCredentialStore": "无法安全访问已保存的密码。"
+  "errorSyncCredentialStore": "无法安全访问已保存的密码。",
+  "appearancePresetsTitle": "让阅读有自己的风格",
+  "appearancePresetsDescription": "一键搭配主题、强调色、列表布局与阅读字体。应用后，可在下方或「阅读」设置中继续微调。",
+  "appearanceCustom": "自定义外观",
+  "appearancePreviewTitle": "慢下来，读一篇。",
+  "appearancePreviewBody": "好故事值得认真阅读。慢下来，让思绪随着文字展开。",
+  "appearanceAccent": "强调色",
+  "appearanceDarkShade": "暗色背景",
+  "appearanceDensity": "信息密度",
+  "appearanceListStyle": "文章列表样式",
+  "viewModeList": "列表",
+  "viewModeCard": "卡片",
+  "darkShadeDefault": "标准",
+  "darkShadeDimmer": "更暗",
+  "darkShadeBlack": "纯黑",
+  "accentClay": "陶土",
+  "accentPine": "松绿",
+  "accentIndigo": "靛蓝",
+  "accentInk": "墨色",
+  "densityCompact": "紧凑",
+  "densityCozy": "适中",
+  "densitySpacious": "宽松",
+  "appearanceTitle": "外观",
+  "appearanceAdjustments": "手动微调",
+  "appearanceCurrent": "当前：{name}",
+  "@appearanceCurrent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "presetPaperName": "纸刊",
+  "presetPaperDescription": "温润纸色、陶土点缀与经典衬线字体。",
+  "presetPineName": "松林",
+  "presetPineDescription": "松绿点缀、舒展卡片与宽松阅读排版。",
+  "presetInkName": "墨色",
+  "presetInkDescription": "单色界面、紧凑列表与清晰无衬线字体。",
+  "presetDuskName": "暮色",
+  "presetDuskDescription": "暖炭色背景与柔和衬线字体，适合晚间阅读。",
+  "presetMidnightName": "午夜",
+  "presetMidnightDescription": "深色背景、靛蓝点缀与简洁卡片视图。",
+  "presetFocusName": "专注",
+  "presetFocusDescription": "最深背景、松绿点缀与紧凑列表。"
 }

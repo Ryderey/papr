@@ -278,7 +278,8 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                 children: [
                   Text(
                     detail.title,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontFamily: textStyle.fontFamily, height: 1.25),
                   ),
                   const SizedBox(height: 8),
                   Wrap(

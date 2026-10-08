@@ -46,6 +46,12 @@ Schedule: github_schedule / github_set_schedule on both adapters;
 - Token verification uses the same constrained initializer-adoption eligibility as synchronization, without adopting identity during verification. A verified credential repair can clear repository-access 404 errors; preserve unrelated identity/history failures.
 - Persist rate-limit delays against the receiving clock. Server Date is used for trusted retention and calculating reset duration, never compared directly with local SQLite time as a retry deadline.
 - Android mounted lists and readers listen to repository changes. Preserve loaded range/scroll position, probe the next row for exhaustion, defer refresh until pending optimistic writes drain, and never auto-mark a remote unread update read merely because the reader refreshed.
+- `ArticleCollectionView` owns a mutable, growable copy of loaded/deduplicated
+  article rows. Successful read/unstar/read-later writes can remove rows from
+  filtered views; do not create `_items` with `toList(growable: false)` or retain
+  a fixed-length bridge response. Otherwise an already-persisted success is
+  incorrectly caught as an error and the UI rolls back while Core keeps the
+  write. Regression coverage must include all three filter-exit actions.
 - Frontend status fields are snake_case in Tauri/TypeScript and generated camelCase in Dart. Numeric bridge counts use i64/BigInt; validate IDs/sequence bounds in Core before use. GReader and GitHub active connections are mutually exclusive.
 - Local `github_local_schedule` preferences never enter snapshot/outbox data. Defaults are automatic enabled, 30-second upload debounce, 10-minute foreground polling and 60-minute Android background polling. Core validates preset intervals and shares the eligibility predicate across adapters, honoring fatal errors, leases, retry deadlines and the 60-second publication floor. Continuous edits flush after max(60 seconds, twice debounce).
 - Windows and Android schedule controls edit a local draft. Only Save persists the complete schedule and reconciles platform jobs; unchanged drafts disable Save. Failed saves retain the draft and prior persisted schedule, leaving the button available for retry. Read back the persisted values before showing success; reopening controls must show saved values, and closing unsaved controls discards the draft. Pending hints must not claim that an unsaved switch has already stopped automatic sync.
@@ -856,3 +862,42 @@ Debug-signed APK is marked as production-signed or Play-ready.
 ```text
 Debug-signed APK is marked as an internal RC with its certificate fingerprint.
 ```
+
+## Scenario: Android coordinated appearance presets
+
+### 1. Scope / Trigger
+Android appearance spans Flutter, FRB and the Core settings table. It extends the existing desktop presets with local mobile presentation; it does not add synchronization of appearance.
+
+### 2. Signatures
+- `SettingsSnapshot.visual: VisualSettings { accent, dark_shade, density, view_mode }`.
+- `SettingsService::set_appearance_settings(theme: String, visual: VisualSettings, reading: ReadingSettings)`.
+- FRB `set_appearance_settings(core, theme, visual, reading)`; Dart `setAppearanceSettings` uses generated camelCase fields.
+- Flutter `AppearanceController.applyAppearancePreset`, `setVisual`, `setTheme`, and `setReading` serialize appearance writes.
+
+### 3. Contracts
+- Visual keys are `appearance_accent`, `appearance_dark_shade`, `appearance_density`, and `appearance_view_mode`. Missing/corrupt visual values fall back to clay/default/cozy/card, retaining older Android card layout and custom reading values.
+- Valid accents: clay/pine/indigo/ink; dark shades: default/dimmer/black; densities: compact/cozy/spacious; views: list/card; theme retains system/light/dark.
+- Validate every visual/reader value before one `Db::set_settings` transaction. Reuse reading font/range validation and key encoding; no schema migration is needed.
+- Presets own reading typography but preserve `show_reading_time` and `auto_extract`. Language, refresh, notifications and credentials are outside the preset write.
+- Flutter publishes confirmed appearance only after a successful save. A failed save keeps previous values and clears its busy flag; subsequent writes remain usable. Queue appearance changes so slow saves do not race.
+- Derive selection from actual visual/theme/reading values; ignore dormant dark shade in light mode. Manual changes must not leave a stale selected preset.
+- The appearance screen cannot apply defaults after an initial read failure; provide retry instead. Preview brightness is local to each preview, while the app theme derives from actual visual settings even after manual edits.
+- Regenerate both Rust and Dart FRB output after changing the DTO or operation. Never hand-edit the generated codecs.
+
+### 4. Validation & Error Matrix
+| Condition | Result |
+| --- | --- |
+| Unknown visual option | `invalidAppearance`; no write |
+| Invalid theme or reader value | Existing stable validation error; no write |
+| SQLite fails midway through the preset write | Entire transaction rolls back |
+| Flutter save fails | Prior confirmed appearance remains, later save can retry |
+| Initial settings load fails | Show error/retry, do not offer writes using unknown defaults |
+
+### 5. Good / Base / Bad Cases
+Good: Midnight applies complete visual/typographic preferences and survives reopening. Base: an older installation has no visual keys and keeps its reading settings/card layout. Bad: saving theme and font through separate calls leaves half a preset or reverts independent reading behavior.
+
+### 6. Tests Required
+Core settings tests assert invalid-input rejection, injected SQLite failure rollback, reopening and legacy defaults. Flutter appearance tests assert six-preset persistence, reading behavior preservation, sequential writes, failed-save recovery, rehydration, derived selection, actual theme changes and narrow Japanese large-text layout. Run Flutter analyze/tests, Core/FRB tests and Android debug packaging.
+
+### 7. Wrong vs Correct
+Wrong: persist only a preset ID or switch `ThemeData` based on that stale label. Correct: persist actual allowlisted controls, build the theme from those values and derive the selected preset name.

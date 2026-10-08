@@ -9,6 +9,7 @@ import 'ai_profiles_screen.dart';
 import 'highlights_screen.dart';
 import 'organization_screen.dart';
 import 'sync_settings_screen.dart';
+import 'appearance_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -30,6 +31,15 @@ class SettingsScreen extends ConsumerWidget {
           Expanded(
             child: ListView(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.palette_outlined),
+                  title: Text(l10n.appearanceTitle),
+                  subtitle: Text(l10n.appearancePresetsTitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const AppearanceScreen())),
+                ),
                 ListTile(
                   title: Text(l10n.themeLabel),
                   trailing: DropdownButton<String>(

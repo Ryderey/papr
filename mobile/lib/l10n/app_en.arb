@@ -361,5 +361,48 @@
   "errorSyncProviderFailed": "The reader service could not complete the request. Try again.",
   "errorSyncInvalidResponse": "The reader service returned an unexpected response.",
   "errorSyncTooManyItems": "Too many items to sync in one pass. Reduce the service history and retry.",
-  "errorSyncCredentialStore": "The saved password could not be accessed securely."
+  "errorSyncCredentialStore": "The saved password could not be accessed securely.",
+  "appearancePresetsTitle": "Make room for reading",
+  "appearancePresetsDescription": "Choose a look to set the theme, accent, layout and reading typography together. Fine-tune any setting below or in Reading.",
+  "appearanceCustom": "Custom appearance",
+  "appearancePreviewTitle": "A little space to read.",
+  "appearancePreviewBody": "Good stories deserve our attention. Settle in, slow down, and turn the next page.",
+  "appearanceAccent": "Accent color",
+  "appearanceDarkShade": "Dark background",
+  "appearanceDensity": "Density",
+  "appearanceListStyle": "Article list style",
+  "viewModeList": "List",
+  "viewModeCard": "Card",
+  "darkShadeDefault": "Default",
+  "darkShadeDimmer": "Dimmer",
+  "darkShadeBlack": "Black",
+  "accentClay": "Clay",
+  "accentPine": "Pine",
+  "accentIndigo": "Indigo",
+  "accentInk": "Ink",
+  "densityCompact": "Compact",
+  "densityCozy": "Cozy",
+  "densitySpacious": "Spacious",
+  "appearanceTitle": "Appearance",
+  "appearanceAdjustments": "Fine-tune your look",
+  "appearanceCurrent": "Current: {name}",
+  "@appearanceCurrent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "presetPaperName": "Paper",
+  "presetPaperDescription": "Warm paper, clay accents and classic serif reading.",
+  "presetPineName": "Pine",
+  "presetPineDescription": "Forest accents, roomy cards and generous type.",
+  "presetInkName": "Ink",
+  "presetInkDescription": "Monochrome, compact lists and crisp sans-serif type.",
+  "presetDuskName": "Dusk",
+  "presetDuskDescription": "Warm charcoal and soft serif type for evening reading.",
+  "presetMidnightName": "Midnight",
+  "presetMidnightDescription": "Deep surfaces, indigo accents and a clean card view.",
+  "presetFocusName": "Focus",
+  "presetFocusDescription": "The darkest surfaces, pine accents and compact lists."
 }

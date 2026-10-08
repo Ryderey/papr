@@ -438,6 +438,17 @@ pub struct SettingsSnapshot {
     pub notifications_enabled: bool,
     pub notification_quiet_hours: bool,
     pub reading: ReadingSettings,
+    pub visual: VisualSettings,
+}
+
+/// Device-local palette and article list preferences.
+#[derive(Debug, Clone)]
+#[frb]
+pub struct VisualSettings {
+    pub accent: String,
+    pub dark_shade: String,
+    pub density: String,
+    pub view_mode: String,
 }
 
 /// Reader appearance and behaviour settings.

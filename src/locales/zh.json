@@ -291,6 +291,22 @@
       "hideReadOnStartup": "启动时隐藏已读"
     },
     "appearance": {
+      "presetsTitle": "让阅读有自己的风格",
+      "presetsDesc": "一键搭配主题、强调色、列表布局与阅读字体。应用后，可在下方或「阅读」设置中继续微调。",
+      "presetCurrent": "当前：{{name}}",
+      "presetCustom": "自定义外观",
+      "presetApply": "应用「{{name}}」外观",
+      "previewKicker": "阅读时光",
+      "previewTitle": "慢下来，读一篇。",
+      "previewBody": "好故事值得认真阅读。慢下来，让思绪随着文字展开。",
+      "presets": {
+        "paper": { "name": "纸刊", "desc": "温润纸色、陶土点缀与经典衬线字体。" },
+        "pine": { "name": "松林", "desc": "松绿点缀、舒展卡片与宽松阅读排版。" },
+        "ink": { "name": "墨色", "desc": "单色界面、紧凑列表与清晰无衬线字体。" },
+        "dusk": { "name": "暮色", "desc": "暖炭色背景与柔和衬线字体，适合晚间阅读。" },
+        "midnight": { "name": "午夜", "desc": "深色背景、靛蓝点缀与简洁卡片视图。" },
+        "focus": { "name": "专注", "desc": "最深背景、松绿点缀与紧凑列表。" }
+      },
       "language": "语言",
       "uiLanguage": "界面语言",
       "languageDesc": "应用界面的显示语言",

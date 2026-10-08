@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bridge/generated/generated.dart' as bridge;
 import '../../l10n/l10n.dart';
 import '../../repositories/article_repository.dart';
+import '../../repositories/settings_repository.dart';
+import '../../models/appearance_presets.dart';
 import 'article_detail_screen.dart';
 
 const articlePageSize = 50;
@@ -138,7 +140,8 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
         for (final item in page) item.id.toInt(): item,
       };
       setState(() {
-        _items = byId.values.toList(growable: false);
+        // State writes remove rows that no longer match the active filter.
+        _items = byId.values.toList();
         _hasMore = page.length == pageFilter.limit;
         _error = null;
       });
@@ -167,6 +170,9 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
     }
     if (_items.isEmpty) return Center(child: Text(widget.emptyText));
 
+    final visual = ref.watch(appearanceProvider).asData?.value.visual ??
+        defaultVisualSettings;
+
     return RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: ListView.builder(
@@ -183,6 +189,7 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
           final article = _items[index];
           return _ArticleCard(
             article: article,
+            visual: visual,
             onOpen: () => _open(index),
             onAction: (action) => _changeState(index, action),
           );
@@ -256,11 +263,13 @@ class _ArticleCollectionViewState extends ConsumerState<ArticleCollectionView> {
 
 class _ArticleCard extends StatelessWidget {
   final bridge.ArticleSummary article;
+  final bridge.VisualSettings visual;
   final VoidCallback onOpen;
   final ValueChanged<_ArticleAction> onAction;
 
   const _ArticleCard({
     required this.article,
+    required this.visual,
     required this.onOpen,
     required this.onAction,
   });
@@ -268,18 +277,33 @@ class _ArticleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colors = Theme.of(context).colorScheme;
+    final list = visual.viewMode == 'list';
+    final padding = switch (visual.density) {
+      'compact' => 8.0,
+      'spacious' => 18.0,
+      _ => 12.0
+    };
     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      margin: list ? EdgeInsets.zero : const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      color: list ? colors.surface : null,
+      shape: list
+          ? RoundedRectangleBorder(
+              side: BorderSide(color: colors.outlineVariant, width: 0.5))
+          : null,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.symmetric(
+              horizontal: list ? 16 : 12, vertical: padding),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ArticleThumbnail(url: article.imageUrl),
-              const SizedBox(width: 12),
+              if (!list) ...[
+                _ArticleThumbnail(url: article.imageUrl),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,14 +333,15 @@ class _ArticleCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         article.snippet!,
-                        maxLines: 2,
+                        maxLines: visual.density == 'compact' ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        if (!article.isRead) const Icon(Icons.circle, size: 9),
+                        if (!article.isRead)
+                          Icon(Icons.circle, size: 9, color: colors.primary),
                         if (article.isStarred) ...[
                           const SizedBox(width: 8),
                           const Icon(Icons.star, size: 18),

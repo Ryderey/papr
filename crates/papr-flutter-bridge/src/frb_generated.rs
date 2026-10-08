@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 431675596;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 39315925;
 
 // Section: executor
 
@@ -3605,6 +3605,70 @@ fn wire__crate__api__set_ai_profile_enabled_impl(
         },
     )
 }
+fn wire__crate__api__set_appearance_settings_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_appearance_settings",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<PaprCoreBridge>,
+            >>::sse_decode(&mut deserializer);
+            let api_theme = <String>::sse_decode(&mut deserializer);
+            let api_visual = <crate::dto::VisualSettings>::sse_decode(&mut deserializer);
+            let api_reading = <crate::dto::ReadingSettings>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::error::PaprBridgeError>(
+                    (move || async move {
+                        let mut api_core_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_core, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_core_guard =
+                                        Some(api_core.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_core_guard = api_core_guard.unwrap();
+                        let output_ok = crate::api::set_appearance_settings(
+                            &*api_core_guard,
+                            api_theme,
+                            api_visual,
+                            api_reading,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__set_article_read_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -5923,6 +5987,7 @@ impl SseDecode for crate::dto::SettingsSnapshot {
         let mut var_notificationsEnabled = <bool>::sse_decode(deserializer);
         let mut var_notificationQuietHours = <bool>::sse_decode(deserializer);
         let mut var_reading = <crate::dto::ReadingSettings>::sse_decode(deserializer);
+        let mut var_visual = <crate::dto::VisualSettings>::sse_decode(deserializer);
         return crate::dto::SettingsSnapshot {
             theme: var_theme,
             language: var_language,
@@ -5930,6 +5995,7 @@ impl SseDecode for crate::dto::SettingsSnapshot {
             notifications_enabled: var_notificationsEnabled,
             notification_quiet_hours: var_notificationQuietHours,
             reading: var_reading,
+            visual: var_visual,
         };
     }
 }
@@ -6069,6 +6135,22 @@ impl SseDecode for usize {
     }
 }
 
+impl SseDecode for crate::dto::VisualSettings {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_accent = <String>::sse_decode(deserializer);
+        let mut var_darkShade = <String>::sse_decode(deserializer);
+        let mut var_density = <String>::sse_decode(deserializer);
+        let mut var_viewMode = <String>::sse_decode(deserializer);
+        return crate::dto::VisualSettings {
+            accent: var_accent,
+            dark_shade: var_darkShade,
+            density: var_density,
+            view_mode: var_viewMode,
+        };
+    }
+}
+
 fn pde_ffi_dispatcher_primary_impl(
     func_id: i32,
     port: flutter_rust_bridge::for_generated::MessagePort,
@@ -6144,25 +6226,26 @@ fn pde_ffi_dispatcher_primary_impl(
         62 => wire__crate__api__save_ai_profile_impl(port, ptr, rust_vec_len, data_len),
         63 => wire__crate__api__search_directory_impl(port, ptr, rust_vec_len, data_len),
         64 => wire__crate__api__set_ai_profile_enabled_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__set_appearance_settings_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__set_article_read_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__set_article_read_later_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__set_article_starred_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__set_article_tag_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__set_background_settings_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__set_feed_refresh_interval_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__set_highlight_color_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__set_language_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__set_reading_settings_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__set_tag_color_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__set_theme_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__stream_ai_follow_up_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__stream_ai_summary_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__stream_ai_translation_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__sync_now_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__test_ai_connection_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__test_sync_connection_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__update_highlight_note_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__update_rule_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -7017,6 +7100,7 @@ impl flutter_rust_bridge::IntoDart for crate::dto::SettingsSnapshot {
             self.notifications_enabled.into_into_dart().into_dart(),
             self.notification_quiet_hours.into_into_dart().into_dart(),
             self.reading.into_into_dart().into_dart(),
+            self.visual.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -7157,6 +7241,24 @@ impl flutter_rust_bridge::IntoDart for crate::dto::TagSummary {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::dto::TagSummary {}
 impl flutter_rust_bridge::IntoIntoDart<crate::dto::TagSummary> for crate::dto::TagSummary {
     fn into_into_dart(self) -> crate::dto::TagSummary {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::dto::VisualSettings {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.accent.into_into_dart().into_dart(),
+            self.dark_shade.into_into_dart().into_dart(),
+            self.density.into_into_dart().into_dart(),
+            self.view_mode.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::dto::VisualSettings {}
+impl flutter_rust_bridge::IntoIntoDart<crate::dto::VisualSettings> for crate::dto::VisualSettings {
+    fn into_into_dart(self) -> crate::dto::VisualSettings {
         self
     }
 }
@@ -8003,6 +8105,7 @@ impl SseEncode for crate::dto::SettingsSnapshot {
         <bool>::sse_encode(self.notifications_enabled, serializer);
         <bool>::sse_encode(self.notification_quiet_hours, serializer);
         <crate::dto::ReadingSettings>::sse_encode(self.reading, serializer);
+        <crate::dto::VisualSettings>::sse_encode(self.visual, serializer);
     }
 }
 
@@ -8129,6 +8232,16 @@ impl SseEncode for usize {
             .cursor
             .write_u64::<NativeEndian>(self as _)
             .unwrap();
+    }
+}
+
+impl SseEncode for crate::dto::VisualSettings {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.accent, serializer);
+        <String>::sse_encode(self.dark_shade, serializer);
+        <String>::sse_encode(self.density, serializer);
+        <String>::sse_encode(self.view_mode, serializer);
     }
 }
 

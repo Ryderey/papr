@@ -291,6 +291,22 @@
       "hideReadOnStartup": "起動時に既読を非表示"
     },
     "appearance": {
+      "presetsTitle": "読書を、自分らしく",
+      "presetsDesc": "テーマ、アクセント、一覧レイアウト、本文の書体をまとめて設定します。適用後も下の項目や「読書」で調整できます。",
+      "presetCurrent": "現在：{{name}}",
+      "presetCustom": "カスタムの外観",
+      "presetApply": "「{{name}}」の外観を適用",
+      "previewKicker": "読書の時間",
+      "previewTitle": "ひと息ついて、読む。",
+      "previewBody": "よい物語を、じっくりと。落ち着いた空間で、次のページを開きましょう。",
+      "presets": {
+        "paper": { "name": "紙面", "desc": "温かな紙色、テラコッタとクラシックなセリフ体。" },
+        "pine": { "name": "松林", "desc": "松の緑、ゆったりしたカードと大きめの文字。" },
+        "ink": { "name": "墨色", "desc": "モノクロ、コンパクトな一覧と明快なサンセリフ体。" },
+        "dusk": { "name": "夕暮れ", "desc": "温かなチャコールと柔らかなセリフ体で夜の読書を。" },
+        "midnight": { "name": "真夜中", "desc": "深い背景、インディゴとすっきりしたカード表示。" },
+        "focus": { "name": "集中", "desc": "最も暗い背景、松の緑とコンパクトな一覧。" }
+      },
       "language": "言語",
       "uiLanguage": "インターフェース言語",
       "languageDesc": "アプリのインターフェースの表示言語",

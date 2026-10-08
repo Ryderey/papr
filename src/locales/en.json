@@ -291,6 +291,22 @@
       "hideReadOnStartup": "Hide read on startup"
     },
     "appearance": {
+      "presetsTitle": "Make room for reading",
+      "presetsDesc": "Choose a look to set the theme, accent, layout and reading typography together. Fine-tune any setting below or in Reading.",
+      "presetCurrent": "Current: {{name}}",
+      "presetCustom": "Custom appearance",
+      "presetApply": "Apply {{name}} appearance",
+      "previewKicker": "Reading room",
+      "previewTitle": "A little space to read.",
+      "previewBody": "Good stories deserve our attention. Settle in, slow down, and turn the next page.",
+      "presets": {
+        "paper": { "name": "Paper", "desc": "Warm paper, clay accents and classic serif reading." },
+        "pine": { "name": "Pine", "desc": "Forest accents, roomy cards and generous type." },
+        "ink": { "name": "Ink", "desc": "Monochrome, compact lists and crisp sans-serif type." },
+        "dusk": { "name": "Dusk", "desc": "Warm charcoal and soft serif type for evening reading." },
+        "midnight": { "name": "Midnight", "desc": "Deep surfaces, indigo accents and a clean card view." },
+        "focus": { "name": "Focus", "desc": "The darkest surfaces, pine accents and compact lists." }
+      },
       "language": "Language",
       "uiLanguage": "Interface language",
       "languageDesc": "Display language of the app interface",

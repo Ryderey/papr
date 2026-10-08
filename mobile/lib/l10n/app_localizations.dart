@@ -2122,6 +2122,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The saved password could not be accessed securely.'**
   String get errorSyncCredentialStore;
+
+  /// No description provided for @appearancePresetsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make room for reading'**
+  String get appearancePresetsTitle;
+
+  /// No description provided for @appearancePresetsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a look to set the theme, accent, layout and reading typography together. Fine-tune any setting below or in Reading.'**
+  String get appearancePresetsDescription;
+
+  /// No description provided for @appearanceCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom appearance'**
+  String get appearanceCustom;
+
+  /// No description provided for @appearancePreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A little space to read.'**
+  String get appearancePreviewTitle;
+
+  /// No description provided for @appearancePreviewBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Good stories deserve our attention. Settle in, slow down, and turn the next page.'**
+  String get appearancePreviewBody;
+
+  /// No description provided for @appearanceAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get appearanceAccent;
+
+  /// No description provided for @appearanceDarkShade.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark background'**
+  String get appearanceDarkShade;
+
+  /// No description provided for @appearanceDensity.
+  ///
+  /// In en, this message translates to:
+  /// **'Density'**
+  String get appearanceDensity;
+
+  /// No description provided for @appearanceListStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Article list style'**
+  String get appearanceListStyle;
+
+  /// No description provided for @viewModeList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get viewModeList;
+
+  /// No description provided for @viewModeCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Card'**
+  String get viewModeCard;
+
+  /// No description provided for @darkShadeDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get darkShadeDefault;
+
+  /// No description provided for @darkShadeDimmer.
+  ///
+  /// In en, this message translates to:
+  /// **'Dimmer'**
+  String get darkShadeDimmer;
+
+  /// No description provided for @darkShadeBlack.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get darkShadeBlack;
+
+  /// No description provided for @accentClay.
+  ///
+  /// In en, this message translates to:
+  /// **'Clay'**
+  String get accentClay;
+
+  /// No description provided for @accentPine.
+  ///
+  /// In en, this message translates to:
+  /// **'Pine'**
+  String get accentPine;
+
+  /// No description provided for @accentIndigo.
+  ///
+  /// In en, this message translates to:
+  /// **'Indigo'**
+  String get accentIndigo;
+
+  /// No description provided for @accentInk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ink'**
+  String get accentInk;
+
+  /// No description provided for @densityCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get densityCompact;
+
+  /// No description provided for @densityCozy.
+  ///
+  /// In en, this message translates to:
+  /// **'Cozy'**
+  String get densityCozy;
+
+  /// No description provided for @densitySpacious.
+  ///
+  /// In en, this message translates to:
+  /// **'Spacious'**
+  String get densitySpacious;
+
+  /// No description provided for @appearanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearanceTitle;
+
+  /// No description provided for @appearanceAdjustments.
+  ///
+  /// In en, this message translates to:
+  /// **'Fine-tune your look'**
+  String get appearanceAdjustments;
+
+  /// No description provided for @appearanceCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current: {name}'**
+  String appearanceCurrent(String name);
+
+  /// No description provided for @presetPaperName.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper'**
+  String get presetPaperName;
+
+  /// No description provided for @presetPaperDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm paper, clay accents and classic serif reading.'**
+  String get presetPaperDescription;
+
+  /// No description provided for @presetPineName.
+  ///
+  /// In en, this message translates to:
+  /// **'Pine'**
+  String get presetPineName;
+
+  /// No description provided for @presetPineDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Forest accents, roomy cards and generous type.'**
+  String get presetPineDescription;
+
+  /// No description provided for @presetInkName.
+  ///
+  /// In en, this message translates to:
+  /// **'Ink'**
+  String get presetInkName;
+
+  /// No description provided for @presetInkDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Monochrome, compact lists and crisp sans-serif type.'**
+  String get presetInkDescription;
+
+  /// No description provided for @presetDuskName.
+  ///
+  /// In en, this message translates to:
+  /// **'Dusk'**
+  String get presetDuskName;
+
+  /// No description provided for @presetDuskDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm charcoal and soft serif type for evening reading.'**
+  String get presetDuskDescription;
+
+  /// No description provided for @presetMidnightName.
+  ///
+  /// In en, this message translates to:
+  /// **'Midnight'**
+  String get presetMidnightName;
+
+  /// No description provided for @presetMidnightDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep surfaces, indigo accents and a clean card view.'**
+  String get presetMidnightDescription;
+
+  /// No description provided for @presetFocusName.
+  ///
+  /// In en, this message translates to:
+  /// **'Focus'**
+  String get presetFocusName;
+
+  /// No description provided for @presetFocusDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The darkest surfaces, pine accents and compact lists.'**
+  String get presetFocusDescription;
 }
 
 class _AppLocalizationsDelegate

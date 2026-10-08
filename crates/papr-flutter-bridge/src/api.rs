@@ -17,7 +17,7 @@ use crate::dto::{
     ArticleSummary, DiscoveryResult, Enclosure, Feed, Folder, Highlight, HighlightInput,
     OpmlImportReport, PaprCoreConfig, Platform, ReadingSettings, RefreshError, RefreshOptions,
     RefreshReport, ResolvedHighlight, Rule, RuleInput, RulePreview, SettingsSnapshot, SourceType,
-    SummaryTemplate, SyncProfile, SyncProvider, SyncStatus, Tag, TagSummary,
+    SummaryTemplate, SyncProfile, SyncProvider, SyncStatus, Tag, TagSummary, VisualSettings,
 };
 use crate::error::PaprBridgeError;
 use crate::frb_generated::StreamSink;
@@ -584,6 +584,13 @@ pub async fn export_opml(core: &PaprCoreBridge) -> Result<String, PaprBridgeErro
 pub async fn get_settings(core: &PaprCoreBridge) -> Result<SettingsSnapshot, PaprBridgeError> {
     let snapshot = core.inner.settings_service().get_settings().await?;
     Ok(snapshot.into())
+}
+
+/// Persist all visual and reader preferences atomically.
+pub async fn set_appearance_settings(
+    core: &PaprCoreBridge, theme: String, visual: VisualSettings, reading: ReadingSettings,
+) -> Result<(), PaprBridgeError> {
+    Ok(core.inner.settings_service().set_appearance_settings(theme, visual.into(), reading.into()).await?)
 }
 
 /// Persist the application theme (`system`, `light`, or `dark`).
@@ -1590,7 +1597,20 @@ impl From<papr_core::SettingsSnapshot> for SettingsSnapshot {
             notifications_enabled: s.notifications_enabled,
             notification_quiet_hours: s.notification_quiet_hours,
             reading: s.reading.into(),
+            visual: s.visual.into(),
         }
+    }
+}
+
+impl From<papr_core::VisualSettings> for VisualSettings {
+    fn from(s: papr_core::VisualSettings) -> Self {
+        Self { accent: s.accent, dark_shade: s.dark_shade, density: s.density, view_mode: s.view_mode }
+    }
+}
+
+impl From<VisualSettings> for papr_core::VisualSettings {
+    fn from(s: VisualSettings) -> Self {
+        Self { accent: s.accent, dark_shade: s.dark_shade, density: s.density, view_mode: s.view_mode }
     }
 }
 

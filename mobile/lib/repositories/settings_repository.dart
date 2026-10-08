@@ -4,6 +4,7 @@ import '../../bridge/generated/generated.dart' as bridge;
 import '../core/di.dart';
 import '../services/papr_core_service.dart';
 import '../services/background_refresh_service.dart';
+import '../models/appearance_presets.dart';
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   return SettingsRepository(ref);
@@ -21,6 +22,8 @@ class AppearanceState {
   final bool notificationsEnabled;
   final bool notificationQuietHours;
   final bridge.ReadingSettings reading;
+  final bridge.VisualSettings visual;
+  final bool savingAppearance;
 
   const AppearanceState({
     required this.theme,
@@ -29,10 +32,14 @@ class AppearanceState {
     required this.notificationsEnabled,
     required this.notificationQuietHours,
     required this.reading,
+    this.visual = defaultVisualSettings,
+    this.savingAppearance = false,
   });
 
   const AppearanceState.defaults()
       : theme = 'system',
+        visual = defaultVisualSettings,
+        savingAppearance = false,
         language = 'en',
         refreshIntervalMin = 30,
         notificationsEnabled = false,
@@ -53,6 +60,8 @@ class AppearanceState {
     bool? notificationsEnabled,
     bool? notificationQuietHours,
     bridge.ReadingSettings? reading,
+    bridge.VisualSettings? visual,
+    bool? savingAppearance,
   }) {
     return AppearanceState(
       theme: theme ?? this.theme,
@@ -62,11 +71,14 @@ class AppearanceState {
       notificationQuietHours:
           notificationQuietHours ?? this.notificationQuietHours,
       reading: reading ?? this.reading,
+      visual: visual ?? this.visual,
+      savingAppearance: savingAppearance ?? this.savingAppearance,
     );
   }
 }
 
 class AppearanceController extends AsyncNotifier<AppearanceState> {
+  Future<void> _appearanceWrites = Future.value();
   Future<void> _reconcile(int interval) async {
     final core = await ref.read(paprCoreBridgeProvider.future);
     await ref
@@ -84,6 +96,7 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
       notificationsEnabled: snapshot.notificationsEnabled,
       notificationQuietHours: snapshot.notificationQuietHours,
       reading: snapshot.reading,
+      visual: snapshot.visual,
     );
     try {
       await _reconcile(settings.refreshIntervalMin);
@@ -94,12 +107,57 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
   }
 
   Future<void> setTheme(String theme) async {
-    final previous = state.asData?.value ?? const AppearanceState.defaults();
-    state = AsyncData(previous.copyWith(theme: theme));
+    await _saveAppearance(theme: theme);
+  }
+
+  Future<void> applyAppearancePreset(AppearancePreset preset) async {
+    await _saveAppearance(preset: preset);
+  }
+
+  Future<void> setVisual(bridge.VisualSettings visual) =>
+      _saveAppearance(visual: visual);
+
+  Future<void> _saveAppearance(
+      {String? theme,
+      bridge.VisualSettings? visual,
+      bridge.ReadingSettings? reading,
+      AppearancePreset? preset}) {
+    final operation = _appearanceWrites.then((_) => _persistAppearance(
+        theme: theme, visual: visual, reading: reading, preset: preset));
+    _appearanceWrites = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _persistAppearance(
+      {String? theme,
+      bridge.VisualSettings? visual,
+      bridge.ReadingSettings? reading,
+      AppearancePreset? preset}) async {
+    final previous = state.asData?.value;
+    if (previous == null) {
+      throw StateError('Appearance settings are not loaded');
+    }
+    final nextTheme = preset?.theme ?? theme ?? previous.theme;
+    final nextVisual = preset?.visual ?? visual ?? previous.visual;
+    final nextReading = preset?.readingSettings(previous.reading) ??
+        reading ??
+        previous.reading;
+    state = AsyncData(previous.copyWith(savingAppearance: true));
     try {
-      await ref.read(settingsRepositoryProvider).setTheme(theme);
-    } catch (error) {
-      state = AsyncData(previous);
+      await ref.read(settingsRepositoryProvider).setAppearance(
+            theme: nextTheme,
+            visual: nextVisual,
+            reading: nextReading,
+          );
+      final current = state.asData?.value ?? previous;
+      state = AsyncData(current.copyWith(
+          theme: nextTheme,
+          visual: nextVisual,
+          reading: nextReading,
+          savingAppearance: false));
+    } catch (_) {
+      final current = state.asData?.value ?? previous;
+      state = AsyncData(current.copyWith(savingAppearance: false));
       rethrow;
     }
   }
@@ -110,20 +168,14 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
     try {
       await ref.read(settingsRepositoryProvider).setLanguage(language);
     } catch (error) {
-      state = AsyncData(previous);
+      state = AsyncData((state.asData?.value ?? previous)
+          .copyWith(language: previous.language));
       rethrow;
     }
   }
 
   Future<void> setReading(bridge.ReadingSettings reading) async {
-    final previous = state.asData?.value ?? const AppearanceState.defaults();
-    state = AsyncData(previous.copyWith(reading: reading));
-    try {
-      await ref.read(settingsRepositoryProvider).setReading(reading);
-    } catch (error) {
-      state = AsyncData(previous);
-      rethrow;
-    }
+    await _saveAppearance(reading: reading);
   }
 
   Future<void> setAutoRefresh(bool enabled) => _setBackground(
@@ -149,9 +201,11 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
 
   Future<void> resetPreferences() async {
     const defaults = AppearanceState.defaults();
-    await setTheme(defaults.theme);
+    await _saveAppearance(
+        theme: defaults.theme,
+        visual: defaults.visual,
+        reading: defaults.reading);
     await setLanguage(defaults.language);
-    await setReading(defaults.reading);
     await _setBackground(
       refreshIntervalMin: defaults.refreshIntervalMin,
       notificationsEnabled: defaults.notificationsEnabled,
@@ -190,7 +244,11 @@ class AppearanceController extends AsyncNotifier<AppearanceState> {
         // Preserve the original failure; startup reconciliation repairs the
         // schedule from persisted settings on the next app launch.
       }
-      state = AsyncData(previous);
+      state = AsyncData((state.asData?.value ?? previous).copyWith(
+        refreshIntervalMin: previous.refreshIntervalMin,
+        notificationsEnabled: previous.notificationsEnabled,
+        notificationQuietHours: previous.notificationQuietHours,
+      ));
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
@@ -200,6 +258,19 @@ class SettingsRepository {
   final Ref _ref;
 
   SettingsRepository(this._ref);
+
+  Future<void> setAppearance(
+      {required String theme,
+      required bridge.VisualSettings visual,
+      required bridge.ReadingSettings reading}) async {
+    final core = await _ref.read(paprCoreBridgeProvider.future);
+    try {
+      await bridge.setAppearanceSettings(
+          core: core, theme: theme, visual: visual, reading: reading);
+    } catch (e) {
+      throw PaprCoreService.mapError(e);
+    }
+  }
 
   Future<bridge.SettingsSnapshot> getSettings() async {
     final core = await _ref.read(paprCoreBridgeProvider.future);

@@ -1074,4 +1074,115 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorSyncCredentialStore => '无法安全访问已保存的密码。';
+
+  @override
+  String get appearancePresetsTitle => '让阅读有自己的风格';
+
+  @override
+  String get appearancePresetsDescription =>
+      '一键搭配主题、强调色、列表布局与阅读字体。应用后，可在下方或「阅读」设置中继续微调。';
+
+  @override
+  String get appearanceCustom => '自定义外观';
+
+  @override
+  String get appearancePreviewTitle => '慢下来，读一篇。';
+
+  @override
+  String get appearancePreviewBody => '好故事值得认真阅读。慢下来，让思绪随着文字展开。';
+
+  @override
+  String get appearanceAccent => '强调色';
+
+  @override
+  String get appearanceDarkShade => '暗色背景';
+
+  @override
+  String get appearanceDensity => '信息密度';
+
+  @override
+  String get appearanceListStyle => '文章列表样式';
+
+  @override
+  String get viewModeList => '列表';
+
+  @override
+  String get viewModeCard => '卡片';
+
+  @override
+  String get darkShadeDefault => '标准';
+
+  @override
+  String get darkShadeDimmer => '更暗';
+
+  @override
+  String get darkShadeBlack => '纯黑';
+
+  @override
+  String get accentClay => '陶土';
+
+  @override
+  String get accentPine => '松绿';
+
+  @override
+  String get accentIndigo => '靛蓝';
+
+  @override
+  String get accentInk => '墨色';
+
+  @override
+  String get densityCompact => '紧凑';
+
+  @override
+  String get densityCozy => '适中';
+
+  @override
+  String get densitySpacious => '宽松';
+
+  @override
+  String get appearanceTitle => '外观';
+
+  @override
+  String get appearanceAdjustments => '手动微调';
+
+  @override
+  String appearanceCurrent(String name) {
+    return '当前：$name';
+  }
+
+  @override
+  String get presetPaperName => '纸刊';
+
+  @override
+  String get presetPaperDescription => '温润纸色、陶土点缀与经典衬线字体。';
+
+  @override
+  String get presetPineName => '松林';
+
+  @override
+  String get presetPineDescription => '松绿点缀、舒展卡片与宽松阅读排版。';
+
+  @override
+  String get presetInkName => '墨色';
+
+  @override
+  String get presetInkDescription => '单色界面、紧凑列表与清晰无衬线字体。';
+
+  @override
+  String get presetDuskName => '暮色';
+
+  @override
+  String get presetDuskDescription => '暖炭色背景与柔和衬线字体，适合晚间阅读。';
+
+  @override
+  String get presetMidnightName => '午夜';
+
+  @override
+  String get presetMidnightDescription => '深色背景、靛蓝点缀与简洁卡片视图。';
+
+  @override
+  String get presetFocusName => '专注';
+
+  @override
+  String get presetFocusDescription => '最深背景、松绿点缀与紧凑列表。';
 }

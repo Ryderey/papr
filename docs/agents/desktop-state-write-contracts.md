@@ -30,6 +30,10 @@ ID/boolean payloads. No new schema, protocol fields, or environment settings.
 - Update the confirmed value only after a successful write. When the final
   queued write fails, restore the last confirmed value, preserving subsequent
   pending intents and other fields. Errors still reach the hook's error toast.
+- Treat article-cache snapshots as immutable. Flag updates produce new arrays
+  and rows, including when input pages/rows are frozen. Desktop keeps current
+  reading-list rows in place and invalidates membership for the next fetch;
+  do not copy Android's mutable-list removal into this cache path.
 - Cancel stale detail/list/search reads without reverting other optimistic
   changes. Queries started during a pending write must also retain pending flags
   while allowing fresh content and unrelated server state to update.
@@ -66,6 +70,9 @@ ID/boolean payloads. No new schema, protocol fields, or environment settings.
 - Actual hook tests with deferred queries/writes cover stale detail and list
   reads, overlapping failures, latest-intent visibility, different articles,
   and independent fields. Pure patch-helper tests cannot prove write ordering.
+- Actual hook tests also cover mark-read, unstar and remove-read-later with
+  frozen cached pages/rows, asserting successful persistence calls, updated
+  list/detail flags, unchanged input snapshots and no error callback.
 - SQL-trigger fixtures request cancellation in the final article, version,
   file, and acknowledgement stages. Assert error, unchanged data/cursor/outbox/
   file contents/applying, and failure-path lease release.

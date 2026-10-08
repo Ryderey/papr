@@ -81,6 +81,7 @@ extension AppErrorLocalizations on AppLocalizations {
       'invalidReadingLineHeight' ||
       'invalidReadingWidth' =>
         errorInvalidReadingSettings,
+      'invalidAppearance' => errorInvalidReadingSettings,
       'invalidAiProfile' || 'tooManyAiProfiles' => errorInvalidAiProfile,
       'noAiCredential' => errorNoAiCredential,
       'invalidAiCredential' ||

@@ -1139,4 +1139,122 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorSyncCredentialStore =>
       'The saved password could not be accessed securely.';
+
+  @override
+  String get appearancePresetsTitle => 'Make room for reading';
+
+  @override
+  String get appearancePresetsDescription =>
+      'Choose a look to set the theme, accent, layout and reading typography together. Fine-tune any setting below or in Reading.';
+
+  @override
+  String get appearanceCustom => 'Custom appearance';
+
+  @override
+  String get appearancePreviewTitle => 'A little space to read.';
+
+  @override
+  String get appearancePreviewBody =>
+      'Good stories deserve our attention. Settle in, slow down, and turn the next page.';
+
+  @override
+  String get appearanceAccent => 'Accent color';
+
+  @override
+  String get appearanceDarkShade => 'Dark background';
+
+  @override
+  String get appearanceDensity => 'Density';
+
+  @override
+  String get appearanceListStyle => 'Article list style';
+
+  @override
+  String get viewModeList => 'List';
+
+  @override
+  String get viewModeCard => 'Card';
+
+  @override
+  String get darkShadeDefault => 'Default';
+
+  @override
+  String get darkShadeDimmer => 'Dimmer';
+
+  @override
+  String get darkShadeBlack => 'Black';
+
+  @override
+  String get accentClay => 'Clay';
+
+  @override
+  String get accentPine => 'Pine';
+
+  @override
+  String get accentIndigo => 'Indigo';
+
+  @override
+  String get accentInk => 'Ink';
+
+  @override
+  String get densityCompact => 'Compact';
+
+  @override
+  String get densityCozy => 'Cozy';
+
+  @override
+  String get densitySpacious => 'Spacious';
+
+  @override
+  String get appearanceTitle => 'Appearance';
+
+  @override
+  String get appearanceAdjustments => 'Fine-tune your look';
+
+  @override
+  String appearanceCurrent(String name) {
+    return 'Current: $name';
+  }
+
+  @override
+  String get presetPaperName => 'Paper';
+
+  @override
+  String get presetPaperDescription =>
+      'Warm paper, clay accents and classic serif reading.';
+
+  @override
+  String get presetPineName => 'Pine';
+
+  @override
+  String get presetPineDescription =>
+      'Forest accents, roomy cards and generous type.';
+
+  @override
+  String get presetInkName => 'Ink';
+
+  @override
+  String get presetInkDescription =>
+      'Monochrome, compact lists and crisp sans-serif type.';
+
+  @override
+  String get presetDuskName => 'Dusk';
+
+  @override
+  String get presetDuskDescription =>
+      'Warm charcoal and soft serif type for evening reading.';
+
+  @override
+  String get presetMidnightName => 'Midnight';
+
+  @override
+  String get presetMidnightDescription =>
+      'Deep surfaces, indigo accents and a clean card view.';
+
+  @override
+  String get presetFocusName => 'Focus';
+
+  @override
+  String get presetFocusDescription =>
+      'The darkest surfaces, pine accents and compact lists.';
 }

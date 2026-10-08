@@ -350,5 +350,48 @@
   "errorSyncProviderFailed": "リーダーサービスの処理に失敗しました。もう一度お試しください。",
   "errorSyncInvalidResponse": "リーダーサービスから予期しない応答が返されました。",
   "errorSyncTooManyItems": "一度に同期する項目が多すぎます。履歴を減らして再試行してください。",
-  "errorSyncCredentialStore": "保存済みパスワードに安全にアクセスできません。"
+  "errorSyncCredentialStore": "保存済みパスワードに安全にアクセスできません。",
+  "appearancePresetsTitle": "読書を、自分らしく",
+  "appearancePresetsDescription": "テーマ、アクセント、一覧レイアウト、本文の書体をまとめて設定します。適用後も下の項目や「読書」で調整できます。",
+  "appearanceCustom": "カスタムの外観",
+  "appearancePreviewTitle": "ひと息ついて、読む。",
+  "appearancePreviewBody": "よい物語を、じっくりと。落ち着いた空間で、次のページを開きましょう。",
+  "appearanceAccent": "アクセントカラー",
+  "appearanceDarkShade": "ダーク背景",
+  "appearanceDensity": "密度",
+  "appearanceListStyle": "記事リストのスタイル",
+  "viewModeList": "リスト",
+  "viewModeCard": "カード",
+  "darkShadeDefault": "標準",
+  "darkShadeDimmer": "より暗く",
+  "darkShadeBlack": "ブラック",
+  "accentClay": "クレイ",
+  "accentPine": "パイン",
+  "accentIndigo": "インディゴ",
+  "accentInk": "インク",
+  "densityCompact": "コンパクト",
+  "densityCozy": "標準",
+  "densitySpacious": "ゆったり",
+  "appearanceTitle": "外観",
+  "appearanceAdjustments": "細かな調整",
+  "appearanceCurrent": "現在：{name}",
+  "@appearanceCurrent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "presetPaperName": "紙面",
+  "presetPaperDescription": "温かな紙色、テラコッタとクラシックなセリフ体。",
+  "presetPineName": "松林",
+  "presetPineDescription": "松の緑、ゆったりしたカードと大きめの文字。",
+  "presetInkName": "墨色",
+  "presetInkDescription": "モノクロ、コンパクトな一覧と明快なサンセリフ体。",
+  "presetDuskName": "夕暮れ",
+  "presetDuskDescription": "温かなチャコールと柔らかなセリフ体で夜の読書を。",
+  "presetMidnightName": "真夜中",
+  "presetMidnightDescription": "深い背景、インディゴとすっきりしたカード表示。",
+  "presetFocusName": "集中",
+  "presetFocusDescription": "最も暗い背景、松の緑とコンパクトな一覧。"
 }

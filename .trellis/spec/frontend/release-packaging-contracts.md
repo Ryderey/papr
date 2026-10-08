@@ -74,6 +74,24 @@ Gradle: -PpaprAndroidAbis=arm64-v8a,armeabi-v7a -PpaprRequireReleaseSigning=true
   Debug signing, but required CI signing must never fall back.
 - Verify APK package, version, expected split ABI, bridge library and certificate
   against public `ANDROID_SIGNING_CERT_SHA256` before uploading artifacts.
+- Android ABI selection must apply to all JNI dependencies via
+  `android.defaultConfig.ndk.abiFilters` for unsplit packages, not just Rust
+  build/copy tasks. With `split-per-abi`, use Flutter's split filters instead:
+  AGP rejects simultaneous defaultConfig ABI filters and split filters.
+  Flutter 3.44 overwrites unsplit filters after evaluation unless its project
+  `disable-abi-filtering` switch is enabled. Enable that switch when applying
+  Papr's own complete target filters; do not rely on earlier `addAll` calls.
+  Otherwise a plugin can advertise an additional ABI without its Flutter engine
+  or Papr bridge, and Android selects that incomplete slice at startup. Infer
+  Rust/packaging ABIs from Flutter `target-platform` when no explicit
+  `paprAndroidAbis` is supplied. Each advertised slice needs both
+  `libflutter.so` and `libpapr_flutter_bridge.so`.
+- For local test packages, use `flutter build apk --debug --target-platform
+  android-x64` for x86_64 emulators, or `android-arm64` for ARM64 phones. Check
+  the connected device's `ro.product.cpu.abilist` and page size. Direct Gradle
+  assembly reads cached Flutter versions from `local.properties`; filenames
+  based on pubspec do not prove APK metadata. Inspect `aapt dump badging` before
+  handing off an APK. A successful build is not proof that it launches.
 - Key setup preserves an existing keystore, verifies store/key passwords, sends
   Secrets via stdin without a trailing newline, and backs up no credentials into
   source. Quote PowerShell's `-J-Duser.language=en` / password modifier arguments.

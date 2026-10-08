@@ -1025,6 +1025,7 @@ class SettingsSnapshot {
   final bool notificationsEnabled;
   final bool notificationQuietHours;
   final ReadingSettings reading;
+  final VisualSettings visual;
 
   const SettingsSnapshot({
     required this.theme,
@@ -1033,6 +1034,7 @@ class SettingsSnapshot {
     required this.notificationsEnabled,
     required this.notificationQuietHours,
     required this.reading,
+    required this.visual,
   });
 
   @override
@@ -1042,7 +1044,8 @@ class SettingsSnapshot {
       refreshIntervalMin.hashCode ^
       notificationsEnabled.hashCode ^
       notificationQuietHours.hashCode ^
-      reading.hashCode;
+      reading.hashCode ^
+      visual.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1054,7 +1057,8 @@ class SettingsSnapshot {
           refreshIntervalMin == other.refreshIntervalMin &&
           notificationsEnabled == other.notificationsEnabled &&
           notificationQuietHours == other.notificationQuietHours &&
-          reading == other.reading;
+          reading == other.reading &&
+          visual == other.visual;
 }
 
 /// The kind of source a feed represents.
@@ -1211,4 +1215,36 @@ class TagSummary {
           color == other.color &&
           articleCount == other.articleCount &&
           position == other.position;
+}
+
+/// Device-local palette and article list preferences.
+class VisualSettings {
+  final String accent;
+  final String darkShade;
+  final String density;
+  final String viewMode;
+
+  const VisualSettings({
+    required this.accent,
+    required this.darkShade,
+    required this.density,
+    required this.viewMode,
+  });
+
+  @override
+  int get hashCode =>
+      accent.hashCode ^
+      darkShade.hashCode ^
+      density.hashCode ^
+      viewMode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VisualSettings &&
+          runtimeType == other.runtimeType &&
+          accent == other.accent &&
+          darkShade == other.darkShade &&
+          density == other.density &&
+          viewMode == other.viewMode;
 }

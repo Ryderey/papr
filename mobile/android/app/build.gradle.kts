@@ -110,13 +110,24 @@ val rustTargetsByAbi = mapOf(
 
 // Narrow the cross-compiled ABIs for release packaging, e.g.
 //   gradle -PpaprAndroidAbis=arm64-v8a,armeabi-v7a
-// The Flutter wrapper forwards ORG_GRADLE_PROJECT_paprAndroidAbis from the
-// environment. Unset keeps every ABI so local debug builds still cover emulators.
+// Otherwise match Flutter's target-platform selection, including emulator builds.
+val flutterAbisByTarget = mapOf(
+    "android-arm" to "armeabi-v7a",
+    "android-arm64" to "arm64-v8a",
+    "android-x86" to "x86",
+    "android-x64" to "x86_64"
+)
+val flutterTargetAbis = (project.findProperty("target-platform") as String?)
+    ?.split(',')
+    ?.mapNotNull { flutterAbisByTarget[it.trim()] }
+    .orEmpty()
+val splitPerAbi = (project.findProperty("split-per-abi") as String?)?.toBoolean() == true
 val requestedAbis = (project.findProperty("paprAndroidAbis") as String?)
     ?.split(',')
     ?.map(String::trim)
     ?.filter(String::isNotEmpty)
     .orEmpty()
+    .ifEmpty { flutterTargetAbis }
 if (requestedAbis.isNotEmpty()) {
     val unknownAbis = requestedAbis.filterNot(rustTargetsByAbi::containsKey)
     if (unknownAbis.isNotEmpty()) {
@@ -124,6 +135,22 @@ if (requestedAbis.isNotEmpty()) {
             "paprAndroidAbis contains unsupported entries: ${unknownAbis.joinToString(", ")}; " +
                 "supported: ${rustTargetsByAbi.keys.joinToString(", ")}"
         )
+    }
+    if (flutterTargetAbis.isNotEmpty() &&
+        (requestedAbis.any { it !in flutterTargetAbis } ||
+            (splitPerAbi && flutterTargetAbis.any { it !in requestedAbis }))) {
+        throw GradleException("paprAndroidAbis must provide the same native targets as the selected Flutter package.")
+    }
+    // Filter every native dependency, not only the Rust copy tasks. Otherwise
+    // plugin-only slices advertise ABIs that lack the Flutter engine/bridge.
+    // AGP rejects defaultConfig filters together with ABI splits. Flutter's
+    // split filters already constrain JNI dependencies for split packages.
+    if (!splitPerAbi) {
+        // Flutter 3.44 otherwise replaces these filters with its full default
+        // ABI list after evaluation, reintroducing incomplete plugin slices.
+        extensions.extraProperties.set("disable-abi-filtering", "true")
+        android.defaultConfig.ndk.abiFilters.clear()
+        android.defaultConfig.ndk.abiFilters.addAll(requestedAbis)
     }
 }
 val rustAbis =
@@ -133,9 +160,8 @@ val staleAbiDirs = (rustTargetsByAbi.keys - rustAbis.keys)
     .filter { File(projectDir, "src/main/jniLibs/$it").listFiles().orEmpty().isNotEmpty() }
 if (staleAbiDirs.isNotEmpty()) {
     logger.warn(
-        "paprAndroidAbis excludes ${staleAbiDirs.joinToString(", ")} but jniLibs still holds libraries " +
-            "for them; an unsplit APK would package stale binaries. Delete those directories or run " +
-            "`flutter clean` before packaging."
+        "Native libraries for ${staleAbiDirs.joinToString(", ")} remain in jniLibs " +
+            "and are excluded by this build's ABI filters."
     )
 }
 
