@@ -49,7 +49,18 @@
   --list-px: 18px;
 
   /* type — bundled variable woff2 first (see main.tsx), then platform
-     fallbacks so a missing/blocked font doesn't drop to a system serif. */
+     fallbacks so a missing/blocked font doesn't drop to a system serif.
+     CJK deliberately rides the generic fallbacks: naming Chinese families
+     (STSong / Source Han Serif / YaHei …) makes the reader render whatever
+     the local machine happens to have installed, and a weight-named
+     single-face install poisons the family name — a Heavy-only Source Han
+     Serif install resolves `Source Han Serif SC` to Heavy at every weight,
+     rendering body text as bold as the title (measured). Generic `serif` /
+     `sans-serif` follow the OS's own CJK defaults instead, so every user
+     gets their platform's standard face. These variables must stay on
+     :root — App.tsx writes `--reader-font: var(--serif)` as an inline style
+     on <html>, and var() inside a custom property resolves on the element
+     that declares it, so a body-level override never reaches the reader. */
   --ui: 'Inter Tight Variable', 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
   --serif: 'Newsreader Variable', 'Newsreader', Georgia, 'Times New Roman', serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'Cascadia Mono', 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
@@ -157,6 +168,16 @@
   background: var(--accent);
 }
 
+/* Same left mark in light: the pale terracotta wash alone leaves the active
+   row's edge ambiguous against the neighbouring rows. */
+[data-theme="light"] .art.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
 [data-theme="dark"] .art-feed { color: var(--muted); }
 
 [data-density="compact"] { --row-py: 10px; --list-px: 14px; }
@@ -192,6 +213,29 @@ button { font-family: inherit; }
 .settings-scroll {
   scrollbar-width: thin;
 }
+/* Windows/Linux Chromium paints a chunky classic scrollbar that fights the
+   paper surfaces — replace it with a slim rounded thumb (the 3px transparent
+   border keeps the visual width ~6px while the 12px hit area stays).
+   Scoped to non-mac on purpose: on macOS the ::-webkit-scrollbar rules would
+   replace the native overlay bar this file otherwise relies on. The four
+   `scrollbar-width: thin` containers above are reset to `auto` because a
+   specified standard scrollbar property makes Chromium ignore the
+   ::-webkit-scrollbar rules for that box. */
+:root[data-platform="other"] :is(.sidebar-scroll, .list-scroll, .reader-scroll, .settings-scroll) {
+  scrollbar-width: auto;
+}
+:root[data-platform="other"] ::-webkit-scrollbar { width: 12px; height: 12px; }
+:root[data-platform="other"] ::-webkit-scrollbar-track { background: transparent; }
+:root[data-platform="other"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+:root[data-platform="other"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--ink) 30%, transparent);
+}
+:root[data-platform="other"] ::-webkit-scrollbar-corner { background: transparent; }
 
 /* ====== Window ====== */
 .window {
@@ -292,11 +336,11 @@ button { font-family: inherit; }
 }
 
 .sb-section-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   padding: 14px 10px 6px;
   display: flex;
   align-items: center;
@@ -576,6 +620,10 @@ button { font-family: inherit; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Hanzi need more air than Latin at the same size — 1.35 across a clamped
+   two-line Chinese title reads cramped. */
+:lang(zh) .art-title,
+:lang(ja) .art-title { line-height: 1.5; }
 .art-snippet {
   font-size: 12.5px;
   color: var(--ink-2);
@@ -730,6 +778,18 @@ button { font-family: inherit; }
   font-family: var(--reader-font);
   overflow-wrap: break-word;
 }
+/* CJK titles take a lighter negative track than the -0.02em above: hanzi set
+   tighter than about -1% read as cramped, and -0.02em pushes the "标点：" run
+   of a typical title onto the next line, splitting the word. -0.01em keeps
+   that run on line one without compressing the glyphs. */
+:lang(zh) .article-title,
+:lang(ja) .article-title {
+  letter-spacing: -0.01em;
+  text-spacing-trim: normal;
+}
+/* Latin titles balance instead — CJK does not get this: hanzi has no word
+   boundaries, so balancing freely re-wraps and can split a word mid-run. */
+:lang(en) .article-title { text-wrap: balance; }
 .article-meta {
   font-size: 13px;
   color: var(--muted);
@@ -738,6 +798,7 @@ button { font-family: inherit; }
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
 }
 .article-meta > * { white-space: nowrap; }
 .article-meta .author { color: var(--ink-2); font-weight: 500; }
@@ -797,7 +858,30 @@ button { font-family: inherit; }
   overflow-wrap: break-word;
 }
 .article { max-width: var(--reader-width, 680px); }
-.article-body p { margin: 0 0 1.05em; }
+.article-body p {
+  margin: 0 0 1.05em;
+  /* Avoid a stranded final word — a no-op for CJK runs, useful for Latin. */
+  text-wrap: pretty;
+}
+/* Hanzi sit flush in their em box, so at the serif's default tracking a
+   Chinese column reads dense; a touch of letter-spacing and ~5% more leading
+   matches the optical comfort of the Latin setting. The user's slider stays
+   the single control — the multiplier is the CJK compensation applied to
+   --reader-leading. text-spacing-trim must be `normal` (the default): it is
+   the value that collapses adjacent full-width punctuation pairs, while
+   `space-all` means "keep everything full width" and disables trimming. It
+   only takes effect when the font carries the halt/chws features, so it is
+   a no-op on fonts lacking them. */
+:lang(zh) .article-body,
+:lang(ja) .article-body {
+  letter-spacing: 0.012em;
+  line-height: calc(var(--reader-leading, 1.65) * 1.05);
+  text-spacing-trim: normal;
+}
+:lang(zh) .article-body h2,
+:lang(zh) .article-body h3,
+:lang(ja) .article-body h2,
+:lang(ja) .article-body h3 { text-spacing-trim: normal; }
 .article-body h2 {
   font-size: 22px;
   font-weight: 650;
@@ -1401,16 +1485,25 @@ body.ai-resizing .reader-scroll { transition: none; }
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 7px 10px;
+  border: 0;
   border-radius: 7px;
+  background: none;
+  font-family: inherit;
   font-size: 13px;
+  text-align: left;
   color: var(--ink-2);
   cursor: pointer;
   margin: 1px 0;
   user-select: none;
-  transition: background .12s;
+  transition: background .12s, color .12s;
 }
 .settings-nav-item:hover { background: var(--hover); }
+.settings-nav-item:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+}
 .settings-nav-item.active {
   background: var(--accent-soft);
   color: var(--accent-ink);
@@ -1487,27 +1580,44 @@ body.ai-resizing .reader-scroll { transition: none; }
   overflow-y: auto;
   padding: 22px 28px 60px;
 }
+/* Pane content fades in when a nav item switches sections — the direct-child
+   selectors re-fire because the section tree remounts on switch. The global
+   reduce-motion guards above neutralise this with the rest of the UI. */
+.settings-scroll > .settings-group,
+.settings-scroll > .appearance-presets {
+  animation: settings-sec-in .18s ease-out both;
+}
+@keyframes settings-sec-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 
 .settings-group {
   margin-bottom: 28px;
 }
 .settings-group-title {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   margin: 0 0 12px;
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  padding: 12px 0;
+  /* 8px horizontal bleed: the hairline and hover tint extend past the column
+     while the content stays on the same optical line (margin cancels padding). */
+  padding: 12px 8px;
+  margin-inline: -8px;
   border-bottom: 1px solid var(--hair);
+  border-radius: 6px;
   gap: 16px;
+  transition: background .12s;
 }
 .settings-row:last-child { border-bottom: 0; }
+.settings-row:hover { background: color-mix(in oklch, var(--ink) 2.5%, transparent); }
 .settings-row-text {
   flex: 1;
   min-width: 0;
@@ -1569,9 +1679,15 @@ body.ai-resizing .reader-scroll { transition: none; }
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color .16s ease, box-shadow .16s ease;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
-.appearance-preset:hover { border-color: var(--muted); }
+.appearance-preset:hover {
+  border-color: var(--muted);
+  /* The cards are clickable; a 1px lift is the click affordance the border
+     tint alone doesn't give. */
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-raise);
+}
 .appearance-preset.on {
   border-color: var(--accent-ink);
   box-shadow: 0 0 0 1px var(--accent-ink);
@@ -1709,16 +1825,18 @@ body.ai-resizing .reader-scroll { transition: none; }
   .appearance-preset-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Toggle */
+/* Toggle — the off state needs an edge on paper backgrounds, where a bare
+   fill all but disappears; the inset hairline draws the track outline. */
 .s-toggle {
   appearance: none;
   width: 36px; height: 20px;
-  background: var(--hair-strong);
+  background: color-mix(in oklch, var(--ink) 10%, var(--panel));
   border-radius: 999px;
   position: relative;
   border: 0;
+  box-shadow: inset 0 0 0 1px var(--hair-strong);
   cursor: pointer;
-  transition: background .15s;
+  transition: background .15s, box-shadow .15s;
 }
 .s-toggle::before {
   content: '';
@@ -1730,8 +1848,11 @@ body.ai-resizing .reader-scroll { transition: none; }
   box-shadow: var(--shadow-raise);
   transition: transform .18s cubic-bezier(.22,.61,.36,1);
 }
-.s-toggle:checked { background: var(--accent); }
+.s-toggle:checked { background: var(--accent); box-shadow: none; }
 .s-toggle:checked::before { transform: translateX(16px); }
+/* Disabled toggles previously looked identical to live ones. */
+.s-toggle:disabled { opacity: 0.45; cursor: default; }
+.s-toggle:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 
 /* Select */
 .s-select {
@@ -1802,10 +1923,17 @@ body.ai-resizing .reader-scroll { transition: none; }
   transition: background .12s, color .12s;
 }
 .s-seg button:hover { color: var(--ink-2); }
+.s-seg button:focus-visible,
+.s-swatch:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
 .s-seg button.on {
   background: var(--panel-2);
   color: var(--ink);
-  box-shadow: 0 1px 2px oklch(0.15 0.03 50 / 0.09);
+  /* A tighter drop plus a hairline keeps the raised segment crisp against the
+     panel instead of floating. */
+  box-shadow: 0 1px 2px oklch(0.15 0.03 50 / 0.13), 0 0 0 1px var(--hair);
 }
 
 /* Color swatches */

@@ -117,16 +117,20 @@ export default function SettingsDialog({
             <span className="badge">{modCombo(",")}</span>
           </div>
           {SECTIONS.map((s) => (
-            <div
+            // A real <button>, not a clickable <div>: the nav was previously
+            // unreachable by Tab, so keyboard users could not switch sections.
+            <button
               key={s.id}
+              type="button"
               className={`settings-nav-item ${section === s.id ? "active" : ""}`}
+              aria-current={section === s.id ? "true" : undefined}
               onClick={() => setSection(s.id)}
             >
               <span className="nav-ico" style={{ background: s.color }}>
                 <Icon name={s.icon} size={11} color="#fff" />
               </span>
               {t(s.labelKey)}
-            </div>
+            </button>
           ))}
           <div className="settings-nav-spacer" />
           <div className="settings-version">
