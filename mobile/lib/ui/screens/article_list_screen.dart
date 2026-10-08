@@ -327,7 +327,15 @@ class _ArticleCard extends StatelessWidget {
                       ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      // Tabular figures keep the feed · date line steady down
+                      // the list (dates stop jittering between rows).
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                              fontFeatures: const [
+                            FontFeature.tabularFigures()
+                          ]),
                     ),
                     if (article.snippet?.trim().isNotEmpty ?? false) ...[
                       const SizedBox(height: 6),

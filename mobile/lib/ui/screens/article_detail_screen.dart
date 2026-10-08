@@ -256,15 +256,31 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
     final content = detail.extractedHtml ?? detail.contentHtml;
     final renderedContent = _highlightedHtml ?? content;
     final hasContent = content?.trim().isNotEmpty ?? false;
+    // Chinese/Japanese UI gets the same typesetting compensation as the
+    // desktop reader: hanzi sit flush in their em box, so a touch of tracking
+    // and ~5% more leading match the Latin optical comfort. Keyed to the UI
+    // language — the desktop reader's :lang(界面语言) rules work the same way.
+    final uiLang = Localizations.localeOf(context).languageCode;
+    final cjk = uiLang == 'zh' || uiLang == 'ja';
     final textStyle = TextStyle(
       fontSize: reading.fontSize,
-      height: reading.lineHeight,
+      height: cjk ? reading.lineHeight * 1.05 : reading.lineHeight,
+      letterSpacing: cjk ? reading.fontSize * 0.012 : null,
       fontFamily: switch (reading.font) {
         'serif' => 'serif',
         'sans' => 'sans-serif',
         _ => null,
       },
     );
+    final titleTheme = Theme.of(context).textTheme.headlineSmall;
+    // Feed names, dates and reading-time counts stay column-aligned. Build from
+    // the theme's body style, not DefaultTextStyle.of(context): this context
+    // sits above the Scaffold, so the nearest default is MaterialApp's debug
+    // text style (giant red, yellow underline).
+    final metaStyle = Theme.of(context)
+        .textTheme
+        .bodyMedium
+        ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
     return Stack(
       children: [
@@ -278,22 +294,27 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
                 children: [
                   Text(
                     detail.title,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontFamily: textStyle.fontFamily, height: 1.25),
+                    style: titleTheme?.copyWith(
+                        fontFamily: textStyle.fontFamily,
+                        height: 1.25,
+                        letterSpacing:
+                            cjk ? (titleTheme.fontSize ?? 24) * -0.01 : null),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,
                     children: [
-                      Text(detail.feedTitle),
+                      Text(detail.feedTitle, style: metaStyle),
                       if (detail.author != null)
-                        Text(context.l10n.byAuthor(detail.author!)),
+                        Text(context.l10n.byAuthor(detail.author!),
+                            style: metaStyle),
                       if (detail.publishedAt != null)
-                        Text(_shortDate(detail.publishedAt!)),
+                        Text(_shortDate(detail.publishedAt!),
+                            style: metaStyle),
                       if (reading.showReadingTime && hasContent)
                         Text(context.l10n
-                            .readMinutes(_readingMinutes(content!))),
+                            .readMinutes(_readingMinutes(content!)), style: metaStyle),
                     ],
                   ),
                   const Divider(height: 28),
