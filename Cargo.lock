@@ -3344,7 +3344,7 @@ dependencies = [
 
 [[package]]
 name = "papr"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -3384,7 +3384,7 @@ dependencies = [
 
 [[package]]
 name = "papr-core"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -3412,7 +3412,7 @@ dependencies = [
 
 [[package]]
 name = "papr-flutter-bridge"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "flutter_rust_bridge",
  "log",
