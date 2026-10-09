@@ -14,6 +14,9 @@ import 'package:papr_mobile/repositories/settings_repository.dart';
 import 'package:papr_mobile/ui/app_theme.dart';
 import 'package:papr_mobile/ui/screens/appearance_screen.dart';
 
+AppearancePreset _preset(String id) =>
+    appearancePresets.firstWhere((preset) => preset.id == id);
+
 void main() {
   testWidgets(
       'all five manual appearance controls persist without a save error',
@@ -88,7 +91,7 @@ void main() {
       expect(repository.snapshot.visual, preset.visual);
       expect(repository.snapshot.reading, saved.reading);
     }
-    expect(repository.calls, 6);
+    expect(repository.calls, appearancePresets.length);
   });
 
   test('failed save retains appearance and does not poison the next save',
@@ -99,7 +102,7 @@ void main() {
     addTearDown(container.dispose);
     await container.read(appearanceProvider.future);
     final controller = container.read(appearanceProvider.notifier);
-    await expectLater(controller.applyAppearancePreset(appearancePresets[3]),
+    await expectLater(controller.applyAppearancePreset(_preset('dusk')),
         throwsStateError);
     final unchanged = container.read(appearanceProvider).requireValue;
     expect(unchanged.theme, initial.theme);
@@ -107,7 +110,7 @@ void main() {
     expect(unchanged.reading, initial.reading);
     expect(unchanged.savingAppearance, isFalse);
     repository.fail = false;
-    await controller.applyAppearancePreset(appearancePresets[4]);
+    await controller.applyAppearancePreset(_preset('dusk'));
     expect(container.read(appearanceProvider).requireValue.theme, 'dark');
   });
 
@@ -121,7 +124,7 @@ void main() {
     final controller = container.read(appearanceProvider.notifier);
     final behavior = controller.setReading(copyReadingSettings(initial.reading,
         autoExtract: true, showReadingTime: false));
-    final preset = controller.applyAppearancePreset(appearancePresets[4]);
+    final preset = controller.applyAppearancePreset(_preset('midnight'));
     await Future.wait([behavior, preset]);
     final saved = container.read(appearanceProvider).requireValue;
     expect(saved.reading.autoExtract, isTrue);
@@ -138,7 +141,7 @@ void main() {
     await container.read(appearanceProvider.future);
     final controller = container.read(appearanceProvider.notifier);
     final first = controller.applyAppearancePreset(appearancePresets[1]);
-    final second = controller.applyAppearancePreset(appearancePresets[4]);
+    final second = controller.applyAppearancePreset(_preset('midnight'));
     await Future<void>.delayed(Duration.zero);
     expect(repository.calls, 1);
     expect(container.read(appearanceProvider).requireValue.savingAppearance,

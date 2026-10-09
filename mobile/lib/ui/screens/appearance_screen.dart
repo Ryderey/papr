@@ -106,6 +106,12 @@ class AppearanceScreen extends ConsumerWidget {
                 'pine': l10n.accentPine,
                 'indigo': l10n.accentIndigo,
                 'ink': l10n.accentInk,
+                'mauve': l10n.accentMauve,
+                'frost': l10n.accentFrost,
+                'leaf': l10n.accentLeaf,
+                'amber': l10n.accentAmber,
+                'rose': l10n.accentRose,
+                'slate': l10n.accentSlate,
               },
               busy,
               (value) => controller.setVisual(

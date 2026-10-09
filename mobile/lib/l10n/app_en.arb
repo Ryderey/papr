@@ -380,6 +380,12 @@
   "accentPine": "Pine",
   "accentIndigo": "Indigo",
   "accentInk": "Ink",
+  "accentMauve": "Mauve",
+  "accentFrost": "Frost",
+  "accentLeaf": "Leaf",
+  "accentAmber": "Amber",
+  "accentRose": "Rose",
+  "accentSlate": "Slate",
   "densityCompact": "Compact",
   "densityCozy": "Cozy",
   "densitySpacious": "Spacious",
@@ -399,10 +405,14 @@
   "presetPineDescription": "Forest accents, roomy cards and generous type.",
   "presetInkName": "Ink",
   "presetInkDescription": "Monochrome, compact lists and crisp sans-serif type.",
+  "presetOrchidName": "Orchid",
+  "presetOrchidDescription": "Lilac accents, airy cards and unhurried serif type.",
   "presetDuskName": "Dusk",
   "presetDuskDescription": "Warm charcoal and soft serif type for evening reading.",
   "presetMidnightName": "Midnight",
   "presetMidnightDescription": "Deep surfaces, indigo accents and a clean card view.",
   "presetFocusName": "Focus",
-  "presetFocusDescription": "The darkest surfaces, pine accents and compact lists."
+  "presetFocusDescription": "The darkest surfaces, pine accents and compact lists.",
+  "presetGlacierName": "Glacier",
+  "presetGlacierDescription": "Cool deep surfaces, frost-blue accents and an easy sans-serif list."
 }

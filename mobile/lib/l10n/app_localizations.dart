@@ -2231,6 +2231,42 @@ abstract class AppLocalizations {
   /// **'Ink'**
   String get accentInk;
 
+  /// No description provided for @accentMauve.
+  ///
+  /// In en, this message translates to:
+  /// **'Mauve'**
+  String get accentMauve;
+
+  /// No description provided for @accentFrost.
+  ///
+  /// In en, this message translates to:
+  /// **'Frost'**
+  String get accentFrost;
+
+  /// No description provided for @accentLeaf.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaf'**
+  String get accentLeaf;
+
+  /// No description provided for @accentAmber.
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get accentAmber;
+
+  /// No description provided for @accentRose.
+  ///
+  /// In en, this message translates to:
+  /// **'Rose'**
+  String get accentRose;
+
+  /// No description provided for @accentSlate.
+  ///
+  /// In en, this message translates to:
+  /// **'Slate'**
+  String get accentSlate;
+
   /// No description provided for @densityCompact.
   ///
   /// In en, this message translates to:
@@ -2303,6 +2339,18 @@ abstract class AppLocalizations {
   /// **'Monochrome, compact lists and crisp sans-serif type.'**
   String get presetInkDescription;
 
+  /// No description provided for @presetOrchidName.
+  ///
+  /// In en, this message translates to:
+  /// **'Orchid'**
+  String get presetOrchidName;
+
+  /// No description provided for @presetOrchidDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Lilac accents, airy cards and unhurried serif type.'**
+  String get presetOrchidDescription;
+
   /// No description provided for @presetDuskName.
   ///
   /// In en, this message translates to:
@@ -2338,6 +2386,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The darkest surfaces, pine accents and compact lists.'**
   String get presetFocusDescription;
+
+  /// No description provided for @presetGlacierName.
+  ///
+  /// In en, this message translates to:
+  /// **'Glacier'**
+  String get presetGlacierName;
+
+  /// No description provided for @presetGlacierDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Cool deep surfaces, frost-blue accents and an easy sans-serif list.'**
+  String get presetGlacierDescription;
 }
 
 class _AppLocalizationsDelegate

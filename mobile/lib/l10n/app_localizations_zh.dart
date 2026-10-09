@@ -1131,6 +1131,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accentInk => '墨色';
 
   @override
+  String get accentMauve => '藕紫';
+
+  @override
+  String get accentFrost => '霜蓝';
+
+  @override
+  String get accentLeaf => '苔绿';
+
+  @override
+  String get accentAmber => '琥珀';
+
+  @override
+  String get accentRose => '玫红';
+
+  @override
+  String get accentSlate => '石墨';
+
+  @override
   String get densityCompact => '紧凑';
 
   @override
@@ -1169,6 +1187,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get presetInkDescription => '单色界面、紧凑列表与清晰无衬线字体。';
 
   @override
+  String get presetOrchidName => '幽兰';
+
+  @override
+  String get presetOrchidDescription => '藕紫点缀、舒展卡片与从容的衬线排版。';
+
+  @override
   String get presetDuskName => '暮色';
 
   @override
@@ -1185,4 +1209,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get presetFocusDescription => '最深背景、松绿点缀与紧凑列表。';
+
+  @override
+  String get presetGlacierName => '霜夜';
+
+  @override
+  String get presetGlacierDescription => '清冷深色背景、霜蓝点缀与轻松的无衬线列表。';
 }

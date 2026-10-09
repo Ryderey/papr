@@ -1138,6 +1138,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accentInk => 'インク';
 
   @override
+  String get accentMauve => 'マーブ';
+
+  @override
+  String get accentFrost => 'フロスト';
+
+  @override
+  String get accentLeaf => 'リーフ';
+
+  @override
+  String get accentAmber => 'アンバー';
+
+  @override
+  String get accentRose => 'ローズ';
+
+  @override
+  String get accentSlate => 'スレート';
+
+  @override
   String get densityCompact => 'コンパクト';
 
   @override
@@ -1176,6 +1194,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get presetInkDescription => 'モノクロ、コンパクトな一覧と明快なサンセリフ体。';
 
   @override
+  String get presetOrchidName => '蘭';
+
+  @override
+  String get presetOrchidDescription => 'ライラックの差し色、ゆとりのカードとセリフ体。';
+
+  @override
   String get presetDuskName => '夕暮れ';
 
   @override
@@ -1192,4 +1216,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get presetFocusDescription => '最も暗い背景、松の緑とコンパクトな一覧。';
+
+  @override
+  String get presetGlacierName => '霜夜';
+
+  @override
+  String get presetGlacierDescription => '冷たい深色、水色の差し色と読みやすいサンセリフの一覧。';
 }

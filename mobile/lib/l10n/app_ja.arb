@@ -369,6 +369,12 @@
   "accentPine": "パイン",
   "accentIndigo": "インディゴ",
   "accentInk": "インク",
+  "accentMauve": "マーブ",
+  "accentFrost": "フロスト",
+  "accentLeaf": "リーフ",
+  "accentAmber": "アンバー",
+  "accentRose": "ローズ",
+  "accentSlate": "スレート",
   "densityCompact": "コンパクト",
   "densityCozy": "標準",
   "densitySpacious": "ゆったり",
@@ -388,10 +394,14 @@
   "presetPineDescription": "松の緑、ゆったりしたカードと大きめの文字。",
   "presetInkName": "墨色",
   "presetInkDescription": "モノクロ、コンパクトな一覧と明快なサンセリフ体。",
+  "presetOrchidName": "蘭",
+  "presetOrchidDescription": "ライラックの差し色、ゆとりのカードとセリフ体。",
   "presetDuskName": "夕暮れ",
   "presetDuskDescription": "温かなチャコールと柔らかなセリフ体で夜の読書を。",
   "presetMidnightName": "真夜中",
   "presetMidnightDescription": "深い背景、インディゴとすっきりしたカード表示。",
   "presetFocusName": "集中",
-  "presetFocusDescription": "最も暗い背景、松の緑とコンパクトな一覧。"
+  "presetFocusDescription": "最も暗い背景、松の緑とコンパクトな一覧。",
+  "presetGlacierName": "霜夜",
+  "presetGlacierDescription": "冷たい深色、水色の差し色と読みやすいサンセリフの一覧。"
 }

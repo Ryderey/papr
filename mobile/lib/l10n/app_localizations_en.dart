@@ -1197,6 +1197,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accentInk => 'Ink';
 
   @override
+  String get accentMauve => 'Mauve';
+
+  @override
+  String get accentFrost => 'Frost';
+
+  @override
+  String get accentLeaf => 'Leaf';
+
+  @override
+  String get accentAmber => 'Amber';
+
+  @override
+  String get accentRose => 'Rose';
+
+  @override
+  String get accentSlate => 'Slate';
+
+  @override
   String get densityCompact => 'Compact';
 
   @override
@@ -1238,6 +1256,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Monochrome, compact lists and crisp sans-serif type.';
 
   @override
+  String get presetOrchidName => 'Orchid';
+
+  @override
+  String get presetOrchidDescription =>
+      'Lilac accents, airy cards and unhurried serif type.';
+
+  @override
   String get presetDuskName => 'Dusk';
 
   @override
@@ -1257,4 +1282,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get presetFocusDescription =>
       'The darkest surfaces, pine accents and compact lists.';
+
+  @override
+  String get presetGlacierName => 'Glacier';
+
+  @override
+  String get presetGlacierDescription =>
+      'Cool deep surfaces, frost-blue accents and an easy sans-serif list.';
 }

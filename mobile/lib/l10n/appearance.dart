@@ -5,9 +5,11 @@ extension AppearanceLocalization on AppLocalizations {
         'paper' => presetPaperName,
         'pine' => presetPineName,
         'ink' => presetInkName,
+        'orchid' => presetOrchidName,
         'dusk' => presetDuskName,
         'midnight' => presetMidnightName,
         'focus' => presetFocusName,
+        'glacier' => presetGlacierName,
         _ => appearanceCustom,
       };
 
@@ -15,9 +17,11 @@ extension AppearanceLocalization on AppLocalizations {
         'paper' => presetPaperDescription,
         'pine' => presetPineDescription,
         'ink' => presetInkDescription,
+        'orchid' => presetOrchidDescription,
         'dusk' => presetDuskDescription,
         'midnight' => presetMidnightDescription,
         'focus' => presetFocusDescription,
+        'glacier' => presetGlacierDescription,
         _ => '',
       };
 }

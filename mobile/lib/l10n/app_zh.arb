@@ -369,6 +369,12 @@
   "accentPine": "松绿",
   "accentIndigo": "靛蓝",
   "accentInk": "墨色",
+  "accentMauve": "藕紫",
+  "accentFrost": "霜蓝",
+  "accentLeaf": "苔绿",
+  "accentAmber": "琥珀",
+  "accentRose": "玫红",
+  "accentSlate": "石墨",
   "densityCompact": "紧凑",
   "densityCozy": "适中",
   "densitySpacious": "宽松",
@@ -388,10 +394,14 @@
   "presetPineDescription": "松绿点缀、舒展卡片与宽松阅读排版。",
   "presetInkName": "墨色",
   "presetInkDescription": "单色界面、紧凑列表与清晰无衬线字体。",
+  "presetOrchidName": "幽兰",
+  "presetOrchidDescription": "藕紫点缀、舒展卡片与从容的衬线排版。",
   "presetDuskName": "暮色",
   "presetDuskDescription": "暖炭色背景与柔和衬线字体，适合晚间阅读。",
   "presetMidnightName": "午夜",
   "presetMidnightDescription": "深色背景、靛蓝点缀与简洁卡片视图。",
   "presetFocusName": "专注",
-  "presetFocusDescription": "最深背景、松绿点缀与紧凑列表。"
+  "presetFocusDescription": "最深背景、松绿点缀与紧凑列表。",
+  "presetGlacierName": "霜夜",
+  "presetGlacierDescription": "清冷深色背景、霜蓝点缀与轻松的无衬线列表。"
 }

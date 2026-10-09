@@ -54,7 +54,7 @@ impl SettingsService {
         snapshot.reading.auto_extract =
             self.bool_setting("reading_auto_extract", snapshot.reading.auto_extract)?;
         for (key, target, allowed) in [
-            ("appearance_accent", &mut snapshot.visual.accent, &["clay", "pine", "indigo", "ink"][..]),
+            ("appearance_accent", &mut snapshot.visual.accent, &["clay", "pine", "indigo", "ink", "mauve", "frost", "leaf", "amber", "rose", "slate"][..]),
             ("appearance_dark_shade", &mut snapshot.visual.dark_shade, &["default", "dimmer", "black"][..]),
             ("appearance_density", &mut snapshot.visual.density, &["compact", "cozy", "spacious"][..]),
             ("appearance_view_mode", &mut snapshot.visual.view_mode, &["list", "card"][..]),
@@ -225,7 +225,7 @@ impl SettingsService {
     ) -> Result<(), CoreError> {
         for (value, allowed, code) in [
             (&theme, &["system", "light", "dark"][..], "invalidTheme"),
-            (&visual.accent, &["clay", "pine", "indigo", "ink"][..], "invalidAppearance"),
+            (&visual.accent, &["clay", "pine", "indigo", "ink", "mauve", "frost", "leaf", "amber", "rose", "slate"][..], "invalidAppearance"),
             (&visual.dark_shade, &["default", "dimmer", "black"][..], "invalidAppearance"),
             (&visual.density, &["compact", "cozy", "spacious"][..], "invalidAppearance"),
             (&visual.view_mode, &["list", "card"][..], "invalidAppearance"),

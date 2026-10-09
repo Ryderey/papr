@@ -578,6 +578,12 @@ function AppearanceSection() {
     { value: "pine", color: "#3d7a5e", label: t("settings.appearance.accentPine") },
     { value: "indigo", color: "#5a5fc4", label: t("settings.appearance.accentIndigo") },
     { value: "ink", color: "#2b2620", label: t("settings.appearance.accentInk") },
+    { value: "mauve", color: "#915fb4", label: t("settings.appearance.accentMauve") },
+    { value: "frost", color: "#0b7cac", label: t("settings.appearance.accentFrost") },
+    { value: "leaf", color: "#3b8349", label: t("settings.appearance.accentLeaf") },
+    { value: "amber", color: "#9d6a0e", label: t("settings.appearance.accentAmber") },
+    { value: "rose", color: "#bc4e6d", label: t("settings.appearance.accentRose") },
+    { value: "slate", color: "#6a7587", label: t("settings.appearance.accentSlate") },
   ] as const;
 
   return (

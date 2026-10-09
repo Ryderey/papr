@@ -80,6 +80,18 @@ const appearancePresets = [
       1.55,
       720),
   AppearancePreset(
+      'orchid',
+      'light',
+      bridge.VisualSettings(
+          accent: 'mauve',
+          darkShade: 'default',
+          density: 'spacious',
+          viewMode: 'card'),
+      'serif',
+      18,
+      1.70,
+      660),
+  AppearancePreset(
       'dusk',
       'dark',
       bridge.VisualSettings(
@@ -115,6 +127,18 @@ const appearancePresets = [
       17,
       1.70,
       640),
+  AppearancePreset(
+      'glacier',
+      'dark',
+      bridge.VisualSettings(
+          accent: 'frost',
+          darkShade: 'dimmer',
+          density: 'cozy',
+          viewMode: 'list'),
+      'sans',
+      17,
+      1.65,
+      700),
 ];
 
 String? matchingAppearancePreset(String theme, bridge.VisualSettings visual,

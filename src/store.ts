@@ -13,7 +13,9 @@ export type Theme = "light" | "dark";
 /** Background depth for the dark theme. Only meaningful while `theme` is
  *  "dark"; lets users pick a darker paper than the default warm charcoal. */
 export type DarkShade = "default" | "dimmer" | "black";
-export type Accent = "clay" | "pine" | "indigo" | "ink";
+export type Accent =
+  | "clay" | "pine" | "indigo" | "ink"
+  | "mauve" | "frost" | "leaf" | "amber" | "rose" | "slate";
 export type Density = "compact" | "cozy" | "spacious";
 export type ViewMode = "list" | "card";
 export type StartupView = "all" | "unread" | "starred" | "last";
@@ -206,7 +208,11 @@ export const useUi = create<UiState>((set) => ({
     ["default", "dimmer", "black"],
     "default",
   ),
-  accent: ls.oneOf<Accent>("accent", ["clay", "pine", "indigo", "ink"], "clay"),
+  accent: ls.oneOf<Accent>(
+    "accent",
+    ["clay", "pine", "indigo", "ink", "mauve", "frost", "leaf", "amber", "rose", "slate"],
+    "clay",
+  ),
   density: ls.oneOf<Density>(
     "density",
     ["compact", "cozy", "spacious"],
