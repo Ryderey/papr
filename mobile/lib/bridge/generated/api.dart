@@ -375,6 +375,10 @@ Future<bool> githubAutomaticDue({required PaprCoreBridge core}) =>
 Future<bool> githubBackgroundDue({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGithubBackgroundDue(core: core);
 
+Future<PlatformInt64> githubReconcileStaleState(
+        {required PaprCoreBridge core}) =>
+    RustLib.instance.api.crateApiGithubReconcileStaleState(core: core);
+
 Future<String?> githubDisconnect({required PaprCoreBridge core}) =>
     RustLib.instance.api.crateApiGithubDisconnect(core: core);
 

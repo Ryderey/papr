@@ -41,6 +41,9 @@ class GithubSyncRepository {
       .githubStatus(core: await _ref.read(paprCoreBridgeProvider.future)));
   Future<bool> automaticDue() => _guard(() async => bridge.githubAutomaticDue(
       core: await _ref.read(paprCoreBridgeProvider.future)));
+  Future<void> reconcileStaleState() => _guard(() async => bridge
+      .githubReconcileStaleState(
+          core: await _ref.read(paprCoreBridgeProvider.future)));
   Future<bridge.GithubSchedule> schedule() => _guard(() async => bridge
       .githubSchedule(core: await _ref.read(paprCoreBridgeProvider.future)));
   Future<void> setSchedule(bridge.GithubSchedule schedule) => _guard(() async {

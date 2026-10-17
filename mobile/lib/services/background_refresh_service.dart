@@ -46,6 +46,11 @@ void backgroundRefreshDispatcher() {
         );
       }
       try {
+        await bridge.githubReconcileStaleState(core: core);
+      } catch (_) {
+        /* Startup recovery is best-effort. */
+      }
+      try {
         if (await bridge.githubBackgroundDue(core: core)) {
           final github = await bridge.githubStatus(core: core);
           final token = await platformService

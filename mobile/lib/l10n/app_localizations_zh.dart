@@ -189,6 +189,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorGithubWriteRejected => 'GitHub 拒绝写入，请检查分支保护和 Token 权限。';
 
   @override
+  String get errorGithubInvalidResponse => 'GitHub 返回了无法解析的响应，将自动重试。';
+
+  @override
+  String get errorGithubConnectionChanged => '同步会话已失效，将自动重试。';
+
+  @override
+  String get errorGithubDatasetMissing => '云端同步数据缺失，请检查仓库后重新连接。';
+
+  @override
+  String get errorGithubNotConnected => '尚未连接同步服务。';
+
+  @override
+  String get errorGithubInvalidCredential => '同步凭据无效，请重新连接。';
+
+  @override
+  String get errorGithubInvalidProfile => '同步配置无效，请重新连接。';
+
+  @override
+  String get errorGithubInvalidBinding => '设备绑定与当前安装不匹配，请重新连接。';
+
+  @override
+  String get errorGithubInvalidData => '云端同步数据校验失败，请检查后重新连接。';
+
+  @override
+  String get errorGithubInvalidSource => '云端同步数据包含无效订阅源，请检查后重新连接。';
+
+  @override
+  String get errorGithubInvalidArticle => '云端同步数据包含无效文章，请检查后重新连接。';
+
+  @override
+  String get errorGithubInvalidOperation => '云端同步操作序列无效，请检查后重新连接。';
+
+  @override
+  String get errorGithubSequenceGap => '云端同步序列不连续，请检查后重新连接。';
+
+  @override
+  String get errorGithubIncompleteSnapshot => '云端同步数据不完整，请检查后重新连接。';
+
+  @override
+  String get errorGithubTruncatedTree => '仓库文件树被截断，无法完整读取同步数据。';
+
+  @override
+  String get errorGithubUnsupportedFormat => '云端同步数据版本不受支持，请升级应用或重新连接。';
+
+  @override
+  String get errorGithubInvalidSnapshot => '云端同步快照无效，请检查后重新连接。';
+
+  @override
+  String get errorGithubRepositoryChanged => '同步仓库已变更，请重新连接。';
+
+  @override
+  String get errorGithubLocalTaskFailed => '本地同步任务失败，请重试。';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

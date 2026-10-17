@@ -763,6 +763,15 @@ pub async fn github_automatic_due(core: &PaprCoreBridge) -> Result<bool, PaprBri
 pub async fn github_background_due(core: &PaprCoreBridge) -> Result<bool, PaprBridgeError> {
     Ok(core.inner.github_service().background_due().await?)
 }
+pub async fn github_reconcile_stale_state(
+    core: &PaprCoreBridge,
+) -> Result<i64, PaprBridgeError> {
+    Ok(core
+        .inner
+        .github_service()
+        .reconcile_stale_state()
+        .await? as i64)
+}
 pub async fn github_disconnect(core: &PaprCoreBridge) -> Result<Option<String>, PaprBridgeError> {
     Ok(core.inner.github_service().disconnect().await?)
 }

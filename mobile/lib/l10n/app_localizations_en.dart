@@ -213,6 +213,76 @@ class AppLocalizationsEn extends AppLocalizations {
       'GitHub rejected this write. Check branch protection and token permissions.';
 
   @override
+  String get errorGithubInvalidResponse =>
+      'GitHub returned a response that could not be parsed; it retries automatically.';
+
+  @override
+  String get errorGithubConnectionChanged =>
+      'The sync session expired; it retries automatically.';
+
+  @override
+  String get errorGithubDatasetMissing =>
+      'The cloud sync data is missing. Check the repository, then reconnect.';
+
+  @override
+  String get errorGithubNotConnected => 'Not connected to a sync service.';
+
+  @override
+  String get errorGithubInvalidCredential =>
+      'The sync credential is invalid. Reconnect to continue.';
+
+  @override
+  String get errorGithubInvalidProfile =>
+      'The sync configuration is invalid. Reconnect to continue.';
+
+  @override
+  String get errorGithubInvalidBinding =>
+      'The device binding no longer matches this installation. Reconnect to continue.';
+
+  @override
+  String get errorGithubInvalidData =>
+      'The cloud sync data failed validation. Check the repository, then reconnect.';
+
+  @override
+  String get errorGithubInvalidSource =>
+      'The cloud sync data contains an invalid source. Check it, then reconnect.';
+
+  @override
+  String get errorGithubInvalidArticle =>
+      'The cloud sync data contains an invalid article. Check it, then reconnect.';
+
+  @override
+  String get errorGithubInvalidOperation =>
+      'The cloud sync operation sequence is invalid. Check it, then reconnect.';
+
+  @override
+  String get errorGithubSequenceGap =>
+      'The cloud sync sequence has a gap. Check the repository, then reconnect.';
+
+  @override
+  String get errorGithubIncompleteSnapshot =>
+      'The cloud sync data is incomplete. Check the repository, then reconnect.';
+
+  @override
+  String get errorGithubTruncatedTree =>
+      'The repository tree was truncated; the sync data could not be read completely.';
+
+  @override
+  String get errorGithubUnsupportedFormat =>
+      'The cloud sync data uses an unsupported version. Update the app or reconnect.';
+
+  @override
+  String get errorGithubInvalidSnapshot =>
+      'The cloud sync snapshot is invalid. Check it, then reconnect.';
+
+  @override
+  String get errorGithubRepositoryChanged =>
+      'The sync repository changed. Reconnect to continue.';
+
+  @override
+  String get errorGithubLocalTaskFailed => 'The local sync task failed. Retry.';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

@@ -425,6 +425,114 @@ abstract class AppLocalizations {
   /// **'GitHub rejected this write. Check branch protection and token permissions.'**
   String get errorGithubWriteRejected;
 
+  /// No description provided for @errorGithubInvalidResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub returned a response that could not be parsed; it retries automatically.'**
+  String get errorGithubInvalidResponse;
+
+  /// No description provided for @errorGithubConnectionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The sync session expired; it retries automatically.'**
+  String get errorGithubConnectionChanged;
+
+  /// No description provided for @errorGithubDatasetMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data is missing. Check the repository, then reconnect.'**
+  String get errorGithubDatasetMissing;
+
+  /// No description provided for @errorGithubNotConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected to a sync service.'**
+  String get errorGithubNotConnected;
+
+  /// No description provided for @errorGithubInvalidCredential.
+  ///
+  /// In en, this message translates to:
+  /// **'The sync credential is invalid. Reconnect to continue.'**
+  String get errorGithubInvalidCredential;
+
+  /// No description provided for @errorGithubInvalidProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'The sync configuration is invalid. Reconnect to continue.'**
+  String get errorGithubInvalidProfile;
+
+  /// No description provided for @errorGithubInvalidBinding.
+  ///
+  /// In en, this message translates to:
+  /// **'The device binding no longer matches this installation. Reconnect to continue.'**
+  String get errorGithubInvalidBinding;
+
+  /// No description provided for @errorGithubInvalidData.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data failed validation. Check the repository, then reconnect.'**
+  String get errorGithubInvalidData;
+
+  /// No description provided for @errorGithubInvalidSource.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data contains an invalid source. Check it, then reconnect.'**
+  String get errorGithubInvalidSource;
+
+  /// No description provided for @errorGithubInvalidArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data contains an invalid article. Check it, then reconnect.'**
+  String get errorGithubInvalidArticle;
+
+  /// No description provided for @errorGithubInvalidOperation.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync operation sequence is invalid. Check it, then reconnect.'**
+  String get errorGithubInvalidOperation;
+
+  /// No description provided for @errorGithubSequenceGap.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync sequence has a gap. Check the repository, then reconnect.'**
+  String get errorGithubSequenceGap;
+
+  /// No description provided for @errorGithubIncompleteSnapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data is incomplete. Check the repository, then reconnect.'**
+  String get errorGithubIncompleteSnapshot;
+
+  /// No description provided for @errorGithubTruncatedTree.
+  ///
+  /// In en, this message translates to:
+  /// **'The repository tree was truncated; the sync data could not be read completely.'**
+  String get errorGithubTruncatedTree;
+
+  /// No description provided for @errorGithubUnsupportedFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync data uses an unsupported version. Update the app or reconnect.'**
+  String get errorGithubUnsupportedFormat;
+
+  /// No description provided for @errorGithubInvalidSnapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud sync snapshot is invalid. Check it, then reconnect.'**
+  String get errorGithubInvalidSnapshot;
+
+  /// No description provided for @errorGithubRepositoryChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'The sync repository changed. Reconnect to continue.'**
+  String get errorGithubRepositoryChanged;
+
+  /// No description provided for @errorGithubLocalTaskFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The local sync task failed. Retry.'**
+  String get errorGithubLocalTaskFailed;
+
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:

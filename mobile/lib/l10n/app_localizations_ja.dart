@@ -191,6 +191,68 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errorGithubWriteRejected => '書き込みが拒否されました。ブランチ保護と権限を確認してください。';
 
   @override
+  String get errorGithubInvalidResponse =>
+      'GitHubから解析できない応答が返されました。自動的に再試行します。';
+
+  @override
+  String get errorGithubConnectionChanged => '同期セッションが失効しました。自動的に再試行します。';
+
+  @override
+  String get errorGithubDatasetMissing =>
+      'クラウドの同期データが見つかりません。リポジトリを確認して再接続してください。';
+
+  @override
+  String get errorGithubNotConnected => '同期サービスに接続されていません。';
+
+  @override
+  String get errorGithubInvalidCredential => '同期の認証情報が無効です。再接続してください。';
+
+  @override
+  String get errorGithubInvalidProfile => '同期設定が無効です。再接続してください。';
+
+  @override
+  String get errorGithubInvalidBinding => 'デバイス紐付けが現在のインストールと一致しません。再接続してください。';
+
+  @override
+  String get errorGithubInvalidData => 'クラウドの同期データの検証に失敗しました。確認後に再接続してください。';
+
+  @override
+  String get errorGithubInvalidSource =>
+      'クラウドの同期データに無効な購読元が含まれています。確認後に再接続してください。';
+
+  @override
+  String get errorGithubInvalidArticle =>
+      'クラウドの同期データに無効な記事が含まれています。確認後に再接続してください。';
+
+  @override
+  String get errorGithubInvalidOperation =>
+      'クラウドの同期操作シーケンスが無効です。確認後に再接続してください。';
+
+  @override
+  String get errorGithubSequenceGap => 'クラウドの同期シーケンスが連続していません。確認後に再接続してください。';
+
+  @override
+  String get errorGithubIncompleteSnapshot => 'クラウドの同期データが不完全です。確認後に再接続してください。';
+
+  @override
+  String get errorGithubTruncatedTree =>
+      'リポジトリのファイルツリーが切り詰められ、同期データを完全に読み取れませんでした。';
+
+  @override
+  String get errorGithubUnsupportedFormat =>
+      'クラウドの同期データのバージョンが未対応です。アプリを更新するか再接続してください。';
+
+  @override
+  String get errorGithubInvalidSnapshot =>
+      'クラウドの同期スナップショットが無効です。確認後に再接続してください。';
+
+  @override
+  String get errorGithubRepositoryChanged => '同期リポジトリが変更されました。再接続してください。';
+
+  @override
+  String get errorGithubLocalTaskFailed => 'ローカル同期タスクが失敗しました。再試行してください。';
+
+  @override
   String get appTitle => 'Papr';
 
   @override

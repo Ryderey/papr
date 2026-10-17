@@ -26,6 +26,7 @@ class _GithubSyncCoordinatorState extends ConsumerState<GithubSyncCoordinator>
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _visible = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     if (Platform.isAndroid && _visible) {
+      unawaited(_reconcile());
       _start();
     }
   }
@@ -34,6 +35,14 @@ class _GithubSyncCoordinatorState extends ConsumerState<GithubSyncCoordinator>
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) => _tick());
     _tick();
+  }
+
+  Future<void> _reconcile() async {
+    try {
+      await ref.read(githubSyncRepositoryProvider).reconcileStaleState();
+    } catch (_) {
+      /* Best-effort startup recovery; the tick keeps running regardless. */
+    }
   }
 
   Future<void> _tick() async {
