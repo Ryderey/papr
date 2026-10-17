@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cloneElement, isValidElement, useEffect, useRef, useState } from "react";
+import { Fragment, cloneElement, isValidElement, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { open as openDirectoryDialog } from "@tauri-apps/plugin-dialog";
 import * as api from "../api";
 import { useUi, READER_BOUNDS } from "../store";
 import { useArticleActions } from "../hooks/articleActions";
@@ -184,17 +185,20 @@ function Row({
   children,
 }: {
   label: string;
-  desc?: string;
+  desc?: React.ReactNode;
   children: React.ReactNode;
 }) {
   // Name the row's control with the row label so screen readers don't just
   // announce a bare "checkbox" / "slider" / "combobox". The control
-  // components forward the injected aria-label to their element.
-  const control = isValidElement(children)
-    ? cloneElement(children as React.ReactElement<{ "aria-label"?: string }>, {
-        "aria-label": label,
-      })
-    : children;
+  // components forward the injected aria-label to their element. A Fragment
+  // (a row with several controls) can't carry the label — cloning into it
+  // would silently drop the prop — so it is passed through untouched.
+  const control =
+    isValidElement(children) && children.type !== Fragment
+      ? cloneElement(children as React.ReactElement<{ "aria-label"?: string }>, {
+          "aria-label": label,
+        })
+      : children;
   return (
     <div className="settings-row">
       <div className="settings-row-text">
@@ -398,6 +402,14 @@ function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Middle-ellipsis a long single-token string (Windows paths have no break
+ *  opportunities, so the tail — the meaningful part — must stay visible). */
+function midEllipsis(s: string, max = 44): string {
+  if (s.length <= max) return s;
+  const head = Math.ceil((max - 1) / 2);
+  return `${s.slice(0, head)}…${s.slice(s.length - (max - 1 - head))}`;
 }
 
 /** Open-at-login toggle, backed by the OS via the autostart plugin. */
@@ -1368,8 +1380,16 @@ function StorageGroup({ onToast }: { onToast: (m: string) => void }) {
     queryKey: ["storage-stats"],
     queryFn: api.storageStats,
   });
-  const [retention, setRetention] = useState("forever");
+  const dirInfo = useQuery({
+    queryKey: ["data-dir-info"],
+    queryFn: api.getDataDirInfo,
+  });
+  const [retention, setRetention] = useState("90");
   const [busy, setBusy] = useState(false);
+  const [confirmChange, setConfirmChange] = useState<{
+    dir: string;
+    preview: api.DataDirPreview;
+  } | null>(null);
 
   useEffect(() => {
     api
@@ -1387,12 +1407,14 @@ function StorageGroup({ onToast }: { onToast: (m: string) => void }) {
     }
     setBusy(true);
     try {
-      const n = await api.cleanupArticles(Number(retention));
+      const report = await api.cleanupArticles(Number(retention));
       await qc.invalidateQueries();
       onToast(
-        n > 0
-          ? t("settings.advanced.cleanupDone", { count: n })
-          : t("settings.advanced.cleanupNone"),
+        report.removed === 0
+          ? t("settings.advanced.cleanupNone")
+          : report.vacuumed
+            ? t("settings.advanced.cleanupDone", { count: report.removed })
+            : t("settings.advanced.cleanupDoneNoVacuum", { count: report.removed }),
       );
     } catch (e) {
       reportError(e);
@@ -1412,8 +1434,40 @@ function StorageGroup({ onToast }: { onToast: (m: string) => void }) {
       setBusy(false);
     }
   };
+  const pickDataDir = async () => {
+    setBusy(true);
+    try {
+      const selected = await openDirectoryDialog({ directory: true, multiple: false });
+      if (typeof selected !== "string") return;
+      // Validate and measure first — the confirmation dialog shows the real
+      // numbers, and nothing is scheduled until the user confirms.
+      const preview = await api.previewDataDirChange(selected);
+      setConfirmChange({ dir: selected, preview });
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** Runs only after the user confirms the relocation in the dialog. */
+  const applyDataDirChange = async () => {
+    if (!confirmChange) return;
+    const dir = confirmChange.dir;
+    setConfirmChange(null);
+    try {
+      await api.requestDataDirChange(dir);
+      await qc.invalidateQueries({ queryKey: ["data-dir-info"] });
+      onToast(t("settings.advanced.dataDirPending", { dir }));
+    } catch (e) {
+      reportError(e);
+    }
+  };
+  const openDataDir = (kind: "current" | "previous") => {
+    api.openDataDir(kind).catch(reportError);
+  };
 
   const s = stats.data;
+  const d = dirInfo.data;
   return (
     <div className="settings-group">
       <h3 className="settings-group-title">{t("settings.advanced.storage")}</h3>
@@ -1431,15 +1485,63 @@ function StorageGroup({ onToast }: { onToast: (m: string) => void }) {
         <span className="s-value">{s ? formatBytes(s.dbBytes) : "—"}</span>
       </Row>
       <Row
+        label={t("settings.advanced.dataDir")}
+        desc={
+          d ? (
+            <>
+              {d.pending ? (
+                <>
+                  <span title={d.current}>{midEllipsis(d.current)}</span>
+                  {` · ${t("settings.advanced.dataDirPending", {
+                    dir: midEllipsis(d.pending, 32),
+                  })}`}
+                </>
+              ) : (
+                <span title={d.current}>{midEllipsis(d.current)}</span>
+              )}
+              {d.lastError && (
+                <>
+                  <br />
+                  <span className="settings-row-error">
+                    {t("settings.advanced.dataDirLastError", { error: d.lastError })}
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            t("settings.advanced.calculating")
+          )
+        }
+      >
+        <>
+          <button className="s-btn" onClick={pickDataDir} disabled={busy}>
+            {t("settings.advanced.dataDirChange")}
+          </button>
+          <button className="s-btn" onClick={() => openDataDir("current")} disabled={busy}>
+            {t("settings.advanced.dataDirOpen")}
+          </button>
+          {d?.previous && (
+            <button
+              className="s-btn"
+              onClick={() => openDataDir("previous")}
+              disabled={busy}
+            >
+              {t("settings.advanced.dataDirOpenPrevious")}
+            </button>
+          )}
+        </>
+      </Row>
+      <Row
         label={t("settings.advanced.retention")}
         desc={t("settings.advanced.retentionDesc")}
       >
         <Select
           value={retention}
           options={[
+            { value: "7", label: t("settings.advanced.retention7") },
+            { value: "15", label: t("settings.advanced.retention15") },
             { value: "30", label: t("settings.advanced.retention30") },
             { value: "90", label: t("settings.advanced.retention90") },
-            { value: "180", label: t("settings.advanced.retention180") },
             { value: "forever", label: t("settings.advanced.retentionForever") },
           ]}
           onChange={(v) => {
@@ -1464,6 +1566,23 @@ function StorageGroup({ onToast }: { onToast: (m: string) => void }) {
           {t("settings.advanced.compress")}
         </button>
       </Row>
+      {confirmChange && (
+        <ConfirmDialog
+          title={t("settings.advanced.dataDirConfirmTitle")}
+          message={t("settings.advanced.dataDirConfirmBody", {
+            dir: confirmChange.dir,
+            size: formatBytes(confirmChange.preview.currentBytes),
+            free:
+              confirmChange.preview.freeBytes != null
+                ? formatBytes(confirmChange.preview.freeBytes)
+                : "—",
+          })}
+          confirmLabel={t("settings.advanced.dataDirConfirmAction")}
+          danger={false}
+          onConfirm={applyDataDirChange}
+          onClose={() => setConfirmChange(null)}
+        />
+      )}
     </div>
   );
 }

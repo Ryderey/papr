@@ -302,7 +302,14 @@ pub async fn refresh_all(
     {
         let conn = state.db.lock().await;
         let retention = db::get_setting(&conn, "retention_days").ok().flatten();
-        if let Some(days) = retention.and_then(|v| v.parse::<i64>().ok()) {
+        // No setting means the 90-day default; "forever" is an explicit
+        // opt-out that disables auto-cleanup entirely.
+        let days = match retention.as_deref() {
+            None => Some(90),
+            Some("forever") => None,
+            Some(v) => v.parse::<i64>().ok(),
+        };
+        if let Some(days) = days {
             let now = chrono::Utc::now().timestamp();
             let last_run = db::setting_parsed::<i64>(&conn, "retention_last_run", 0);
             if now - last_run >= 86_400 {

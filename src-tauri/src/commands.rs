@@ -2,6 +2,7 @@
 //! All SQL is delegated to `db`; commands only orchestrate.
 
 use crate::ai::{self, AiConfig, AiEvent, LlmPurpose};
+use crate::data_dir;
 use crate::db::{self};
 use crate::error::{AppError, AppResult};
 use crate::extraction;
@@ -15,6 +16,7 @@ use crate::sanitize;
 use crate::state::AppState;
 use crate::translate;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use tauri::{ipc::Channel, AppHandle, Emitter, Manager, State};
 use url::Url;
 
@@ -1099,14 +1101,36 @@ pub async fn storage_stats(state: State<'_, AppState>) -> AppResult<StorageStats
 
 /// Delete read articles older than `days` (starred / read-later are kept).
 #[tauri::command]
-pub async fn cleanup_articles(app: AppHandle, days: i64) -> AppResult<usize> {
-    let n = {
+pub async fn cleanup_articles(app: AppHandle, days: i64) -> AppResult<CleanupReport> {
+    let (removed, vacuumed) = {
         let state = app.state::<AppState>();
         let conn = state.db.lock().await;
-        db::cleanup_old_articles(&conn, days)?
+        let removed = db::cleanup_old_articles(&conn, days)?;
+        // Deleted rows don't shrink the file — VACUUM right away so the user
+        // sees the freed disk space in the same action. The daily background
+        // cleanup in scheduler.rs skips this deliberately. A VACUUM failure
+        // must not mask the successful cleanup above, but it IS reported so
+        // the toast doesn't claim compaction that didn't happen.
+        let vacuumed = match db::vacuum(&conn) {
+            Ok(()) => true,
+            Err(e) => {
+                log::warn!("cleanup: VACUUM after retention cleanup failed: {e}");
+                false
+            }
+        };
+        (removed, vacuumed)
     };
     let _ = app.emit("feeds-updated", 0);
-    Ok(n)
+    Ok(CleanupReport { removed, vacuumed })
+}
+
+/// Outcome of a one-shot retention cleanup, so the frontend can tell whether
+/// the disk-space reclamation actually ran.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupReport {
+    pub removed: usize,
+    pub vacuumed: bool,
 }
 
 /// Reclaim free database pages.
@@ -1114,6 +1138,198 @@ pub async fn cleanup_articles(app: AppHandle, days: i64) -> AppResult<usize> {
 pub async fn vacuum_db(state: State<'_, AppState>) -> AppResult<()> {
     let conn = state.db.lock().await;
     db::vacuum(&conn)
+}
+
+// ─────────────────────────── data directory ───────────────────────────
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataDirInfo {
+    /// The directory in use for this session.
+    pub current: String,
+    /// Directory the data was most recently relocated from, kept as the
+    /// rollback copy.
+    pub previous: Option<String>,
+    /// Target of a requested relocation that activates on next start.
+    pub pending: Option<String>,
+    /// Details of the most recent failed relocation attempt, if it happened
+    /// after this session started (visible in the settings row).
+    pub last_error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn data_dir_info(app: AppHandle, state: State<'_, AppState>) -> AppResult<DataDirInfo> {
+    let default_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::other(e.to_string()))?;
+    // The session's actual location, not a fresh resolve: if the configured
+    // drive vanishes mid-session, resolve() would report the fallback and
+    // disagree with the database this process has open.
+    let current = state
+        .db_path
+        .parent()
+        .expect("the database path always has a parent")
+        .to_string_lossy()
+        .to_string();
+    let pending = data_dir::read_pending_to(&default_dir);
+    let previous = {
+        let conn = state.read().await;
+        db::get_setting(&conn, "data_dir_previous")?
+    };
+    Ok(DataDirInfo {
+        current,
+        previous,
+        pending: pending.map(|p| p.to_string_lossy().to_string()),
+        last_error: data_dir::read_last_error(&default_dir),
+    })
+}
+
+/// What a relocation to `new_dir` would cost and copy, so the confirmation
+/// dialog can show real numbers before anything is scheduled.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataDirPreview {
+    /// Current database size in bytes.
+    pub current_bytes: u64,
+    /// Free space the copy needs on the target drive (×1.2 headroom).
+    pub required_bytes: u64,
+    /// Target-drive free bytes; `None` when the platform can't measure it.
+    pub free_bytes: Option<u64>,
+}
+
+/// Schedule a relocation of the database to `new_dir`, effective on the next
+/// start. All validation happens here — the migration itself runs before the
+/// app can be interacted with, so this is the entry point users control.
+#[tauri::command]
+pub async fn request_data_dir_change(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    new_dir: String,
+) -> AppResult<()> {
+    let to = PathBuf::from(&new_dir);
+    validate_relocation(&state, &to).await?;
+    let default_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::other(e.to_string()))?;
+    data_dir::write_pending(&default_dir, &to).map_err(|e| AppError::other(e.to_string()))
+}
+
+/// Validate a relocation target without scheduling anything: absolute path,
+/// not the directory already in use, writable, and enough free space on the
+/// target drive. Returns (current database bytes, optional target free bytes).
+async fn validate_relocation(state: &AppState, to: &Path) -> AppResult<(u64, Option<u64>)> {
+    if !to.is_absolute() {
+        return Err(AppError::code("dataDirInvalid"));
+    }
+    let current = state
+        .db_path
+        .parent()
+        .expect("the database path always has a parent")
+        .to_path_buf();
+    if data_dir::same_dir(to, &current) {
+        return Err(AppError::code("dataDirSamePath"));
+    }
+    ensure_writable(to)?;
+    let db_bytes = {
+        let conn = state.db.lock().await;
+        db::storage_stats(&conn).map(|(bytes, _, _)| bytes)? as u64
+    };
+    let free = disk_free_bytes(to);
+    if let Some(free) = free {
+        if free < required_bytes(db_bytes) {
+            return Err(AppError::code("dataDirNotEnoughSpace"));
+        }
+    }
+    Ok((db_bytes, free))
+}
+
+fn ensure_writable(dir: &Path) -> AppResult<()> {
+    std::fs::create_dir_all(dir)
+        .map_err(|e| AppError::other(format!("cannot create {dir:?}: {e}")))?;
+    let probe = dir.join(".papr-write-probe");
+    std::fs::write(&probe, b"")
+        .map_err(|e| AppError::other(format!("the directory is not writable: {e}")))?;
+    std::fs::remove_file(&probe).map_err(|e| AppError::other(e.to_string()))
+}
+
+/// The copy needs roughly the current database size on the target drive;
+/// ×1.2 covers page growth during the transfer and format rounding.
+fn required_bytes(db_bytes: u64) -> u64 {
+    db_bytes + db_bytes / 5
+}
+
+/// Free bytes on the volume holding `dir`; `None` when it can't be measured
+/// (non-Windows, or a failed API call) — callers must not reject on `None`.
+#[cfg(windows)]
+fn disk_free_bytes(dir: &Path) -> Option<u64> {
+    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    let wide: Vec<u16> = dir
+        .as_os_str()
+        .to_string_lossy()
+        .encode_utf16()
+        .chain([0])
+        .collect();
+    let mut free_bytes: u64 = 0;
+    let ok = unsafe {
+        GetDiskFreeSpaceExW(
+            wide.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            &mut free_bytes,
+        )
+    };
+    (ok != 0).then_some(free_bytes)
+}
+
+#[cfg(not(windows))]
+fn disk_free_bytes(_dir: &Path) -> Option<u64> {
+    None
+}
+
+/// Numbers for the "change data directory" confirmation dialog. Runs the
+/// same validation as the real request, so the dialog can't promise a
+/// relocation that would be rejected afterwards.
+#[tauri::command]
+pub async fn preview_data_dir_change(
+    state: State<'_, AppState>,
+    new_dir: String,
+) -> AppResult<DataDirPreview> {
+    let to = PathBuf::from(&new_dir);
+    let (db_bytes, free) = validate_relocation(&state, &to).await?;
+    Ok(DataDirPreview {
+        current_bytes: db_bytes,
+        required_bytes: required_bytes(db_bytes),
+        free_bytes: free,
+    })
+}
+
+/// Reveal one of the known data directories in the system file manager.
+/// Rust-side opener keeps this free of per-permission capability churn.
+#[tauri::command]
+pub async fn open_data_dir(app: AppHandle, kind: String) -> AppResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let state = app.state::<AppState>();
+    let target = match kind.as_str() {
+        // The session's actual location — see `data_dir_info` for why this is
+        // not a re-resolve.
+        "current" => state
+            .db_path
+            .parent()
+            .expect("the database path always has a parent")
+            .to_path_buf(),
+        "previous" => {
+            let conn = state.read().await;
+            db::get_setting(&conn, "data_dir_previous")?
+                .map(PathBuf::from)
+                .ok_or_else(|| AppError::code("dataDirUnknown"))?
+        }
+        _ => return Err(AppError::code("dataDirUnknown")),
+    };
+    app.opener()
+        .open_path(target.to_string_lossy(), None::<&str>)
+        .map_err(|e| AppError::other(e.to_string()))
 }
 
 /// Clear every stored setting (AI keys, sync credentials, preferences).
