@@ -7,6 +7,11 @@
 //! directory names the configured one, and a `migration-pending.json` marker
 //! schedules the actual copy for the next start.
 //!
+//! A configured directory that does not answer yet is probed a few times
+//! before falling back (mechanical drives and boot-time mounts come up
+//! slowly), and the reason for every fallback is recorded in
+//! `data-dir-fallback.txt` for later investigation.
+//!
 //! All marker files live in the *default* directory — it is always known and
 //! always writable, so there is no bootstrap problem. The source database is
 //! never touched destructively: a failed or interrupted migration leaves it
@@ -21,9 +26,18 @@ use std::time::Duration;
 pub const OVERRIDE_FILE: &str = "data-dir.txt";
 pub const PENDING_FILE: &str = "migration-pending.json";
 const ERROR_FILE: &str = "data-dir-migration-error.txt";
+const FALLBACK_FILE: &str = "data-dir-fallback.txt";
 const DB_FILE: &str = "papr.db";
 const TMP_DB_FILE: &str = "papr.db.migrating";
 const PREVIOUS_DIR_SETTING: &str = "data_dir_previous";
+
+/// Startup grace for a configured directory that is not answering (yet):
+/// probe count and interval before falling back. One failed probe would
+/// silently drop the session onto the default directory, which mechanical
+/// drives at boot regularly cause. Worst case this adds
+/// `(OVERRIDE_PROBE_ATTEMPTS - 1) * OVERRIDE_PROBE_INTERVAL` to startup.
+const OVERRIDE_PROBE_ATTEMPTS: u32 = 3;
+const OVERRIDE_PROBE_INTERVAL: Duration = Duration::from_millis(1500);
 
 /// The effective database location for this start.
 pub struct DataPaths {
@@ -40,10 +54,11 @@ pub enum Notice {
     /// A scheduled relocation ran but failed; the source directory stays
     /// active and the request will be retried on the next start.
     MigrationFailed { to: PathBuf, error: String },
-    /// The configured directory could not be used (unreachable, or its
-    /// `papr.db` is missing). The session runs on the default directory;
-    /// the override file is left untouched so recovery is automatic once
-    /// the directory is reachable again.
+    /// The configured directory stayed unusable through the startup probe
+    /// grace period (unreachable, or its `papr.db` is missing). The session
+    /// runs on the default directory; the override file is left untouched so
+    /// recovery is automatic once the directory is reachable again. The
+    /// reason is recorded in `data-dir-fallback.txt`.
     FellBackToDefault { configured: PathBuf },
 }
 
@@ -89,6 +104,22 @@ pub fn notice_body(lang: &str, notice: &Notice) -> String {
 /// path, or its `papr.db` is missing — typically an unplugged drive or a
 /// deleted folder).
 pub fn resolve(default_dir: &Path) -> (DataPaths, Option<Notice>) {
+    resolve_with_grace(
+        default_dir,
+        OVERRIDE_PROBE_ATTEMPTS,
+        OVERRIDE_PROBE_INTERVAL,
+    )
+}
+
+/// `resolve` with an explicit probe policy so tests don't sleep. The
+/// configured directory is probed `attempts` times, `interval` apart — a
+/// drive that is merely slow to come up must not end up in a fallback.
+fn resolve_with_grace(
+    default_dir: &Path,
+    attempts: u32,
+    interval: Duration,
+) -> (DataPaths, Option<Notice>) {
+    let attempts = attempts.max(1);
     let default_paths = DataPaths {
         data_dir: default_dir.to_path_buf(),
         db_path: default_dir.join(DB_FILE),
@@ -96,16 +127,34 @@ pub fn resolve(default_dir: &Path) -> (DataPaths, Option<Notice>) {
     let Some(configured) = read_override(default_dir) else {
         return (default_paths, None);
     };
-    if configured.is_absolute() && configured.join(DB_FILE).is_file() {
-        return (
-            DataPaths {
-                db_path: configured.join(DB_FILE),
-                data_dir: configured,
-            },
-            None,
-        );
+    if configured.is_absolute() {
+        for probe in 1..=attempts {
+            if configured.join(DB_FILE).is_file() {
+                return (
+                    DataPaths {
+                        db_path: configured.join(DB_FILE),
+                        data_dir: configured,
+                    },
+                    None,
+                );
+            }
+            if probe < attempts {
+                std::thread::sleep(interval);
+            }
+        }
     }
-    log::warn!("data-dir override {configured:?} is unusable (no readable {DB_FILE}); falling back to the default directory");
+    let span_ms = interval.as_millis() * u128::from(attempts - 1);
+    let reason = if !configured.is_absolute() {
+        "override path is not absolute".to_string()
+    } else if !configured.is_dir() {
+        format!("directory unreachable after {attempts} probes spanning {span_ms} ms")
+    } else {
+        format!("{DB_FILE} missing after {attempts} probes spanning {span_ms} ms")
+    };
+    log::warn!(
+        "data-dir override {configured:?} is unusable ({reason}); falling back to the default directory"
+    );
+    record_fallback(default_dir, &configured, &reason);
     (
         default_paths,
         Some(Notice::FellBackToDefault {
@@ -201,6 +250,18 @@ fn record_failure(default_dir: &Path, to: &Path, error: &str) {
     );
 }
 
+/// Persistent record of why the last session fell back to the default
+/// directory: written next to the other markers so a later investigation can
+/// tell an unmounted drive from a deleted database file. Overwritten by the
+/// next fallback.
+fn record_fallback(default_dir: &Path, configured: &Path, reason: &str) {
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    let _ = fs::write(
+        default_dir.join(FALLBACK_FILE),
+        format!("{stamp} | {} | {reason}", configured.display()),
+    );
+}
+
 // ── Startup ──────────────────────────────────────────────────────────────
 
 /// Complete the startup database setup: run any pending relocation first
@@ -223,7 +284,21 @@ pub fn prepare_startup(
     default_dir: &Path,
     rebind: &dyn Fn(&Connection, &Path) -> Result<(), String>,
 ) -> (DataPaths, Option<Notice>) {
-    let (base, notice) = resolve(default_dir);
+    prepare_startup_with_grace(
+        default_dir,
+        rebind,
+        OVERRIDE_PROBE_ATTEMPTS,
+        OVERRIDE_PROBE_INTERVAL,
+    )
+}
+
+fn prepare_startup_with_grace(
+    default_dir: &Path,
+    rebind: &dyn Fn(&Connection, &Path) -> Result<(), String>,
+    attempts: u32,
+    interval: Duration,
+) -> (DataPaths, Option<Notice>) {
+    let (base, notice) = resolve_with_grace(default_dir, attempts, interval);
     if matches!(notice, Some(Notice::FellBackToDefault { .. })) {
         return (base, notice);
     }
@@ -240,7 +315,7 @@ pub fn prepare_startup(
         Ok(()) => {
             clear_pending(default_dir);
             let _ = fs::remove_file(default_dir.join(ERROR_FILE));
-            let (final_paths, fallback) = resolve(default_dir);
+            let (final_paths, fallback) = resolve_with_grace(default_dir, attempts, interval);
             return (final_paths, fallback);
         }
         Err(error) => {
@@ -415,12 +490,14 @@ mod tests {
             target_dir.to_string_lossy().as_bytes(),
         )
         .unwrap();
-        let (paths, notice) = resolve(&default_dir);
+        let (paths, notice) = resolve_with_grace(&default_dir, 2, Duration::from_millis(1));
         assert_eq!(paths.data_dir, default_dir);
         match notice {
             Some(Notice::FellBackToDefault { configured }) => assert_eq!(configured, target_dir),
             _ => panic!("expected a fallback notice"),
         }
+        let recorded = fs::read_to_string(default_dir.join(FALLBACK_FILE)).unwrap();
+        assert!(recorded.contains("papr.db missing"), "got: {recorded}");
         cleanup(default_dir.parent().unwrap());
     }
 
@@ -510,7 +587,8 @@ mod tests {
         .unwrap();
         write_pending(&default_dir, &target_dir).unwrap();
 
-        let (paths, notice) = prepare_startup(&default_dir, &no_rebind);
+        let (paths, notice) =
+            prepare_startup_with_grace(&default_dir, &no_rebind, 2, Duration::from_millis(1));
         assert_eq!(paths.data_dir, default_dir);
         match notice {
             Some(Notice::FellBackToDefault { configured }) => assert_eq!(configured, gone_dir),
@@ -539,7 +617,8 @@ mod tests {
         .unwrap();
         write_pending(&default_dir, &default_dir).unwrap();
 
-        let (paths, notice) = prepare_startup(&default_dir, &no_rebind);
+        let (paths, notice) =
+            prepare_startup_with_grace(&default_dir, &no_rebind, 2, Duration::from_millis(1));
         assert_eq!(paths.data_dir, default_dir);
         assert!(matches!(notice, Some(Notice::FellBackToDefault { .. })));
         // The fallback directory must NOT be mistaken for the configured one:
@@ -614,5 +693,70 @@ mod tests {
         assert_eq!(articles, 3);
         drop(conn);
         cleanup(&root);
+    }
+
+    #[test]
+    fn a_slow_directory_is_waited_for_instead_of_falling_back() {
+        let (default_dir, _, target_dir) = scratch("slow");
+        fs::write(
+            default_dir.join(OVERRIDE_FILE),
+            target_dir.to_string_lossy().as_bytes(),
+        )
+        .unwrap();
+        // The drive "comes up" after the first probe: the directory and its
+        // database only appear while resolve is waiting between probes.
+        let target = target_dir.clone();
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            fs::create_dir_all(&target).unwrap();
+            seed_db(&target.join(DB_FILE));
+        });
+        let (paths, notice) = resolve_with_grace(&default_dir, 8, Duration::from_millis(200));
+        writer.join().unwrap();
+        assert!(notice.is_none(), "a slow directory must not fall back");
+        assert_eq!(paths.db_path, target_dir.join(DB_FILE));
+        assert!(!default_dir.join(FALLBACK_FILE).exists());
+        cleanup(default_dir.parent().unwrap());
+    }
+
+    #[test]
+    fn every_fallback_records_why_it_happened() {
+        let (default_dir, _, target_dir) = scratch("reason");
+        let interval = Duration::from_millis(1);
+
+        // A relative override path is reported, never probed.
+        fs::write(default_dir.join(OVERRIDE_FILE), "relative\\dir").unwrap();
+        let (_, notice) = resolve_with_grace(&default_dir, 2, interval);
+        assert!(matches!(notice, Some(Notice::FellBackToDefault { .. })));
+        let recorded = fs::read_to_string(default_dir.join(FALLBACK_FILE)).unwrap();
+        assert!(recorded.contains("not absolute"), "got: {recorded}");
+
+        // The configured directory itself is gone (unmounted drive).
+        let missing = default_dir.parent().unwrap().join("not-mounted");
+        fs::write(
+            default_dir.join(OVERRIDE_FILE),
+            missing.to_string_lossy().as_bytes(),
+        )
+        .unwrap();
+        let (_, notice) = resolve_with_grace(&default_dir, 2, interval);
+        assert!(matches!(notice, Some(Notice::FellBackToDefault { .. })));
+        let recorded = fs::read_to_string(default_dir.join(FALLBACK_FILE)).unwrap();
+        assert!(recorded.contains("unreachable"), "got: {recorded}");
+        assert!(recorded.contains(&*missing.to_string_lossy()));
+
+        // The directory exists but its database file is gone.
+        fs::create_dir_all(&target_dir).unwrap();
+        fs::write(
+            default_dir.join(OVERRIDE_FILE),
+            target_dir.to_string_lossy().as_bytes(),
+        )
+        .unwrap();
+        let (_, notice) = resolve_with_grace(&default_dir, 2, interval);
+        assert!(matches!(notice, Some(Notice::FellBackToDefault { .. })));
+        let recorded = fs::read_to_string(default_dir.join(FALLBACK_FILE)).unwrap();
+        assert!(recorded.contains("papr.db missing"), "got: {recorded}");
+        assert!(recorded.contains(&*target_dir.to_string_lossy()));
+
+        cleanup(default_dir.parent().unwrap());
     }
 }
