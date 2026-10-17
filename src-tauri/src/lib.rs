@@ -4,6 +4,7 @@
 
 mod ai;
 mod commands;
+mod data_dir;
 mod db;
 mod error;
 mod extraction;
@@ -60,6 +61,7 @@ const READ_POOL_SIZE: usize = 4;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -70,9 +72,16 @@ pub fn run() {
         ))
         .setup(|app| {
             // ── Database ──────────────────────────────────────────────
-            let data_dir = app.path().app_data_dir().expect("resolve app data dir");
-            fs::create_dir_all(&data_dir).ok();
-            let db_path = data_dir.join("papr.db");
+            // Resolve the effective data directory and run any pending
+            // relocation BEFORE opening anything: the migration needs zero
+            // concurrent connections, and the app should never race it.
+            let default_dir = app.path().app_data_dir().expect("resolve app data dir");
+            fs::create_dir_all(&default_dir).ok();
+            let (paths, notice) = data_dir::prepare_startup(&default_dir, &|conn, target| {
+                github_sync::rebind_installation(conn, target)
+            });
+            fs::create_dir_all(&paths.data_dir).ok();
+            let db_path = paths.db_path.clone();
             let conn = db::open(&db_path).expect("open database");
             // A small pool of read-only connections for UI queries — under WAL
             // they run concurrently with the writer, so the interface stays
@@ -96,8 +105,20 @@ pub fn run() {
             let theme = db::get_setting(&conn, "theme").ok().flatten();
             let dark_shade = db::get_setting(&conn, "dark_shade").ok().flatten();
 
-            app.manage(AppState::new(conn, readers, http));
+            app.manage(AppState::new(conn, readers, http, db_path.clone()));
             github_sync::spawn_scheduler(app.handle().clone());
+
+            // A start-time data-directory problem is only reportable after
+            // the database was opened — the UI language lives in settings.
+            if let Some(notice) = notice {
+                use tauri_plugin_notification::NotificationExt;
+                let _ = app
+                    .notification()
+                    .builder()
+                    .title("Papr")
+                    .body(data_dir::notice_body(&lang, &notice))
+                    .show();
+            }
 
             // ── papr:// deep links (feature F6) ───────────────────────
             // Registered after `app.manage` so the handler can always reach
@@ -254,6 +275,10 @@ pub fn run() {
             commands::storage_stats,
             commands::cleanup_articles,
             commands::vacuum_db,
+            commands::data_dir_info,
+            commands::preview_data_dir_change,
+            commands::request_data_dir_change,
+            commands::open_data_dir,
             commands::reset_settings,
             commands::clear_all_data,
             commands::apply_network_settings,

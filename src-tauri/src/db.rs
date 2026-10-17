@@ -1752,7 +1752,7 @@ pub fn cleanup_old_articles(conn: &Connection, days: i64) -> AppResult<usize> {
     // *now* and the DELETE purges **every** read article regardless of age;
     // a negative `days` builds a malformed `'--N days'` modifier that
     // `datetime()` evaluates to NULL, silently deleting nothing. Neither is a
-    // real retention policy. The Settings UI only ever offers 30/90/180, but
+    // real retention policy. The Settings UI only ever offers 7/15/30/90, but
     // this is the one chokepoint both that command and the background
     // scheduler funnel through — and the scheduler parses `days` from a
     // free-form settings string — so reject a non-positive value here rather

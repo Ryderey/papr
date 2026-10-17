@@ -1633,6 +1633,10 @@ body.ai-resizing .reader-scroll { transition: none; }
   color: var(--muted);
   line-height: 1.45;
 }
+.settings-row-error {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
 .settings-row-control {
   flex-shrink: 0;
   display: flex;

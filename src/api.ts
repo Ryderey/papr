@@ -222,11 +222,34 @@ export interface StorageStats {
   feedCount: number;
 }
 export const storageStats = () => invoke<StorageStats>("storage_stats");
+export interface CleanupReport {
+  removed: number;
+  vacuumed: boolean;
+}
 export const cleanupArticles = (days: number) =>
-  invoke<number>("cleanup_articles", { days });
+  invoke<CleanupReport>("cleanup_articles", { days });
 export const vacuumDb = () => invoke<void>("vacuum_db");
 export const resetSettings = () => invoke<void>("reset_settings");
 export const clearAllData = () => invoke<void>("clear_all_data");
+
+export interface DataDirInfo {
+  current: string;
+  previous: string | null;
+  pending: string | null;
+  lastError: string | null;
+}
+export interface DataDirPreview {
+  currentBytes: number;
+  requiredBytes: number;
+  freeBytes: number | null;
+}
+export const getDataDirInfo = () => invoke<DataDirInfo>("data_dir_info");
+export const previewDataDirChange = (newDir: string) =>
+  invoke<DataDirPreview>("preview_data_dir_change", { newDir });
+export const requestDataDirChange = (newDir: string) =>
+  invoke<void>("request_data_dir_change", { newDir });
+export const openDataDir = (kind: "current" | "previous") =>
+  invoke<void>("open_data_dir", { kind });
 
 // ── network ──
 export const applyNetworkSettings = () =>

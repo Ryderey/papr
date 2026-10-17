@@ -13,7 +13,7 @@ use papr_core::{
     },
 };
 use rusqlite::Connection;
-use std::{future::Future, sync::Arc};
+use std::{future::Future, path::Path, sync::Arc};
 use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Clone)]
@@ -45,6 +45,18 @@ fn service(app: &AppHandle) -> GitHubService<DesktopStore> {
 fn map(error: CoreError) -> AppError {
     AppError::code(error.code())
 }
+
+/// The canonical, install-stable binding string for a database location. Both
+/// live binding generation and post-move regeneration share the normalization
+/// (canonicalize + lowercase), so a relocated copy keeps matching only if both
+/// sides compute the key identically.
+fn installation_binding(marker: &str, db_path: &Path) -> AppResult<String> {
+    let path = std::fs::canonicalize(db_path)
+        .map_err(|_| AppError::code("githubInvalidBinding"))?
+        .to_string_lossy()
+        .to_lowercase();
+    Ok(stable_key(&["installation:v1", marker, &path]))
+}
 async fn binding(app: &AppHandle, create: bool) -> AppResult<String> {
     let marker = match credentials::get("papr.sync.installation")? {
         Some(marker) => marker,
@@ -57,16 +69,43 @@ async fn binding(app: &AppHandle, create: bool) -> AppResult<String> {
         }
         None => return Err(AppError::code("githubInstallationMissing")),
     };
-    let path = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| AppError::code("githubInvalidBinding"))?
-        .join("papr.db");
-    let path = std::fs::canonicalize(path)
-        .map_err(|_| AppError::code("githubInvalidBinding"))?
-        .to_string_lossy()
-        .to_lowercase();
-    Ok(stable_key(&["installation:v1", &marker, &path]))
+    let path = app.state::<AppState>().db_path.clone();
+    Ok(installation_binding(&marker, &path)?)
+}
+
+/// Regenerate the local installation binding for a relocated database. The
+/// binding is a local multi-copy fence keyed partly by the database path, so
+/// a copy landed in a new directory would be rejected by `acquire()` until
+/// its stored binding is rewritten. The installation marker lives in system
+/// credential storage and is path-independent; without one, GitHub sync has
+/// never been connected on this installation and there is nothing to fix.
+///
+/// Failure strings carry step detail — the caller relays them verbatim into
+/// the migration error the user sees.
+pub fn rebind_installation(conn: &Connection, db_path: &Path) -> Result<(), String> {
+    let marker = match credentials::get("papr.sync.installation") {
+        Ok(Some(marker)) => marker,
+        Ok(None) => return Ok(()),
+        Err(e) => return Err(format!("reading the installation marker failed: {e}")),
+    };
+    rebind_with_marker(conn, db_path, &marker)
+}
+
+/// The vault-independent half of the rebind, split out so a test can drive
+/// it with a real connection (the numbered placeholders here are a runtime
+/// contract that only executing the statement catches).
+fn rebind_with_marker(conn: &Connection, db_path: &Path, marker: &str) -> Result<(), String> {
+    let binding = installation_binding(marker, db_path).map_err(|e| e.to_string())?;
+    let changed = conn
+        .execute(
+            "UPDATE github_connections SET binding = ?1 WHERE active = 1",
+            rusqlite::params![binding],
+        )
+        .map_err(|e| format!("rewriting the installation binding failed: {e}"))?;
+    if changed > 0 {
+        log::info!("github sync: installation binding rewritten for the relocated database");
+    }
+    Ok(())
 }
 #[tauri::command]
 pub async fn github_status(app: AppHandle) -> AppResult<Status> {
@@ -218,4 +257,53 @@ pub fn spawn_scheduler(app: AppHandle) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Drives the real SQL of the relocated-database rebind. The statement
+    /// uses numbered placeholders, a contract that only fails at run time —
+    /// parameter-count mismatches compile and pass review silently.
+    #[test]
+    fn rebind_rewrites_only_the_active_connection_binding() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE github_connections(active INTEGER NOT NULL, binding TEXT NOT NULL);
+             INSERT INTO github_connections(active, binding) VALUES (1, 'stale-path-binding'), (0, 'dormant');",
+        )
+        .unwrap();
+
+        // The binding is derived from the canonical database path, which
+        // requires the file to exist.
+        let dir = std::env::temp_dir().join(format!("papr-rebind-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db_path = dir.join("papr.db");
+        std::fs::write(&db_path, b"").unwrap();
+
+        rebind_with_marker(&conn, &db_path, "marker-1").expect("rebind must succeed");
+
+        let expected = installation_binding("marker-1", &db_path).unwrap();
+        let active: String = conn
+            .query_row(
+                "SELECT binding FROM github_connections WHERE active = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let dormant: String = conn
+            .query_row(
+                "SELECT binding FROM github_connections WHERE active = 0",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            active, expected,
+            "the active row must carry the new binding"
+        );
+        assert_eq!(dormant, "dormant", "inactive rows must stay untouched");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

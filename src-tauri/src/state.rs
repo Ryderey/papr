@@ -3,6 +3,7 @@
 
 use reqwest::Client;
 use rusqlite::Connection;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 use tokio::sync::Mutex;
@@ -12,6 +13,11 @@ pub struct AppState {
     /// and the background scheduler hold this exclusively; access is short and
     /// synchronous, so the lock is never held across `.await`.
     pub db: Mutex<Connection>,
+    /// Resolved database location. Fixed for the process lifetime (setups run
+    /// before any connection is opened); the GitHub-sync installation binding
+    /// and the data-dir settings row read from here instead of re-deriving the
+    /// platform default.
+    pub db_path: PathBuf,
     /// A small pool of read-only connections for UI queries. Under WAL these
     /// run concurrently with the writer (and each other), so the interface
     /// stays responsive while a background refresh is writing.
@@ -39,10 +45,14 @@ pub struct AppState {
 
 impl AppState {
     /// Build the shared state. `readers` must be non-empty.
-    pub fn new(db: Connection, readers: Vec<Connection>, http: Client) -> Self {
-        assert!(!readers.is_empty(), "read pool must have at least one connection");
+    pub fn new(db: Connection, readers: Vec<Connection>, http: Client, db_path: PathBuf) -> Self {
+        assert!(
+            !readers.is_empty(),
+            "read pool must have at least one connection"
+        );
         Self {
             db: Mutex::new(db),
+            db_path,
             readers: readers.into_iter().map(Mutex::new).collect(),
             next_reader: AtomicUsize::new(0),
             http: RwLock::new(http),
