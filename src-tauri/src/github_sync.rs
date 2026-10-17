@@ -202,6 +202,11 @@ pub async fn github_cancel_sync(app: AppHandle) -> AppResult<()> {
 
 pub fn spawn_scheduler(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
+        if let Ok(changed) = service(&app).reconcile_stale_state().await {
+            if changed > 0 {
+                log::debug!("github sync: cleared {changed} stale retry deadline(s)");
+            }
+        }
         let mut tick = tokio::time::interval(std::time::Duration::from_secs(10));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {

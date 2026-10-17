@@ -312,6 +312,16 @@ fn guard(conn: &Connection, id: i64, lease: &str) -> Result<(), CoreError> {
     }
     Ok(())
 }
+/// Extends the lease inside the caller's transaction. A rollback drops the
+/// extension together with the work it protected.
+fn renew_lease(conn: &Connection, id: i64) -> Result<(), CoreError> {
+    conn.execute(
+        "UPDATE github_connections SET lease_until=datetime('now','+10 minutes') WHERE id=?1",
+        [id],
+    )
+    .map_err(db)?;
+    Ok(())
+}
 /// Only an unpublished initializer may adopt the dataset established by a peer.
 /// Its device/sequence/checkpoint identity and outbox remain unchanged.
 pub fn adopt_initial_dataset(
@@ -589,6 +599,9 @@ fn guid_target(
     Ok(best)
 }
 
+/// A long import must not let its own lease expire before the next guard check.
+const IMPORT_LEASE_RENEW_ROWS: usize = 64;
+
 fn import_projection(
     conn: &Connection,
     id: i64,
@@ -745,8 +758,11 @@ fn import_projection(
             .map_err(db)?;
         }
     }
-    for (key, entry) in &snapshot.articles {
+    for (position, (key, entry)) in snapshot.articles.iter().enumerate() {
         cancel.check()?;
+        if position > 0 && position % IMPORT_LEASE_RENEW_ROWS == 0 {
+            renew_lease(conn, id)?;
+        }
         let state = snapshot.states.get(key).cloned().unwrap_or_default();
         let suppressed:bool=conn.query_row("SELECT EXISTS(SELECT 1 FROM github_suppressed WHERE connection_id=?1 AND entity_key=?2)",params![id,key],|r|r.get(0)).map_err(db)?;
         if suppressed && !state.protected() {
@@ -834,6 +850,7 @@ pub fn finish(
 ) -> Result<(), CoreError> {
     cancel.check()?;
     guard(conn, id, lease)?;
+    renew_lease(conn, id)?;
     let info = connection(conn)?
         .filter(|i| i.id == id)
         .ok_or_else(|| error("githubConnectionChanged"))?;
@@ -1436,6 +1453,56 @@ mod tests {
             )
             .unwrap(),
             n
+        );
+    }
+
+    fn lease_pushed_past_now(conn: &Connection) -> bool {
+        conn.query_row(
+            "SELECT julianday(lease_until)>julianday('now','+9 minutes') FROM github_connections",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn finish_renews_the_lease_before_the_slow_import_phases() {
+        let (conn, info, snapshot) = library(1);
+        let (_, lease) = acquire(&conn, "installation:path").unwrap();
+        // The lease is about to expire: the entry guard still passes, and the
+        // renewal must push it past the slow import phases.
+        conn.execute(
+            "UPDATE github_connections SET lease_until=datetime('now','+1 seconds')",
+            [],
+        )
+        .unwrap();
+        let tx = conn.unchecked_transaction().unwrap();
+        finish(
+            &tx,
+            info.id,
+            &lease,
+            &remote(snapshot),
+            &Cancellation::default(),
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        assert!(lease_pushed_past_now(&conn), "finish must renew the lease");
+    }
+
+    #[test]
+    fn a_long_import_renews_the_lease_mid_loop() {
+        let (conn, info, snapshot) = library(IMPORT_LEASE_RENEW_ROWS + 1);
+        // No entry renewal in this path: import_projection runs directly on an
+        // already-expired lease, so only its periodic renewal can refresh it.
+        conn.execute(
+            "UPDATE github_connections SET lease_until=datetime('now','-1 seconds')",
+            [],
+        )
+        .unwrap();
+        import_projection(&conn, info.id, &snapshot, &Cancellation::default()).unwrap();
+        assert!(
+            lease_pushed_past_now(&conn),
+            "the import loop must renew the lease"
         );
     }
 

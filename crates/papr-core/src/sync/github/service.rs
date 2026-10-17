@@ -253,7 +253,39 @@ impl<S: LocalStore> GitHubService<S> {
         &self,
         code: &'static str,
     ) -> impl Future<Output = Result<(), CoreError>> + Send + '_ {
-        self.store.with(move|conn|{conn.execute("UPDATE github_connections SET last_error_code=?1,retry_at=COALESCE(retry_at,datetime('now','+60 seconds')) WHERE active=1 AND lease IS NULL",[code]).map_err(sql)?;Ok(())})
+        let terminal = schedule::TERMINAL_ERROR_CODES.contains(&code);
+        // Recompute the deadline for the new code; a stale value from an
+        // earlier failure must not survive as a misleading retry time.
+        self.store.with(move |conn| {
+            conn.execute(
+                "UPDATE github_connections SET last_error_code=?1,retry_at=CASE WHEN ?2 THEN NULL ELSE datetime('now','+60 seconds') END WHERE active=1 AND lease IS NULL",
+                rusqlite::params![code, terminal],
+            )
+            .map_err(sql)?;
+            Ok(())
+        })
+    }
+
+    /// Startup recovery: a non-terminal failure must not keep background sync
+    /// paused because of a stale deadline (upgrade or clock jump). Only the
+    /// deadline is cleared — the code stays visible until a sync succeeds.
+    pub async fn reconcile_stale_state(&self) -> Result<usize, CoreError> {
+        self.store
+            .with(|conn| {
+                let terminal = schedule::TERMINAL_ERROR_CODES.join("','");
+                conn.execute(
+                    &format!("UPDATE github_connections SET retry_at=NULL
+                        WHERE active=1 AND lease_until IS NULL
+                          AND last_error_code IS NOT NULL
+                          AND last_error_code NOT IN ('{terminal}')
+                          AND retry_at IS NOT NULL
+                          AND (julianday(retry_at)<=julianday('now')
+                               OR julianday(retry_at)>julianday('now','+1 hour'))"),
+                    [],
+                )
+                .map_err(sql)
+            })
+            .await
     }
 
     pub async fn verify_credential(&self, token: &str) -> Result<(), CoreError> {
@@ -1429,6 +1461,153 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(report.pending, 0); // Explicit manual sync still publishes.
+    }
+
+    #[tokio::test]
+    async fn transient_failures_retry_while_terminal_codes_freeze_auto_sync() {
+        let (_dir, store, _) = fixture().await;
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        store
+            .with(|conn| {
+                conn.execute("UPDATE articles SET read_later=1", []).map_err(sql)?;
+                conn.execute(
+                    "UPDATE github_connections SET last_publish_at=datetime('now','-61 seconds'),last_edit_at=datetime('now','-31 seconds')",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        for code in [
+            "githubInvalidResponse",
+            "githubConnectionChanged",
+            "githubNetwork",
+            "githubSyncBusy",
+            "githubNotConnected",
+        ] {
+            store
+                .with(move |conn| {
+                    conn.execute(
+                        "UPDATE github_connections SET last_error_code=?1,retry_at=datetime('now','-1 seconds')",
+                        [code],
+                    )
+                    .map_err(sql)?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            assert!(
+                service.automatic_due().await.unwrap(),
+                "{code} must keep retrying"
+            );
+        }
+        for code in [
+            "githubDatasetChanged",
+            "githubDatasetMissing",
+            "credentialReadFailed",
+            "githubRepositoryUnavailable",
+            "githubAuthenticationFailed",
+            "githubCapacityExceeded",
+        ] {
+            store
+                .with(move |conn| {
+                    conn.execute(
+                        "UPDATE github_connections SET last_error_code=?1,retry_at=datetime('now','-1 seconds')",
+                        [code],
+                    )
+                    .map_err(sql)?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            assert!(
+                !service.automatic_due().await.unwrap(),
+                "{code} must stay paused"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn startup_recovery_clears_only_stale_non_terminal_deadlines() {
+        let (_dir, store, _) = fixture().await;
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        let set = |stmt: &'static str| {
+            let store = store.clone();
+            async move {
+                store
+                    .with(move |conn| {
+                        conn.execute(stmt, []).map_err(sql)?;
+                        Ok(())
+                    })
+                    .await
+                    .unwrap()
+            }
+        };
+        set("UPDATE github_connections SET last_error_code='githubInvalidResponse',retry_at=datetime('now','-1 minutes'),lease_until=NULL").await;
+        assert_eq!(service.reconcile_stale_state().await.unwrap(), 1);
+        let retry: Option<String> = store
+            .with(|conn| {
+                conn.query_row("SELECT retry_at FROM github_connections", [], |r| {
+                    r.get(0)
+                })
+                .map_err(sql)
+            })
+            .await
+            .unwrap();
+        assert!(retry.is_none());
+        set("UPDATE github_connections SET last_error_code='githubDatasetChanged',retry_at=datetime('now','-1 minutes')").await;
+        assert_eq!(service.reconcile_stale_state().await.unwrap(), 0);
+        set("UPDATE github_connections SET last_error_code='githubInvalidResponse',retry_at=datetime('now','+30 seconds')").await;
+        assert_eq!(service.reconcile_stale_state().await.unwrap(), 0);
+        set("UPDATE github_connections SET last_error_code='githubInvalidResponse',retry_at=datetime('now','+2 hours')").await;
+        assert_eq!(service.reconcile_stale_state().await.unwrap(), 1);
+        set("UPDATE github_connections SET last_error_code='githubInvalidResponse',retry_at=datetime('now','-1 minutes'),lease_until=datetime('now','+5 minutes')").await;
+        assert_eq!(service.reconcile_stale_state().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn platform_errors_recompute_the_retry_deadline() {
+        let (_dir, store, _) = fixture().await;
+        let service = GitHubService::new(store.clone(), Arc::new(reqwest::Client::new()));
+        store
+            .with(|conn| {
+                conn.execute(
+                    "UPDATE github_connections SET retry_at=datetime('now','+10 minutes')",
+                    [],
+                )
+                .map_err(sql)?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        service.record_platform_error("githubDatasetChanged").await.unwrap();
+        let (code, retry): (String, Option<String>) = store
+            .with(|conn| {
+                conn.query_row(
+                    "SELECT last_error_code,retry_at FROM github_connections",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .map_err(sql)
+            })
+            .await
+            .unwrap();
+        assert_eq!(code, "githubDatasetChanged");
+        assert!(retry.is_none(), "a terminal code must not show a retry time");
+        service.record_platform_error("githubInvalidResponse").await.unwrap();
+        let fresh: bool = store
+            .with(|conn| {
+                conn.query_row(
+                    "SELECT julianday(retry_at)<=julianday('now','+2 minutes') FROM github_connections",
+                    [],
+                    |r| r.get(0),
+                )
+                .map_err(sql)
+            })
+            .await
+            .unwrap();
+        assert!(fresh, "the stale +10 minute deadline must be recomputed");
     }
 
     #[tokio::test]

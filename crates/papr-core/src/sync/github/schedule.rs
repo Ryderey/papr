@@ -56,6 +56,46 @@ pub fn save(conn: &Connection, schedule: &Schedule) -> Result<(), CoreError> {
     Ok(())
 }
 
+/// Errors that require user action before auto-sync can make progress.
+/// Every other code — including unknown ones — retries on the normal schedule,
+/// so a transient failure can never freeze background sync silently.
+pub const TERMINAL_ERROR_CODES: &[&str] = &[
+    // Authentication, permissions, repository access.
+    "githubAuthenticationFailed",
+    "githubPermissionDenied",
+    "githubRepositoryUnavailable",
+    "githubPrivateRepositoryRequired",
+    "githubWriteRejected",
+    "githubOtherBackendConnected",
+    // Dataset identity, cloning and binding.
+    "githubHistoryRewritten",
+    "githubDatasetChanged",
+    "githubDatasetMissing",
+    "githubRestoredDatabase",
+    "githubDatabaseCloneDetected",
+    "githubInstallationMissing",
+    "githubInvalidBinding",
+    // Capacity.
+    "githubCapacityExceeded",
+    // Credential storage.
+    "githubInvalidCredential",
+    "githubInvalidProfile",
+    "syncCredentialMissing",
+    "credentialReadFailed",
+    "credentialWriteFailed",
+    // Deterministic data validation — retrying cannot change the outcome.
+    "githubInvalidData",
+    "githubInvalidSource",
+    "githubInvalidArticle",
+    "githubInvalidOperation",
+    "githubSequenceGap",
+    "githubIncompleteSnapshot",
+    "githubTruncatedTree",
+    "githubUnsupportedFormat",
+    "githubInvalidSnapshot",
+    "githubRepositoryChanged",
+];
+
 /// Timers query only small connection/settings rows, never article statistics.
 pub fn due(conn: &Connection, background: bool) -> Result<bool, CoreError> {
     let schedule = load(conn)?;
@@ -72,8 +112,9 @@ pub fn due(conn: &Connection, background: bool) -> Result<bool, CoreError> {
             schedule.cloud_interval_minutes
         }
     );
+    let terminal = TERMINAL_ERROR_CODES.join("','");
     conn.query_row(
-        "SELECT (last_error_code IS NULL OR last_error_code IN ('githubNetwork','githubRateLimited','githubSyncCancelled','githubConcurrentRetryLimit','githubSyncBusy'))
+        &format!("SELECT (last_error_code IS NULL OR last_error_code NOT IN ('{terminal}'))
          AND (retry_at IS NULL OR julianday(retry_at)<=julianday('now'))
          AND (lease_until IS NULL OR julianday(lease_until)<=julianday('now'))
          AND (
@@ -83,8 +124,13 @@ pub fn due(conn: &Connection, background: bool) -> Result<bool, CoreError> {
            AND (last_publish_at IS NULL OR julianday(last_publish_at)<=julianday('now','-60 seconds'))
            OR last_success_at IS NULL OR julianday(last_success_at)<=julianday('now',?3)
          )
-         FROM github_connections WHERE active=1", params![delay,deadline,interval,background], |r| r.get(0)
-    ).optional().map_err(db).map(|value| value.unwrap_or(false))
+         FROM github_connections WHERE active=1"),
+        params![delay, deadline, interval, background],
+        |r| r.get(0),
+    )
+    .optional()
+    .map_err(db)
+    .map(|value| value.unwrap_or(false))
 }
 fn db(e: rusqlite::Error) -> CoreError {
     CoreError::Db(e.to_string())
