@@ -8,6 +8,7 @@ use crate::ingestion::{fetch, parse};
 use crate::models::RefreshProgress;
 use crate::state::AppState;
 use crate::{notify, sync, tray};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{ipc::Channel, AppHandle, Emitter, Manager};
@@ -109,8 +110,9 @@ impl RefreshScope {
 
 /// Refresh feeds (bounded concurrency) selected by `scope`. Streams per-feed
 /// progress over `progress` when provided, emits `feeds-updated`, fires a
-/// notification, runs retention cleanup, syncs to FreshRSS, and returns the
-/// new-article count.
+/// notification, runs retention cleanup, and syncs to FreshRSS. Returns the
+/// new-article count surfaced to the user: muted feeds are excluded from
+/// aggregate runs, while a single-feed manual refresh reports its real count.
 pub async fn refresh_all(
     app: &AppHandle,
     progress: Option<Channel<RefreshProgress>>,
@@ -139,7 +141,7 @@ pub async fn refresh_all(
         }
     };
 
-    let (feeds, newsletters, concurrency, dedup, rules) = {
+    let (feeds, newsletters, concurrency, dedup, rules, muted) = {
         // A scheduled (`Due`) tick must not wait on the writer: the sync import
         // can hold it for a while, and blocking here would keep `refresh_lock`
         // for the whole stall, silently disabling every later tick. Manual runs
@@ -186,7 +188,11 @@ pub async fn refresh_all(
             db::setting_parsed::<i64>(&conn, "net_concurrency", 6).clamp(1, 16) as usize;
         let dedup = db::setting_flag(&conn, "dedup_enabled", false);
         let rules = db::active_rules(&conn).unwrap_or_default();
-        (feeds, newsletters, concurrency, dedup, rules)
+        let muted = db::muted_feed_ids(&conn)
+            .unwrap_or_default()
+            .into_iter()
+            .collect::<HashSet<_>>();
+        (feeds, newsletters, concurrency, dedup, rules, muted)
     };
 
     // Background scheduler with nothing due this cycle: bow out before any of
@@ -219,6 +225,7 @@ pub async fn refresh_all(
     }
 
     let mut total_new = 0usize;
+    let mut visible_new = 0usize;
     while let Some(joined) = set.join_next().await {
         let Ok((feed_id, feed_url, outcome)) = joined else {
             continue;
@@ -241,15 +248,9 @@ pub async fn refresh_all(
                 etag,
                 last_modified,
             } => {
-                new_here += upsert_articles(
-                    &state.db,
-                    feed_id,
-                    &parsed.articles,
-                    dedup,
-                    &rules,
-                    "rss",
-                )
-                .await;
+                new_here +=
+                    upsert_articles(&state.db, feed_id, &parsed.articles, dedup, &rules, "rss")
+                        .await;
                 let conn = state.db.lock().await;
                 let _ = db::update_feed_meta(
                     &conn,
@@ -273,16 +274,16 @@ pub async fn refresh_all(
                 // the URL — so an OPML-imported podcast would otherwise stay
                 // mislabelled forever. The DB call is a no-op for an already
                 // classified feed.
-                let refined = parse::refine_source_type(
-                    crate::models::SourceType::Rss,
-                    &parsed,
-                    &feed_url,
-                );
+                let refined =
+                    parse::refine_source_type(crate::models::SourceType::Rss, &parsed, &feed_url);
                 let _ = db::refine_feed_source_type(&conn, feed_id, refined);
             }
         }
 
         total_new += new_here;
+        if !muted.contains(&feed_id) {
+            visible_new += new_here;
+        }
         if let Some(p) = &progress {
             let _ = p.send(RefreshProgress::FeedDone {
                 feed_id,
@@ -294,7 +295,10 @@ pub async fn refresh_all(
 
     // Newsletter sources: poll each configured IMAP mailbox and ingest any
     // new messages as articles, alongside the RSS refresh above.
-    total_new += poll_newsletters(app, newsletters, dedup, &rules).await;
+    let (newsletter_total, newsletter_visible) =
+        poll_newsletters(app, newsletters, dedup, &rules, &muted).await;
+    total_new += newsletter_total;
+    visible_new += newsletter_visible;
 
     // Retention: drop old read articles when a finite window is configured.
     // The DELETE scans the whole table, so throttle it to once per day rather
@@ -318,8 +322,7 @@ pub async fn refresh_all(
                         if removed > 0 {
                             log::info!("retention: removed {removed} old articles");
                         }
-                        let _ =
-                            db::set_setting(&conn, "retention_last_run", &now.to_string());
+                        let _ = db::set_setting(&conn, "retention_last_run", &now.to_string());
                     }
                     Err(e) => log::warn!("retention cleanup failed: {e}"),
                 }
@@ -327,14 +330,28 @@ pub async fn refresh_all(
         }
     }
 
+    // A muted feed's new articles are stored but must not surface through the
+    // unread badge, notification or "found new" toast. A single-feed manual
+    // refresh is an explicit request, so it reports its real count instead.
+    let surfaced_new = if matches!(scope, RefreshScope::Feed(_)) {
+        total_new
+    } else {
+        visible_new
+    };
+    if surfaced_new != total_new {
+        log::info!(
+            "refresh: {total_new} new articles, {surfaced_new} visible (muted feeds hidden)"
+        );
+    }
+
     if let Some(p) = &progress {
         let _ = p.send(RefreshProgress::Finished {
-            new_articles: total_new,
+            new_articles: surfaced_new,
         });
     }
-    let _ = app.emit("feeds-updated", total_new);
+    let _ = app.emit("feeds-updated", surfaced_new);
 
-    notify::notify_new_articles(app, total_new).await;
+    notify::notify_new_articles(app, surfaced_new).await;
 
     // Reconcile read/starred state with the sync server, if one is connected.
     // A sync mutates article state and may add feeds, so emit `feeds-updated`
@@ -349,12 +366,12 @@ pub async fn refresh_all(
 
     notify::update_badge(app).await;
     tray::refresh(app).await;
-    Ok(total_new)
+    Ok(surfaced_new)
 }
 
 /// Poll every configured email-newsletter source over IMAP and ingest any new
 /// messages as articles. Runs as part of `refresh_all` so newsletters refresh
-/// on the same cadence as RSS feeds. Returns the total number of new articles.
+/// on the same cadence as RSS feeds. Returns `(total new, unmuted new)`.
 ///
 /// A failure for one mailbox (bad credentials, server down) is recorded as the
 /// feed's `fetch_error` and does not abort the others — the same resilience
@@ -364,10 +381,11 @@ async fn poll_newsletters(
     sources: Vec<(i64, newsletter::NewsletterConfig)>,
     dedup: bool,
     rules: &[crate::models::Rule],
-) -> usize {
+    muted: &HashSet<i64>,
+) -> (usize, usize) {
     let state = app.state::<AppState>();
     if sources.is_empty() {
-        return 0;
+        return (0, 0);
     }
 
     // Poll the mailboxes concurrently — each IMAP fetch is slow and fully
@@ -405,6 +423,7 @@ async fn poll_newsletters(
     }
 
     let mut total_new = 0usize;
+    let mut visible_new = 0usize;
     while let Some(joined) = set.join_next().await {
         let Ok((feed_id, fetched)) = joined else {
             continue;
@@ -420,9 +439,13 @@ async fn poll_newsletters(
                     .filter_map(|raw| newsletter::email_to_article(raw))
                     .map(|p| p.article)
                     .collect();
-                total_new +=
+                let new_here =
                     upsert_articles(&state.db, feed_id, &articles, dedup, rules, "newsletter")
                         .await;
+                total_new += new_here;
+                if !muted.contains(&feed_id) {
+                    visible_new += new_here;
+                }
                 let conn = state.db.lock().await;
                 let _ = db::touch_feed(&conn, feed_id);
             }
@@ -433,7 +456,7 @@ async fn poll_newsletters(
             }
         }
     }
-    total_new
+    (total_new, visible_new)
 }
 
 /// How often the background loop wakes to look for *due* feeds. Each tick is a

@@ -72,7 +72,11 @@ pub async fn add_feed(
     // expansion is a plain HTTP feed URL, so the rest of the pipeline handles
     // it with no further special-casing. Only touch the DB when it's actually
     // an rsshub link, so the common case pays nothing.
-    let url = if url.trim().get(..9).is_some_and(|s| s.eq_ignore_ascii_case("rsshub://")) {
+    let url = if url
+        .trim()
+        .get(..9)
+        .is_some_and(|s| s.eq_ignore_ascii_case("rsshub://"))
+    {
         let instance = {
             let conn = state.db.lock().await;
             db::get_setting(&conn, "rsshub_instance")?
@@ -126,11 +130,7 @@ pub async fn add_feed(
     let parsed = parse::parse_feed(&feed_bytes, &feed_url)?;
     let source_type = match forced_type {
         Some(t) => t,
-        None => parse::refine_source_type(
-            parse::detect_source_type(&feed_url),
-            &parsed,
-            &feed_url,
-        ),
+        None => parse::refine_source_type(parse::detect_source_type(&feed_url), &parsed, &feed_url),
     };
 
     let title = parsed
@@ -199,6 +199,7 @@ pub async fn add_feed(
         fetch_error: None,
         unread_count: unread,
         refresh_interval_min: None,
+        muted_until: None,
     })
 }
 
@@ -277,6 +278,26 @@ pub async fn set_feed_refresh_interval(
 ) -> AppResult<()> {
     let conn = state.db.lock().await;
     db::set_feed_refresh_interval(&conn, id, minutes)
+}
+
+/// Temporarily hide a feed from the unread views. `None` clears the mute;
+/// `Some(minutes)` must be one of the UI's supported durations.
+#[tauri::command]
+pub async fn set_feed_muted(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: i64,
+    minutes: Option<i64>,
+) -> AppResult<Option<i64>> {
+    let until = minutes
+        .map(|m| db::mute_until(m, chrono::Utc::now().timestamp()))
+        .transpose()?;
+    {
+        let conn = state.db.lock().await;
+        db::set_feed_muted(&conn, id, until)?;
+    }
+    refresh_unread_surfaces(&app).await;
+    Ok(until)
 }
 
 #[tauri::command]
@@ -382,11 +403,20 @@ pub async fn mark_read_later(state: State<'_, AppState>, id: i64, value: bool) -
 }
 
 #[tauri::command]
-pub async fn mark_all_read(app: AppHandle, query: ArticleQuery) -> AppResult<usize> {
+pub async fn mark_all_read(
+    app: AppHandle,
+    query: ArticleQuery,
+    unread_only: bool,
+) -> AppResult<usize> {
     let n = {
         let state = app.state::<AppState>();
         let conn = state.db.lock().await;
-        db::mark_all_read(&conn, &query, db::is_freshrss_connected(&conn))?
+        db::mark_all_read_scoped(
+            &conn,
+            &query,
+            unread_only,
+            db::is_freshrss_connected(&conn),
+        )?
     };
     let _ = app.emit("feeds-updated", 0);
     refresh_unread_surfaces(&app).await;
@@ -566,8 +596,7 @@ pub async fn import_opml(app: AppHandle, content: String) -> AppResult<usize> {
     // skipping and leaving the imported feeds empty until the next tick.
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ =
-            scheduler::refresh_all(&app2, None, true, scheduler::RefreshScope::All).await;
+        let _ = scheduler::refresh_all(&app2, None, true, scheduler::RefreshScope::All).await;
     });
     Ok(count)
 }
@@ -588,11 +617,7 @@ pub async fn get_setting(state: State<'_, AppState>, key: String) -> AppResult<O
 }
 
 #[tauri::command]
-pub async fn set_setting(
-    state: State<'_, AppState>,
-    key: String,
-    value: String,
-) -> AppResult<()> {
+pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> AppResult<()> {
     let conn = state.db.lock().await;
     db::set_setting(&conn, &key, &value)
 }
@@ -954,10 +979,7 @@ pub async fn ai_summarize_follow_up(
 
 /// Stream an AI briefing that synthesizes the most recent articles by theme.
 #[tauri::command]
-pub async fn ai_digest(
-    state: State<'_, AppState>,
-    on_token: Channel<AiEvent>,
-) -> AppResult<()> {
+pub async fn ai_digest(state: State<'_, AppState>, on_token: Channel<AiEvent>) -> AppResult<()> {
     let (cfg, articles, lang) = {
         let conn = state.read().await;
         (
@@ -1058,7 +1080,9 @@ pub async fn ai_translate(
     let system = translate::translate_system_prompt(translate::language_name(&target));
     let mut full = String::new();
     for (i, batch) in batches.iter().enumerate() {
-        let raw = backend.translate_batch(&http, &system, batch, &target).await?;
+        let raw = backend
+            .translate_batch(&http, &system, batch, &target)
+            .await?;
         // Engine output (LLM or machine translation) is untrusted, so each batch
         // passes through the same sanitizer as feed HTML before it reaches the
         // webview or the database. Source URLs are already absolute (sanitized at
@@ -1066,7 +1090,10 @@ pub async fn ai_translate(
         let clean = sanitize::sanitize(raw.trim(), None);
         full.push_str(&clean);
         full.push('\n');
-        let _ = on_event.send(TranslateEvent::Batch { html: clean, done: i + 1 });
+        let _ = on_event.send(TranslateEvent::Batch {
+            html: clean,
+            done: i + 1,
+        });
     }
 
     let final_html = full.trim().to_string();
@@ -1428,6 +1455,7 @@ pub async fn freshrss_sync(app: AppHandle) -> AppResult<usize> {
 /// Rebuild the tray menu — used after a language change.
 #[tauri::command]
 pub async fn refresh_tray(app: AppHandle) -> AppResult<()> {
+    crate::notify::update_badge(&app).await;
     crate::tray::refresh(&app).await;
     Ok(())
 }
@@ -1469,11 +1497,7 @@ pub async fn rename_tag(state: State<'_, AppState>, id: i64, name: String) -> Ap
 }
 
 #[tauri::command]
-pub async fn set_tag_color(
-    state: State<'_, AppState>,
-    id: i64,
-    color: String,
-) -> AppResult<()> {
+pub async fn set_tag_color(state: State<'_, AppState>, id: i64, color: String) -> AppResult<()> {
     let conn = state.db.lock().await;
     db::set_tag_color(&conn, id, &color)
 }
@@ -1536,7 +1560,16 @@ pub async fn update_rule(
         return Err(AppError::code("emptyRuleQuery"));
     }
     let conn = state.db.lock().await;
-    db::update_rule(&conn, id, name.trim(), enabled, feed_id, &field, query.trim(), &action)
+    db::update_rule(
+        &conn,
+        id,
+        name.trim(),
+        enabled,
+        feed_id,
+        &field,
+        query.trim(),
+        &action,
+    )
 }
 
 #[tauri::command]
@@ -1636,7 +1669,11 @@ pub async fn add_newsletter_source(
         password: input.password.clone(),
         folder: {
             let f = input.folder.trim();
-            if f.is_empty() { "INBOX".to_string() } else { f.to_string() }
+            if f.is_empty() {
+                "INBOX".to_string()
+            } else {
+                f.to_string()
+            }
         },
     };
     if cfg.host.is_empty() || cfg.username.is_empty() || cfg.password.is_empty() {
@@ -1673,8 +1710,9 @@ pub async fn add_newsletter_source(
     )
     .await
     {
-        Ok(joined) => joined
-            .map_err(|e| AppError::other(format!("newsletter poll task: {e}")))??,
+        Ok(joined) => {
+            joined.map_err(|e| AppError::other(format!("newsletter poll task: {e}")))??
+        }
         Err(_) => return Err(AppError::code("newsletterPollTimeout")),
     };
 
@@ -1716,6 +1754,7 @@ pub async fn add_newsletter_source(
         fetch_error: None,
         unread_count: unread,
         refresh_interval_min: None,
+        muted_until: None,
     })
 }
 
@@ -1740,10 +1779,7 @@ pub async fn list_newsletter_sources(
 
 /// Remove a newsletter source and all of its ingested articles.
 #[tauri::command]
-pub async fn remove_newsletter_source(
-    state: State<'_, AppState>,
-    feed_id: i64,
-) -> AppResult<()> {
+pub async fn remove_newsletter_source(state: State<'_, AppState>, feed_id: i64) -> AppResult<()> {
     let conn = state.db.lock().await;
     db::delete_newsletter_source(&conn, feed_id)
 }

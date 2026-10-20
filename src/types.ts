@@ -61,6 +61,8 @@ export interface Feed {
   /** Per-feed refresh interval in minutes. `null` follows the global
    *  setting; the `525600` sentinel means "never". */
   refreshIntervalMin: number | null;
+  /** Unix seconds until which this feed is hidden from unread views. */
+  mutedUntil: number | null;
 }
 
 export interface Enclosure {

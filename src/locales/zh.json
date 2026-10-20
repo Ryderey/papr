@@ -169,6 +169,19 @@
     "emptyState": "这里没有文章了 — 享受一下空白",
     "loadError": "文章加载失败"
   },
+  "feedMute": {
+    "action": "屏蔽订阅源",
+    "unmute": "取消屏蔽",
+    "unmuteFeed": "取消屏蔽「{{feed}}」",
+    "changeDuration": "更改屏蔽时长",
+    "hour1": "1 小时",
+    "hour24": "24 小时",
+    "day7": "7 天",
+    "day30": "30 天",
+    "toastMuted": "已屏蔽「{{feed}}」{{duration}}",
+    "toastUnmuted": "已取消屏蔽「{{feed}}」",
+    "mutedUntil": "已屏蔽至 {{time}}"
+  },
   "commandPalette": {
     "actionMarkAllRead": "将当前列表全部标为已读",
     "actionToggleTheme": "切换深色 / 浅色模式",
@@ -731,6 +744,7 @@
     "aiModelsLimitExceeded": "模型列表超过安全上限",
     "emptyTagName": "标签名称不能为空",
     "emptyFeedTitle": "订阅源名称不能为空",
+    "invalidMuteDuration": "屏蔽时长无效",
     "emptyFolderName": "文件夹名称不能为空",
     "tagNameExists": "已存在同名标签",
     "folderNameExists": "已存在同名文件夹",

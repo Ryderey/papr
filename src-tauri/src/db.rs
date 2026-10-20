@@ -151,7 +151,10 @@ pub fn rename_folder(conn: &Connection, id: i64, name: &str) -> AppResult<()> {
     if clash.is_some() {
         return Err(AppError::code("folderNameExists"));
     }
-    conn.execute("UPDATE folders SET name = ?2 WHERE id = ?1", params![id, name])?;
+    conn.execute(
+        "UPDATE folders SET name = ?2 WHERE id = ?1",
+        params![id, name],
+    )?;
     Ok(())
 }
 
@@ -195,7 +198,14 @@ pub fn insert_feed(
     conn.execute(
         "INSERT INTO feeds(feed_url, site_url, title, description, source_type, folder_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![feed_url, site_url, title, description, source_type.as_str(), folder_id],
+        params![
+            feed_url,
+            site_url,
+            title,
+            description,
+            source_type.as_str(),
+            folder_id
+        ],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -235,7 +245,7 @@ pub fn list_feeds(conn: &Connection) -> AppResult<Vec<Feed>> {
         "SELECT f.id, f.feed_url, f.site_url, f.title, f.description, f.favicon_url,
                 f.folder_id, f.source_type, f.last_fetched_at, f.fetch_error,
                 (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.is_read = 0),
-                f.refresh_interval_min
+                f.refresh_interval_min, f.muted_until
          FROM feeds f WHERE f.subscription_active=1 ORDER BY f.title COLLATE NOCASE",
     )?;
     let rows = stmt
@@ -253,6 +263,7 @@ pub fn list_feeds(conn: &Connection) -> AppResult<Vec<Feed>> {
                 fetch_error: r.get(9)?,
                 unread_count: r.get(10)?,
                 refresh_interval_min: r.get(11)?,
+                muted_until: r.get(12)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -282,16 +293,28 @@ pub fn feeds_to_refresh(conn: &Connection) -> AppResult<Vec<FeedToRefresh>> {
 /// per-feed interval can carry it to opt one feed out of automatic refresh.
 pub const REFRESH_OFF_MINUTES: i64 = 525_600;
 
+/// Durations the UI may request for a temporary feed mute.
+pub const MUTE_DURATIONS_MIN: [i64; 4] = [60, 1_440, 10_080, 43_200];
+
+/// Feed ids currently hidden from the unread views.
+const MUTED_FEED_IDS_SQL: &str = "SELECT id FROM feeds WHERE muted_until IS NOT NULL \
+     AND muted_until > CAST(strftime('%s','now') AS INTEGER)";
+
+/// Convert a user-selected mute duration into an absolute Unix timestamp.
+pub fn mute_until(minutes: i64, now: i64) -> AppResult<i64> {
+    if !MUTE_DURATIONS_MIN.contains(&minutes) {
+        return Err(AppError::code("invalidMuteDuration"));
+    }
+    Ok(now + minutes * 60)
+}
+
 /// Non-newsletter feeds that are *due* for a fetch: their effective interval —
 /// the per-feed `refresh_interval_min`, or `global_min` when unset — has
 /// elapsed since `last_fetched_at` (a never-fetched feed is always due). Feeds
 /// whose effective interval is the "off" sentinel are excluded entirely. Used
 /// by the background scheduler; the manual refresh still fetches every feed via
 /// `feeds_to_refresh`.
-pub fn feeds_due_for_refresh(
-    conn: &Connection,
-    global_min: i64,
-) -> AppResult<Vec<FeedToRefresh>> {
+pub fn feeds_due_for_refresh(conn: &Connection, global_min: i64) -> AppResult<Vec<FeedToRefresh>> {
     let mut stmt = conn.prepare(
         "SELECT id, feed_url, etag, last_modified FROM feeds
          WHERE source_type != 'newsletter' AND subscription_active=1
@@ -320,6 +343,25 @@ pub fn set_feed_refresh_interval(
         params![id, minutes],
     )?;
     Ok(())
+}
+
+/// Set (or clear) the time until which a feed is hidden from unread views.
+pub fn set_feed_muted(conn: &Connection, id: i64, until: Option<i64>) -> AppResult<()> {
+    conn.execute(
+        "UPDATE feeds SET muted_until = ?2 WHERE id = ?1",
+        params![id, until],
+    )?;
+    Ok(())
+}
+
+/// Feed ids that are muted at this instant.
+pub fn muted_feed_ids(conn: &Connection) -> AppResult<Vec<i64>> {
+    let mut stmt = conn.prepare("SELECT id FROM feeds WHERE muted_until IS NOT NULL \
+         AND muted_until > CAST(strftime('%s','now') AS INTEGER)")?;
+    let rows = stmt
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 /// Refresh a feed's metadata from its parsed document. A `None` *or empty*
@@ -459,7 +501,10 @@ pub fn folder_id_by_name(conn: &Connection, name: &str) -> AppResult<i64> {
 }
 
 pub fn move_feed(conn: &Connection, id: i64, folder_id: Option<i64>) -> AppResult<()> {
-    conn.execute("UPDATE feeds SET folder_id = ?2 WHERE id = ?1", params![id, folder_id])?;
+    conn.execute(
+        "UPDATE feeds SET folder_id = ?2 WHERE id = ?1",
+        params![id, folder_id],
+    )?;
     Ok(())
 }
 
@@ -529,7 +574,14 @@ pub fn insert_newsletter_source(
     tx.execute(
         "INSERT INTO newsletter_sources(feed_id, host, port, username, password, folder)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![feed_id, cfg.host, cfg.port, cfg.username, cfg.password, cfg.folder],
+        params![
+            feed_id,
+            cfg.host,
+            cfg.port,
+            cfg.username,
+            cfg.password,
+            cfg.folder
+        ],
     )?;
     tx.commit()?;
     Ok(feed_id)
@@ -756,9 +808,18 @@ pub fn upsert_article(
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          ON CONFLICT(feed_id, guid) DO NOTHING",
         params![
-            feed_id, a.guid, a.url, a.title, a.author, a.summary,
-            a.content_html, a.body_text, a.image_url, a.published_at,
-            start_read, start_starred
+            feed_id,
+            a.guid,
+            a.url,
+            a.title,
+            a.author,
+            a.summary,
+            a.content_html,
+            a.body_text,
+            a.image_url,
+            a.published_at,
+            start_read,
+            start_starred
         ],
     )?;
     if n == 0 {
@@ -810,14 +871,21 @@ pub fn list_articles(
             binds.push(Value::Integer(*id));
         }
         ArticleQuery::Tag(id) => {
-            where_clauses.push(
-                "a.id IN (SELECT article_id FROM article_tags WHERE tag_id = ?)".into(),
-            );
+            where_clauses
+                .push("a.id IN (SELECT article_id FROM article_tags WHERE tag_id = ?)".into());
             binds.push(Value::Integer(*id));
         }
     }
     if unread_only && !matches!(query, ArticleQuery::Unread) {
         where_clauses.push("a.is_read = 0".into());
+    }
+    // Muting is an inbox filter: only the smart Unread view and the All view
+    // while its unread-only toggle is on. Explicit feed / folder / tag views
+    // and the saved views stay visible.
+    if matches!(query, ArticleQuery::Unread)
+        || (unread_only && matches!(query, ArticleQuery::All))
+    {
+        where_clauses.push(format!("f.id NOT IN ({MUTED_FEED_IDS_SQL})"));
     }
 
     let searching = search.map(|s| !s.trim().is_empty()).unwrap_or(false);
@@ -906,7 +974,11 @@ pub fn card_image_backfill_scan(conn: &Connection) -> AppResult<Vec<(i64, String
         let img = content_html
             .as_deref()
             .and_then(crate::sanitize::first_image)
-            .or_else(|| extracted_html.as_deref().and_then(crate::sanitize::first_image));
+            .or_else(|| {
+                extracted_html
+                    .as_deref()
+                    .and_then(crate::sanitize::first_image)
+            });
         if let Some(img) = img {
             out.push((id, img));
         }
@@ -1060,17 +1132,26 @@ pub fn article_text(conn: &Connection, id: i64) -> AppResult<(String, String)> {
 }
 
 pub fn set_read(conn: &Connection, id: i64, read: bool) -> AppResult<()> {
-    conn.execute("UPDATE articles SET is_read = ?2 WHERE id = ?1", params![id, read])?;
+    conn.execute(
+        "UPDATE articles SET is_read = ?2 WHERE id = ?1",
+        params![id, read],
+    )?;
     Ok(())
 }
 
 pub fn set_starred(conn: &Connection, id: i64, starred: bool) -> AppResult<()> {
-    conn.execute("UPDATE articles SET is_starred = ?2 WHERE id = ?1", params![id, starred])?;
+    conn.execute(
+        "UPDATE articles SET is_starred = ?2 WHERE id = ?1",
+        params![id, starred],
+    )?;
     Ok(())
 }
 
 pub fn set_read_later(conn: &Connection, id: i64, v: bool) -> AppResult<()> {
-    conn.execute("UPDATE articles SET read_later = ?2 WHERE id = ?1", params![id, v])?;
+    conn.execute(
+        "UPDATE articles SET read_later = ?2 WHERE id = ?1",
+        params![id, v],
+    )?;
     Ok(())
 }
 
@@ -1104,7 +1185,10 @@ pub fn set_extracted_html(
 }
 
 pub fn set_ai_summary(conn: &Connection, id: i64, summary: &str) -> AppResult<()> {
-    conn.execute("UPDATE articles SET ai_summary = ?2 WHERE id = ?1", params![id, summary])?;
+    conn.execute(
+        "UPDATE articles SET ai_summary = ?2 WHERE id = ?1",
+        params![id, summary],
+    )?;
     Ok(())
 }
 
@@ -1127,6 +1211,19 @@ pub fn mark_all_read(
     query: &ArticleQuery,
     enqueue_sync: bool,
 ) -> AppResult<usize> {
+    mark_all_read_scoped(conn, query, false, enqueue_sync)
+}
+
+/// `mark_all_read` with the unread-only visibility rule used by the list. The
+/// view-scoped command passes the current toggle so a muted feed hidden by
+/// "All + unread only" is not silently marked read; callers that mean a
+/// truly global action (the tray menu) keep the plain `mark_all_read`.
+pub fn mark_all_read_scoped(
+    conn: &Connection,
+    query: &ArticleQuery,
+    unread_only: bool,
+    enqueue_sync: bool,
+) -> AppResult<usize> {
     // WHERE fragment selecting the articles in the current view, plus an
     // optional bound id (feed / folder / tag). `pred` is a fixed literal.
     let (pred, id): (&str, Option<i64>) = match query {
@@ -1143,7 +1240,19 @@ pub fn mark_all_read(
             Some(*id),
         ),
     };
-    let pred = format!("({pred}) AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)");
+    let mute_unread = matches!(query, ArticleQuery::Unread)
+        || (unread_only && matches!(query, ArticleQuery::All));
+    let pred = if mute_unread {
+        format!(
+            "({pred}) AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) \
+             OR is_starred=1 OR read_later=1) AND feed_id NOT IN ({MUTED_FEED_IDS_SQL})"
+        )
+    } else {
+        format!(
+            "({pred}) AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) \
+             OR is_starred=1 OR read_later=1)"
+        )
+    };
     let bind: Vec<&dyn rusqlite::ToSql> = id.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
 
     // Queue + flip together: the sync-queue rows and the is_read change must
@@ -1292,7 +1401,10 @@ pub fn rename_tag(conn: &Connection, id: i64, name: &str) -> AppResult<()> {
 }
 
 pub fn set_tag_color(conn: &Connection, id: i64, color: &str) -> AppResult<()> {
-    conn.execute("UPDATE tags SET color = ?2 WHERE id = ?1", params![id, color])?;
+    conn.execute(
+        "UPDATE tags SET color = ?2 WHERE id = ?1",
+        params![id, color],
+    )?;
     Ok(())
 }
 
@@ -1373,8 +1485,9 @@ const RULE_COLS: &str = "id, name, enabled, feed_id, field, query, action, posit
 
 /// Every rule, enabled or not, ordered for the settings list.
 pub fn list_rules(conn: &Connection) -> AppResult<Vec<Rule>> {
-    let mut stmt =
-        conn.prepare(&format!("SELECT {RULE_COLS} FROM rules ORDER BY position, id"))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {RULE_COLS} FROM rules ORDER BY position, id"
+    ))?;
     let rows = stmt
         .query_map([], row_to_rule)?
         .collect::<Result<Vec<_>, _>>()?;
@@ -1487,7 +1600,9 @@ fn rule_match_where(
             .replace('%', "\\%")
             .replace('_', "\\_");
         for col in cols {
-            ors.push(format!("unicode_lower(COALESCE({col},'')) LIKE ? ESCAPE '\\'"));
+            ors.push(format!(
+                "unicode_lower(COALESCE({col},'')) LIKE ? ESCAPE '\\'"
+            ));
             binds.push(Value::Text(format!("%{escaped}%")));
         }
     }
@@ -1563,14 +1678,16 @@ pub fn apply_rule_to_existing(
 
 /// (total unread, starred, read-later) counts for the sidebar smart folders.
 pub fn smart_counts(conn: &Connection) -> AppResult<(i64, i64, i64)> {
-    Ok(conn.query_row(
+    let sql = format!(
         "SELECT
-            (SELECT COUNT(*) FROM articles WHERE is_read = 0 AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)),
+            (SELECT COUNT(*) FROM articles WHERE is_read = 0
+               AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1)
+                    OR is_starred=1 OR read_later=1)
+               AND feed_id NOT IN ({MUTED_FEED_IDS_SQL})),
             (SELECT COUNT(*) FROM articles WHERE is_starred = 1),
-            (SELECT COUNT(*) FROM articles WHERE read_later = 1)",
-        [],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-    )?)
+            (SELECT COUNT(*) FROM articles WHERE read_later = 1)"
+    );
+    Ok(conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?)
 }
 
 // ─────────────────────────── highlights ───────────────────────────
@@ -1686,9 +1803,11 @@ pub fn delete_highlight(conn: &Connection, id: i64) -> AppResult<()> {
 
 pub fn get_setting(conn: &Connection, key: &str) -> AppResult<Option<String>> {
     Ok(conn
-        .query_row("SELECT value FROM settings WHERE key = ?1", params![key], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |r| r.get(0),
+        )
         .optional()?)
 }
 
@@ -1816,11 +1935,13 @@ pub fn reset_settings(conn: &Connection) -> AppResult<()> {
 }
 
 pub fn count_unread(conn: &Connection) -> AppResult<i64> {
-    Ok(
-        conn.query_row("SELECT COUNT(*) FROM articles WHERE is_read = 0 AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1) OR is_starred=1 OR read_later=1)", [], |r| {
-            r.get(0)
-        })?,
-    )
+    let sql = format!(
+        "SELECT COUNT(*) FROM articles WHERE is_read = 0
+           AND (feed_id IN (SELECT id FROM feeds WHERE subscription_active=1)
+                OR is_starred=1 OR read_later=1)
+           AND feed_id NOT IN ({MUTED_FEED_IDS_SQL})"
+    );
+    Ok(conn.query_row(&sql, [], |r| r.get(0))?)
 }
 
 /// Unread article count for a single feed — the same expression `list_feeds`
@@ -1837,9 +1958,11 @@ pub fn count_feed_unread(conn: &Connection, feed_id: i64) -> AppResult<i64> {
 
 /// Timestamp of the most recent successful feed fetch, if any.
 pub fn latest_fetch(conn: &Connection) -> AppResult<Option<String>> {
-    Ok(conn.query_row("SELECT MAX(last_fetched_at) FROM feeds", [], |r| {
-        r.get::<_, Option<String>>(0)
-    })?)
+    Ok(
+        conn.query_row("SELECT MAX(last_fetched_at) FROM feeds", [], |r| {
+            r.get::<_, Option<String>>(0)
+        })?,
+    )
 }
 
 // ─────────────────────────── sync ───────────────────────────
@@ -1878,12 +2001,7 @@ pub fn set_sync_state(
 }
 
 /// Queue a local read/starred change to push on the next sync.
-pub fn enqueue_sync(
-    conn: &Connection,
-    article_id: i64,
-    field: &str,
-    value: bool,
-) -> AppResult<()> {
+pub fn enqueue_sync(conn: &Connection, article_id: i64, field: &str, value: bool) -> AppResult<()> {
     conn.execute(
         "INSERT INTO sync_queue(article_id, field, value) VALUES (?1, ?2, ?3)
          ON CONFLICT(article_id, field) DO UPDATE SET value = excluded.value",
@@ -2081,8 +2199,13 @@ mod tests {
     #[test]
     fn set_extracted_html_backfills_missing_image_url() {
         let (conn, id) = test_db();
-        set_extracted_html(&conn, id, "<p>full text</p>", Some("https://ex.com/lead.jpg"))
-            .unwrap();
+        set_extracted_html(
+            &conn,
+            id,
+            "<p>full text</p>",
+            Some("https://ex.com/lead.jpg"),
+        )
+        .unwrap();
 
         let after = get_article(&conn, id).unwrap();
         assert_eq!(after.extracted_html.as_deref(), Some("<p>full text</p>"));
@@ -2098,8 +2221,13 @@ mod tests {
         )
         .unwrap();
 
-        set_extracted_html(&conn, id, "<p>full text</p>", Some("https://ex.com/lead.jpg"))
-            .unwrap();
+        set_extracted_html(
+            &conn,
+            id,
+            "<p>full text</p>",
+            Some("https://ex.com/lead.jpg"),
+        )
+        .unwrap();
 
         let after = get_article(&conn, id).unwrap();
         assert_eq!(after.image_url.as_deref(), Some("https://ex.com/feed.jpg"));
@@ -2117,7 +2245,10 @@ mod tests {
         .unwrap();
 
         let updates = card_image_backfill_scan(&conn).unwrap();
-        assert_eq!(updates, vec![(id, "https://ex.com/from-extracted.jpg".into())]);
+        assert_eq!(
+            updates,
+            vec![(id, "https://ex.com/from-extracted.jpg".into())]
+        );
     }
 
     #[test]
@@ -2183,9 +2314,11 @@ mod tests {
             .query_row("SELECT id FROM feeds", [], |r| r.get(0))
             .unwrap();
         let kind = |c: &Connection| -> String {
-            c.query_row("SELECT source_type FROM feeds WHERE id = ?1", params![feed_id], |r| {
-                r.get(0)
-            })
+            c.query_row(
+                "SELECT source_type FROM feeds WHERE id = ?1",
+                params![feed_id],
+                |r| r.get(0),
+            )
             .unwrap()
         };
         // The test feed starts generic.
@@ -2232,7 +2365,9 @@ mod tests {
         assert_eq!(exported.len(), 1);
         assert_eq!(exported[0].1, "https://example.com/feed.xml");
         assert!(
-            !exported.iter().any(|(_, url, _)| url.starts_with("imap://")),
+            !exported
+                .iter()
+                .any(|(_, url, _)| url.starts_with("imap://")),
             "no synthetic imap:// url should reach the OPML"
         );
     }
@@ -2240,8 +2375,11 @@ mod tests {
     #[test]
     fn insert_and_list_highlight() {
         let (conn, aid) = test_db();
-        let id = insert_highlight(&conn, &hl(aid, "quoted text", "pre", "suf", 12, "yellow", ""))
-            .unwrap();
+        let id = insert_highlight(
+            &conn,
+            &hl(aid, "quoted text", "pre", "suf", 12, "yellow", ""),
+        )
+        .unwrap();
         let all = list_highlights(&conn, aid).unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].id, id);
@@ -2366,8 +2504,20 @@ mod tests {
         let feed_id: i64 = conn
             .query_row("SELECT id FROM feeds", [], |r| r.get(0))
             .unwrap();
-        add_article(&conn, feed_id, "rust", "Rust news", "the borrow checker explained");
-        add_article(&conn, feed_id, "privacy", "Privacy law", "a new data privacy regulation");
+        add_article(
+            &conn,
+            feed_id,
+            "rust",
+            "Rust news",
+            "the borrow checker explained",
+        );
+        add_article(
+            &conn,
+            feed_id,
+            "privacy",
+            "Privacy law",
+            "a new data privacy regulation",
+        );
 
         // A natural-language question shares only *some* words with each
         // article. An AND join would require every word to appear and return
@@ -2388,7 +2538,9 @@ mod tests {
         let (conn, _aid) = test_db();
         // An all-stopword / punctuation-only question must not error and must
         // return nothing (the match-nothing `""` expression).
-        assert!(search_articles_for_rag(&conn, "??? !!!", 6).unwrap().is_empty());
+        assert!(search_articles_for_rag(&conn, "??? !!!", 6)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -2453,9 +2605,7 @@ mod tests {
             "a tag created after a middle delete must sort last, got {order:?}",
         );
         // The pre-existing tags keep their relative order.
-        assert!(
-            order.iter().position(|&x| x == a) < order.iter().position(|&x| x == zoo),
-        );
+        assert!(order.iter().position(|&x| x == a) < order.iter().position(|&x| x == zoo),);
     }
 
     #[test]
@@ -2580,13 +2730,13 @@ mod tests {
         };
 
         // Pre-marked read by the rule → not new.
-        assert!(!upsert_article(&conn, feed_id, &mk("g-ad", "Sponsored Item"), false, &rules)
-            .unwrap());
+        assert!(
+            !upsert_article(&conn, feed_id, &mk("g-ad", "Sponsored Item"), false, &rules).unwrap()
+        );
         // A plain article → genuinely new.
         assert!(upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules).unwrap());
         // A duplicate guid → not new (no double count).
-        assert!(!upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules)
-            .unwrap());
+        assert!(!upsert_article(&conn, feed_id, &mk("g-ok", "Real Story"), false, &rules).unwrap());
     }
 
     // ── rule matching ────────────────────────────────────────────────
@@ -2676,9 +2826,11 @@ mod tests {
 
         // Lower-case non-ASCII keywords must still count the article.
         for keyword in ["café", "zürich"] {
-            let (count, samples) =
-                preview_rule(&conn, None, "title", keyword).unwrap();
-            assert_eq!(count, 1, "keyword `{keyword}` should match the CAFÉ article");
+            let (count, samples) = preview_rule(&conn, None, "title", keyword).unwrap();
+            assert_eq!(
+                count, 1,
+                "keyword `{keyword}` should match the CAFÉ article"
+            );
             assert_eq!(samples.len(), 1);
         }
 
@@ -2739,9 +2891,11 @@ mod tests {
         let n = apply_rule_to_existing(&conn, None, "title", "java", "star").unwrap();
         assert_eq!(n, 2, "both Java/JavaScript titles get starred");
         let starred: i64 = conn
-            .query_row("SELECT COUNT(*) FROM articles WHERE is_starred = 1", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM articles WHERE is_starred = 1",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(starred, 2);
 
@@ -2785,7 +2939,10 @@ mod tests {
         let fts: i64 = conn
             .query_row("SELECT COUNT(*) FROM articles_fts", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(arts, fts, "FTS index stays in sync after a skip-rule delete");
+        assert_eq!(
+            arts, fts,
+            "FTS index stays in sync after a skip-rule delete"
+        );
     }
 
     #[test]
@@ -2817,7 +2974,10 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(starred_in_a, 0, "a feed-scoped rule must not touch other feeds");
+        assert_eq!(
+            starred_in_a, 0,
+            "a feed-scoped rule must not touch other feeds"
+        );
     }
 
     // ── mark_all_read sync queueing ──────────────────────────────────
@@ -2861,6 +3021,197 @@ mod tests {
         assert_eq!(queued, 0);
     }
 
+    // ── temporary feed mute ──────────────────────────────────────────
+
+    fn article_id_by_guid(conn: &Connection, guid: &str) -> i64 {
+        conn.query_row(
+            "SELECT id FROM articles WHERE guid = ?1",
+            [guid],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    fn sorted_article_ids(rows: Vec<ArticleSummary>) -> Vec<i64> {
+        let mut ids: Vec<i64> = rows.into_iter().map(|a| a.id).collect();
+        ids.sort_unstable();
+        ids
+    }
+
+    /// Add a second feed with two unread articles. Returns `(feed_id, ids…)`.
+    fn add_noisy_feed(conn: &Connection) -> (i64, i64, i64) {
+        let feed_id = insert_feed(
+            conn,
+            "https://example.com/noisy.xml",
+            None,
+            "Noisy Feed",
+            None,
+            SourceType::Rss,
+            None,
+        )
+        .unwrap();
+        seed(conn, feed_id, "noisy-1", "Noisy one");
+        seed(conn, feed_id, "noisy-2", "Noisy two");
+        (
+            feed_id,
+            article_id_by_guid(conn, "noisy-1"),
+            article_id_by_guid(conn, "noisy-2"),
+        )
+    }
+
+    #[test]
+    fn muted_feed_is_hidden_from_unread_views_only() {
+        let (conn, aid) = test_db();
+        let (feed_b, b1, b2) = add_noisy_feed(&conn);
+        set_feed_muted(
+            &conn,
+            feed_b,
+            Some(chrono::Utc::now().timestamp() + 3_600),
+        )
+        .unwrap();
+
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::Unread, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid]
+        );
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::All, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid, b1, b2]
+        );
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::All, true, None, false, 100, 0).unwrap()
+            ),
+            vec![aid]
+        );
+        // Explicitly opening the feed is an opt-in to seeing its backlog.
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(
+                    &conn,
+                    &ArticleQuery::Feed(feed_b),
+                    true,
+                    None,
+                    false,
+                    100,
+                    0,
+                )
+                .unwrap()
+            ),
+            vec![b1, b2]
+        );
+    }
+
+    #[test]
+    fn mute_excludes_counts_and_view_scoped_mark_all_read() {
+        let (conn, _aid) = test_db();
+        let (feed_b, b1, b2) = add_noisy_feed(&conn);
+        set_starred(&conn, b2, true).unwrap();
+        set_read_later(&conn, b1, true).unwrap();
+        set_feed_muted(
+            &conn,
+            feed_b,
+            Some(chrono::Utc::now().timestamp() + 3_600),
+        )
+        .unwrap();
+
+        assert_eq!(smart_counts(&conn).unwrap(), (1, 1, 1));
+        assert_eq!(count_unread(&conn).unwrap(), 1);
+        // The feed row keeps its real count; only the UI hides it while muted.
+        assert_eq!(count_feed_unread(&conn, feed_b).unwrap(), 2);
+
+        // "All + unread only" hides the muted feed, so its articles must not be
+        // silently marked read by the view's mark-all action.
+        assert_eq!(
+            mark_all_read_scoped(&conn, &ArticleQuery::All, true, false).unwrap(),
+            1
+        );
+        assert_eq!(count_feed_unread(&conn, feed_b).unwrap(), 2);
+
+        // An explicit feed view bypasses the mute, so its mark-all does act.
+        assert_eq!(
+            mark_all_read_scoped(&conn, &ArticleQuery::Feed(feed_b), true, false).unwrap(),
+            2
+        );
+        assert_eq!(count_feed_unread(&conn, feed_b).unwrap(), 0);
+    }
+
+    #[test]
+    fn mute_expiry_boundary_and_unmute_restore_the_backlog() {
+        let (conn, aid) = test_db();
+        let (feed_b, b1, b2) = add_noisy_feed(&conn);
+        let now = chrono::Utc::now().timestamp();
+
+        set_feed_muted(&conn, feed_b, Some(now - 1)).unwrap();
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::Unread, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid, b1, b2]
+        );
+
+        // Equality counts as expired: only a strict future timestamp mutes.
+        set_feed_muted(&conn, feed_b, Some(now)).unwrap();
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::Unread, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid, b1, b2]
+        );
+
+        set_feed_muted(&conn, feed_b, Some(now + 3_600)).unwrap();
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::Unread, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid]
+        );
+
+        set_feed_muted(&conn, feed_b, None).unwrap();
+        assert_eq!(
+            sorted_article_ids(
+                list_articles(&conn, &ArticleQuery::Unread, false, None, false, 100, 0).unwrap()
+            ),
+            vec![aid, b1, b2]
+        );
+    }
+
+    #[test]
+    fn mute_until_accepts_only_supported_durations() {
+        assert_eq!(mute_until(60, 1_000).unwrap(), 4_600);
+        assert_eq!(mute_until(43_200, 1_000).unwrap(), 2_592_000 + 1_000);
+        for bad in [0, 5, -60, 43_201] {
+            assert!(
+                matches!(
+                    mute_until(bad, 1_000),
+                    Err(AppError::Coded("invalidMuteDuration"))
+                ),
+                "duration {bad} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn plain_mark_all_read_keeps_its_global_scope() {
+        // The tray's "Mark all as read" is intentionally global: it still
+        // clears a muted feed's backlog. Only view-scoped calls use the mute
+        // visibility rule.
+        let (conn, _aid) = test_db();
+        let (feed_b, _b1, _b2) = add_noisy_feed(&conn);
+        set_feed_muted(
+            &conn,
+            feed_b,
+            Some(chrono::Utc::now().timestamp() + 3_600),
+        )
+        .unwrap();
+        assert_eq!(mark_all_read(&conn, &ArticleQuery::All, false).unwrap(), 3);
+        assert_eq!(count_feed_unread(&conn, feed_b).unwrap(), 0);
+    }
+
     // ── retention cleanup ────────────────────────────────────────────
 
     /// Insert a read article with an explicit RFC 3339 `published_at`, the
@@ -2901,9 +3252,11 @@ mod tests {
         // outside a 30-day window, yet a string compare wrongly keeps it.
         let (conn, fixture) = test_db();
         let feed_id: i64 = conn
-            .query_row("SELECT feed_id FROM articles WHERE id = ?1", [fixture], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT feed_id FROM articles WHERE id = ?1",
+                [fixture],
+                |r| r.get(0),
+            )
             .unwrap();
 
         // The cutoff is "now" minus 30 days, kept at the current wall-clock
@@ -2943,10 +3296,16 @@ mod tests {
         let old = (chrono::Utc::now() - chrono::Duration::days(90)).to_rfc3339();
         insert_read_article_published(&conn, feed_id, "starred", &old);
         insert_read_article_published(&conn, feed_id, "later", &old);
-        conn.execute("UPDATE articles SET is_starred = 1 WHERE guid = 'starred'", [])
-            .unwrap();
-        conn.execute("UPDATE articles SET read_later = 1 WHERE guid = 'later'", [])
-            .unwrap();
+        conn.execute(
+            "UPDATE articles SET is_starred = 1 WHERE guid = 'starred'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE articles SET read_later = 1 WHERE guid = 'later'",
+            [],
+        )
+        .unwrap();
 
         cleanup_old_articles(&conn, 30).unwrap();
         let kept: i64 = conn
@@ -2974,9 +3333,11 @@ mod tests {
         insert_read_article_published(&conn, feed_id, "plain", &old);
 
         let annotated_id: i64 = conn
-            .query_row("SELECT id FROM articles WHERE guid = 'annotated'", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT id FROM articles WHERE guid = 'annotated'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         insert_highlight(
             &conn,
@@ -3016,8 +3377,16 @@ mod tests {
         let now = chrono::Utc::now().to_rfc3339();
         insert_read_article_published(&conn, feed_id, "fresh", &now);
 
-        assert_eq!(cleanup_old_articles(&conn, 0).unwrap(), 0, "0 days deletes nothing");
-        assert_eq!(cleanup_old_articles(&conn, -30).unwrap(), 0, "negative days deletes nothing");
+        assert_eq!(
+            cleanup_old_articles(&conn, 0).unwrap(),
+            0,
+            "0 days deletes nothing"
+        );
+        assert_eq!(
+            cleanup_old_articles(&conn, -30).unwrap(),
+            0,
+            "negative days deletes nothing"
+        );
 
         let kept: i64 = conn
             .query_row(
@@ -3046,9 +3415,11 @@ mod tests {
         // string compare the dated row wins (the `T`); `datetime()` fixes it.
         let (conn, fixture) = test_db();
         let feed_id: i64 = conn
-            .query_row("SELECT feed_id FROM articles WHERE id = ?1", [fixture], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT feed_id FROM articles WHERE id = ?1",
+                [fixture],
+                |r| r.get(0),
+            )
             .unwrap();
         // Drop the bare fixture article so only the two controlled rows remain.
         conn.execute("DELETE FROM articles WHERE id = ?1", [fixture])
@@ -3134,9 +3505,11 @@ mod tests {
         .unwrap();
 
         let (title, site_url): (String, Option<String>) = conn
-            .query_row("SELECT title, site_url FROM feeds WHERE id = ?1", [feed_id], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+            .query_row(
+                "SELECT title, site_url FROM feeds WHERE id = ?1",
+                [feed_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .unwrap();
         assert_eq!(
             title, "My Custom Name",
@@ -3160,7 +3533,9 @@ mod tests {
             .query_row("SELECT id FROM feeds", [], |r| r.get(0))
             .unwrap();
         let original: String = conn
-            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| r.get(0))
+            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| {
+                r.get(0)
+            })
             .unwrap();
 
         for blank in ["", "   ", "\t\n"] {
@@ -3178,8 +3553,14 @@ mod tests {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .unwrap();
-        assert_eq!(title, original, "a rejected rename must not alter the title");
-        assert!(!custom, "a rejected rename must not set the custom_title flag");
+        assert_eq!(
+            title, original,
+            "a rejected rename must not alter the title"
+        );
+        assert!(
+            !custom,
+            "a rejected rename must not set the custom_title flag"
+        );
     }
 
     #[test]
@@ -3192,7 +3573,9 @@ mod tests {
             .unwrap();
         rename_feed(&conn, feed_id, "  Tech News  ").unwrap();
         let title: String = conn
-            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| r.get(0))
+            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(title, "Tech News");
     }
@@ -3209,7 +3592,9 @@ mod tests {
         update_feed_meta(&conn, feed_id, Some("Renamed Upstream"), None, None, None).unwrap();
 
         let title: String = conn
-            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| r.get(0))
+            .query_row("SELECT title FROM feeds WHERE id = ?1", [feed_id], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(title, "Renamed Upstream");
     }
@@ -3238,15 +3623,7 @@ mod tests {
         .unwrap();
 
         // A later refresh serves empty metadata — every field must be ignored.
-        update_feed_meta(
-            &conn,
-            feed_id,
-            Some(""),
-            Some(""),
-            Some(""),
-            Some(""),
-        )
-        .unwrap();
+        update_feed_meta(&conn, feed_id, Some(""), Some(""), Some(""), Some("")).unwrap();
 
         let (title, site_url, description, favicon): (
             String,

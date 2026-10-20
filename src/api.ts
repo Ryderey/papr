@@ -80,6 +80,10 @@ export const renameFeed = (id: number, title: string) =>
  *  setting; `525600` opts the feed out of automatic refresh. */
 export const setFeedRefreshInterval = (id: number, minutes: number | null) =>
   invoke<void>("set_feed_refresh_interval", { id, minutes });
+/** Mute a feed from the unread views for `minutes`, or clear the mute with
+ *  `null`. The backend returns the absolute Unix expiry it stored. */
+export const setFeedMuted = (id: number, minutes: number | null) =>
+  invoke<number | null>("set_feed_muted", { id, minutes });
 
 /** Refresh all feeds, reporting progress through the supplied callback. */
 export function refreshFeeds(
@@ -120,8 +124,8 @@ export const markStarred = (id: number, starred: boolean) =>
   invoke<void>("mark_starred", { id, starred });
 export const markReadLater = (id: number, value: boolean) =>
   invoke<void>("mark_read_later", { id, value });
-export const markAllRead = (query: ArticleQuery) =>
-  invoke<number>("mark_all_read", { query });
+export const markAllRead = (query: ArticleQuery, unreadOnly = false) =>
+  invoke<number>("mark_all_read", { query, unreadOnly });
 export const smartCounts = () => invoke<SmartCounts>("smart_counts");
 
 // ── full-text extraction ──
