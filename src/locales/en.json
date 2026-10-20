@@ -169,6 +169,19 @@
     "emptyState": "No articles here — enjoy the calm",
     "loadError": "Couldn't load articles"
   },
+  "feedMute": {
+    "action": "Mute feed",
+    "unmute": "Unmute feed",
+    "unmuteFeed": "Unmute “{{feed}}”",
+    "changeDuration": "Change mute duration",
+    "hour1": "1 hour",
+    "hour24": "24 hours",
+    "day7": "7 days",
+    "day30": "30 days",
+    "toastMuted": "Muted “{{feed}}” for {{duration}}",
+    "toastUnmuted": "Unmuted “{{feed}}”",
+    "mutedUntil": "Muted until {{time}}"
+  },
   "commandPalette": {
     "actionMarkAllRead": "Mark all in current list as read",
     "actionToggleTheme": "Toggle dark / light theme",
@@ -731,6 +744,7 @@
     "aiModelsLimitExceeded": "The model list exceeded the safety limit",
     "emptyTagName": "Tag name can't be empty",
     "emptyFeedTitle": "Feed name can't be empty",
+    "invalidMuteDuration": "Invalid mute duration",
     "emptyFolderName": "Folder name can't be empty",
     "tagNameExists": "A tag with that name already exists",
     "folderNameExists": "A folder with that name already exists",

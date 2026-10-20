@@ -4,6 +4,13 @@ import { useTranslation } from "react-i18next";
 import * as api from "../api";
 import { useUi } from "../store";
 import { useArticleActions } from "../hooks/articleActions";
+import { useFeedMute } from "../hooks/useFeedMute";
+import {
+  formatMuteUntil,
+  isFeedMuted,
+  muteTimerDelayMs,
+  nextMuteExpiry,
+} from "../lib/feedMute";
 import { withUndo, reportError } from "../toast";
 import { isMac, modCombo } from "../lib/platform";
 import { tagColor, TAG_PALETTE } from "../lib/tagColors";
@@ -92,9 +99,10 @@ export default function Sidebar({
   refreshingFeedId,
   onToast,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const actions = useArticleActions();
+  const feedMute = useFeedMute();
   const query = useUi((s) => s.query);
   const select = useUi((s) => s.select);
   const showCounts = useUi((s) => s.prefs.showSidebarCounts);
@@ -114,6 +122,26 @@ export default function Sidebar({
   useEffect(() => {
     localStorage.setItem("collapsedFolders", JSON.stringify(collapsed));
   }, [collapsed]);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const muteExpiry = nextMuteExpiry(feeds.data ?? [], nowSec);
+  useEffect(() => {
+    if (muteExpiry == null) return;
+    let timer = 0;
+    const arm = () => {
+      const delay = muteTimerDelayMs(muteExpiry, Date.now());
+      if (delay === 0) {
+        qc.invalidateQueries({ queryKey: ["feeds"] });
+        qc.invalidateQueries({ queryKey: ["articles"] });
+        qc.invalidateQueries({ queryKey: ["counts"] });
+        api.refreshTray().catch(() => {});
+        return;
+      }
+      timer = window.setTimeout(arm, delay);
+    };
+    arm();
+    return () => window.clearTimeout(timer);
+  }, [muteExpiry, qc]);
 
   const [menu, setMenu] = useState<Menu | null>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
@@ -282,6 +310,9 @@ export default function Sidebar({
             t("sidebar.toastMarkedAllRead"),
           ),
       },
+      { separator: true },
+      ...feedMute.menuItems(f),
+      { separator: true },
       {
         icon: "settings",
         label: t("sidebar.renameMenu"),
@@ -488,53 +519,80 @@ export default function Sidebar({
   };
 
   // ── feed row ──
-  const feedRow = (f: Feed) => (
-    <div
-      key={f.id}
-      className={`sb-item ${
-        isActive({ kind: "feed", value: f.id }) ? "active" : ""
-      } ${dragId === f.id ? "dragging" : ""}`}
-      role="button"
-      tabIndex={0}
-      aria-current={isActive({ kind: "feed", value: f.id }) || undefined}
-      draggable
-      onDragStart={() => setDragId(f.id)}
-      onDragEnd={() => {
-        setDragId(null);
-        setDropFolder(null);
-      }}
-      onClick={() => select({ kind: "feed", value: f.id }, f.title)}
-      onKeyDown={onActivate(() => select({ kind: "feed", value: f.id }, f.title))}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setMenu({ x: e.clientX, y: e.clientY, kind: "feed", feed: f });
-      }}
-      title={
-        refreshingFeedId === f.id
-          ? t("sidebar.refreshingFeed", { feed: f.title })
-          : (f.fetchError ?? f.title)
-      }
-    >
-      <FeedAvatar title={f.title} faviconUrl={f.faviconUrl} seed={f.id} />
-      <span className="sb-label">{f.title}</span>
-      {refreshingFeedId === f.id ? (
-        <span
-          className="sb-feed-refresh spinning"
-          role="status"
-          aria-label={t("sidebar.refreshingFeed", { feed: f.title })}
-        >
-          <Icon name="refresh" size={12} />
-        </span>
-      ) : f.fetchError ? (
-        <span className="sb-warn" role="img" aria-label={t("sidebar.feedError")}>
-          !
-        </span>
-      ) : null}
-      {showCounts && f.unreadCount > 0 && (
-        <span className="sb-count">{f.unreadCount}</span>
-      )}
-    </div>
-  );
+  const feedRow = (f: Feed) => {
+    const muted = isFeedMuted(f.mutedUntil, nowSec);
+    const mutedLabel =
+      muted && f.mutedUntil != null
+        ? t("feedMute.mutedUntil", {
+            time: formatMuteUntil(f.mutedUntil, i18n.language),
+          })
+        : null;
+    return (
+      <div
+        key={f.id}
+        className={`sb-item ${
+          isActive({ kind: "feed", value: f.id }) ? "active" : ""
+        } ${dragId === f.id ? "dragging" : ""} ${muted ? "muted" : ""}`}
+        role="button"
+        tabIndex={0}
+        aria-current={isActive({ kind: "feed", value: f.id }) || undefined}
+        draggable
+        onDragStart={() => setDragId(f.id)}
+        onDragEnd={() => {
+          setDragId(null);
+          setDropFolder(null);
+        }}
+        onClick={() => select({ kind: "feed", value: f.id }, f.title)}
+        onKeyDown={onActivate(() => select({ kind: "feed", value: f.id }, f.title))}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY, kind: "feed", feed: f });
+        }}
+        title={
+          refreshingFeedId === f.id
+            ? t("sidebar.refreshingFeed", { feed: f.title })
+            : (f.fetchError ?? mutedLabel ?? f.title)
+        }
+      >
+        <FeedAvatar title={f.title} faviconUrl={f.faviconUrl} seed={f.id} />
+        <span className="sb-label">{f.title}</span>
+        {refreshingFeedId === f.id ? (
+          <span
+            className="sb-feed-refresh spinning"
+            role="status"
+            aria-label={t("sidebar.refreshingFeed", { feed: f.title })}
+          >
+            <Icon name="refresh" size={12} />
+          </span>
+        ) : f.fetchError ? (
+          <span className="sb-warn" role="img" aria-label={t("sidebar.feedError")}>
+            !
+          </span>
+        ) : muted ? (
+          <button
+            type="button"
+            className="sb-muted"
+            title={t("feedMute.unmuteFeed", { feed: f.title })}
+            aria-label={t("feedMute.unmuteFeed", { feed: f.title })}
+            onClick={(e) => {
+              e.stopPropagation();
+              void feedMute.setMuted(f, null);
+            }}
+            onKeyDown={(e) => {
+              // The row is also a role="button"; keep Enter/Space from
+              // activating the row while the unmute button has focus.
+              if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+            }}
+          >
+            <Icon name="eye-off" size={12} />
+          </button>
+        ) : null}
+        {showCounts && !muted && f.unreadCount > 0 && (
+          <span className="sb-count">{f.unreadCount}</span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="sidebar" role="navigation">
@@ -659,7 +717,9 @@ export default function Sidebar({
           // Aggregate unread for the folder. Shown only while collapsed —
           // expanded, the per-feed badges already carry the same signal, and a
           // header total would just duplicate them.
-          const folderUnread = inFolder.reduce((n, f) => n + f.unreadCount, 0);
+          const folderUnread = inFolder
+            .filter((f) => !isFeedMuted(f.mutedUntil, nowSec))
+            .reduce((n, f) => n + f.unreadCount, 0);
           const folderErrors = inFolder.filter(
             (f) => f.fetchError != null,
           ).length;

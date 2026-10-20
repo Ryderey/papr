@@ -70,6 +70,16 @@ export const toast = {
     useToasts.getState().push({ text, tone: "error", duration: ERROR_MS }),
 };
 
+/** A confirmation carrying an action (e.g. undo). The action does not defer
+ *  the write, so leaving it untouched keeps the operation applied. */
+export function toastAction(
+  text: string,
+  action: ToastAction,
+  duration = UNDO_MS,
+): void {
+  useToasts.getState().push({ text, tone: "default", duration, action });
+}
+
 /** Raise an error toast from any caught exception. */
 export function reportError(e: unknown): void {
   toast.error(errorText(e));

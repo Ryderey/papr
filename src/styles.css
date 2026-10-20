@@ -406,6 +406,8 @@ button { font-family: inherit; }
   font-weight: 500;
 }
 .sb-item.active .sb-count { color: var(--accent-ink); }
+.sb-item.muted:not(.active) .sb-label { color: var(--muted); }
+.sb-item.muted .sb-ico { opacity: 0.55; }
 
 .sb-folder {
   display: flex;
@@ -2163,6 +2165,32 @@ body.ai-resizing .reader-scroll { transition: none; }
   color: var(--muted);
   display: inline-flex;
   flex-shrink: 0;
+}
+.sb-muted {
+  color: var(--muted-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  /* Keep the layout slot at the old 12px icon width while giving the button a
+     24px hit target inside the 30px row. */
+  margin: -6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.sb-muted:hover {
+  color: var(--ink-2);
+  background: var(--hover);
+}
+.sb-muted:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* rendered article images */

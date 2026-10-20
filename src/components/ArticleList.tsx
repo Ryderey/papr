@@ -6,6 +6,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import * as api from "../api";
 import { useUi } from "../store";
 import { useArticleActions } from "../hooks/articleActions";
+import { useFeedMute } from "../hooks/useFeedMute";
 import { relTime } from "../lib/feedMeta";
 import { isMac, modCombo } from "../lib/platform";
 import { reportError, toast } from "../toast";
@@ -29,6 +30,7 @@ interface Hover {
 export default function ArticleList({ onToast }: Props) {
   const { t } = useTranslation();
   const actions = useArticleActions(toast.error);
+  const feedMute = useFeedMute();
   const query = useUi((s) => s.query);
   const queryLabel = useUi((s) => s.queryLabel);
   const unreadOnly = useUi((s) => s.unreadOnly);
@@ -135,7 +137,7 @@ export default function ArticleList({ onToast }: Props) {
 
   const markAll = async () => {
     try {
-      const n = await api.markAllRead(query);
+      const n = await api.markAllRead(query, unreadOnly);
       actions.refreshAfterBulk();
       onToast(
         n > 0
@@ -166,53 +168,60 @@ export default function ArticleList({ onToast }: Props) {
     setHover(null);
   };
 
-  const articleMenu = (a: ArticleSummary): MenuEntry[] => [
-    { icon: "open", label: t("articleList.menuOpen"), shortcut: "⏎", onClick: () => openArticle(a.id) },
-    ...(a.url
-      ? ([
-          {
-            icon: "globe",
-            label: t("articleList.menuOpenInBrowser"),
-            shortcut: modCombo("O"),
-            onClick: () => openUrl(a.url!).catch(() => {}),
-          },
-        ] as MenuEntry[])
-      : []),
-    { separator: true },
-    {
-      icon: a.isStarred ? "star-fill" : "star",
-      label: a.isStarred ? t("articleList.menuUnstar") : t("articleList.menuStar"),
-      shortcut: "S",
-      onClick: () => actions.setStarred(a.id, !a.isStarred),
-    },
-    {
-      icon: a.readLater ? "bookmark-fill" : "bookmark",
-      label: a.readLater
-        ? t("articleList.menuRemoveReadLater")
-        : t("articleList.menuAddReadLater"),
-      shortcut: "B",
-      onClick: () => actions.setReadLater(a.id, !a.readLater),
-    },
-    {
-      icon: a.isRead ? "circle" : "check",
-      label: a.isRead ? t("articleList.menuMarkUnread") : t("articleList.menuMarkRead"),
-      shortcut: "U",
-      onClick: () => actions.setRead(a.id, !a.isRead),
-    },
-    ...(a.url
-      ? ([
-          { separator: true },
-          {
-            icon: "copy",
-            label: t("articleList.menuCopyLink"),
-            onClick: () =>
-              navigator.clipboard
-                .writeText(a.url!)
-                .then(() => onToast(t("articleList.linkCopied")), () => {}),
-          },
-        ] as MenuEntry[])
-      : []),
-  ];
+  const articleMenu = (a: ArticleSummary): MenuEntry[] => {
+    const feed = feedById[a.feedId];
+    const muteItems = feed ? feedMute.menuItems(feed) : [];
+    return [
+      { icon: "open", label: t("articleList.menuOpen"), shortcut: "⏎", onClick: () => openArticle(a.id) },
+      ...(a.url
+        ? ([
+            {
+              icon: "globe",
+              label: t("articleList.menuOpenInBrowser"),
+              shortcut: modCombo("O"),
+              onClick: () => openUrl(a.url!).catch(() => {}),
+            },
+          ] as MenuEntry[])
+        : []),
+      { separator: true },
+      {
+        icon: a.isStarred ? "star-fill" : "star",
+        label: a.isStarred ? t("articleList.menuUnstar") : t("articleList.menuStar"),
+        shortcut: "S",
+        onClick: () => actions.setStarred(a.id, !a.isStarred),
+      },
+      {
+        icon: a.readLater ? "bookmark-fill" : "bookmark",
+        label: a.readLater
+          ? t("articleList.menuRemoveReadLater")
+          : t("articleList.menuAddReadLater"),
+        shortcut: "B",
+        onClick: () => actions.setReadLater(a.id, !a.readLater),
+      },
+      {
+        icon: a.isRead ? "circle" : "check",
+        label: a.isRead ? t("articleList.menuMarkUnread") : t("articleList.menuMarkRead"),
+        shortcut: "U",
+        onClick: () => actions.setRead(a.id, !a.isRead),
+      },
+      ...(muteItems.length
+        ? ([{ separator: true }, ...muteItems] as MenuEntry[])
+        : []),
+      ...(a.url
+        ? ([
+            { separator: true },
+            {
+              icon: "copy",
+              label: t("articleList.menuCopyLink"),
+              onClick: () =>
+                navigator.clipboard
+                  .writeText(a.url!)
+                  .then(() => onToast(t("articleList.linkCopied")), () => {}),
+            },
+          ] as MenuEntry[])
+        : []),
+    ];
+  };
 
   const vItems = virt.getVirtualItems();
   const showCount = t("articleList.countArticles", {

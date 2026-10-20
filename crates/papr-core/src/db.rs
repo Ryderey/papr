@@ -573,6 +573,9 @@ fn migrations() -> Vec<M<'static>> {
         M::up("CREATE INDEX idx_articles_metadata_only ON articles(metadata_only) WHERE metadata_only=1;
                ALTER TABLE github_connections ADD COLUMN last_full_sync_at TEXT;
                UPDATE github_connections SET last_full_sync_at=last_success_at;"),
+        // v22: temporarily hide a feed's articles from the unread views without
+        // changing article state. NULL means not muted; otherwise Unix seconds.
+        M::up("ALTER TABLE feeds ADD COLUMN muted_until INTEGER;"),
     ]
 }
 

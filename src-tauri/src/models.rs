@@ -49,7 +49,6 @@ impl SourceType {
             SourceType::Newsletter => "newsletter",
         }
     }
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,6 +76,9 @@ pub struct Feed {
     /// Per-feed refresh interval in minutes. `None` follows the global
     /// `refresh_interval_min` setting; the `525_600` sentinel means "never".
     pub refresh_interval_min: Option<i64>,
+    /// Unix seconds until which this feed is hidden from the unread views.
+    /// `None` means not muted.
+    pub muted_until: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -217,9 +219,17 @@ pub enum ArticleQuery {
     content = "data"
 )]
 pub enum RefreshProgress {
-    Started { total: usize },
-    FeedDone { feed_id: i64, new_articles: usize, error: Option<String> },
-    Finished { new_articles: usize },
+    Started {
+        total: usize,
+    },
+    FeedDone {
+        feed_id: i64,
+        new_articles: usize,
+        error: Option<String>,
+    },
+    Finished {
+        new_articles: usize,
+    },
 }
 
 /// Result of a user-requested refresh for one feed. Fetch failures are data,

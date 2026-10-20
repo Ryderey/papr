@@ -270,7 +270,8 @@ export default function App() {
 
   const markAllRead = useCallback(async () => {
     try {
-      const n = await api.markAllRead(useUi.getState().query);
+      const { query, unreadOnly } = useUi.getState();
+      const n = await api.markAllRead(query, unreadOnly);
       actions.refreshAfterBulk();
       showToast(n > 0 ? t("app.markedRead", { count: n }) : t("app.nothingToMark"));
     } catch (e) {

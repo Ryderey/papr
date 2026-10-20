@@ -169,6 +169,19 @@
     "emptyState": "記事はありません — ひと息どうぞ",
     "loadError": "記事を読み込めませんでした"
   },
+  "feedMute": {
+    "action": "フィードをミュート",
+    "unmute": "ミュートを解除",
+    "unmuteFeed": "「{{feed}}」のミュートを解除",
+    "changeDuration": "ミュート期間を変更",
+    "hour1": "1 時間",
+    "hour24": "24 時間",
+    "day7": "7 日間",
+    "day30": "30 日間",
+    "toastMuted": "「{{feed}}」を{{duration}}ミュートしました",
+    "toastUnmuted": "「{{feed}}」のミュートを解除しました",
+    "mutedUntil": "{{time}}までミュート中"
+  },
   "commandPalette": {
     "actionMarkAllRead": "現在のリストをすべて既読にする",
     "actionToggleTheme": "ダーク / ライトテーマ切替",
@@ -731,6 +744,7 @@
     "aiModelsLimitExceeded": "モデル一覧が安全上限を超えました",
     "emptyTagName": "タグ名を空にはできません",
     "emptyFeedTitle": "フィード名を空にはできません",
+    "invalidMuteDuration": "ミュート期間が無効です",
     "emptyFolderName": "フォルダー名を空にはできません",
     "tagNameExists": "同じ名前のタグがすでに存在します",
     "folderNameExists": "同じ名前のフォルダーがすでに存在します",
