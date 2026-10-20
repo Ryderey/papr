@@ -1,7 +1,7 @@
 name: papr_mobile
 description: Papr mobile reader (Flutter Android).
 publish_to: 'none'
-version: 0.9.7+11
+version: 0.9.8+12
 
 environment:
   sdk: ^3.5.0
